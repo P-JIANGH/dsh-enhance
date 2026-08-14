@@ -1,0 +1,19 @@
+# oh-my-dsh bundle patch: one install row plus (disabled) agent-presets integration.
+#
+# The presets row is shipped disabled on purpose: mounting @deepseek-ai/dsh-agent-presets
+# claims the profile's preset roster, which collides with any other bundle that
+# already mounts it. To enable, remove the `disabled: true` line, point `roots[0].path`
+# at this package's presets directory (e.g. <install>/node_modules/oh-my-dsh/presets),
+# and pick the `default` preset id you want (planner | reviewer).
+- insert:
+    - id: oh-my-dsh
+      name: oh-my-dsh
+
+    - id: oh-my-dsh-presets
+      name: '@deepseek-ai/dsh-agent-presets'
+      disabled: true
+      config:
+        default: planner
+        roots:
+          - path: /absolute/path/to/oh-my-dsh/presets
+            trust: system

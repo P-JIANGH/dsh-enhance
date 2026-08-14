@@ -1,0 +1,81 @@
+# oh-my-dsh
+
+oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). One install gives you a curated set of working aids — packaged skills, a persistent work-rules prompt section, a session-start orientation hook, and a doctor tool. Install and go.
+
+Inspired by `oh-my-openagent` (for OpenCode) and the `oh-my-pi` ecosystem: opinionated defaults that make an agent harness noticeably more useful out of the box.
+
+## What you get
+
+| Piece | What it does | Turn it off |
+|---|---|---|
+| **Packaged skills** (`code-review`, `git-workflow`, `tdd`) | Skill bundles shipped inside the package and exposed through the standard `skill` tool | `skills` are always on |
+| **Work-rules section** | A persistent system-prompt section (`oh-my-dsh/work-rules`) with general working discipline | `workRules: ''` |
+| **Orientation hook** | At each session start, injects one message naming the active bundle and its skills | `orientOnSessionStart: false` |
+| **Doctor tool** | `oh_my_dsh_doctor` reports live assembly state: loaded plugin, registered skills, effective config | `doctorTool: false` |
+| **Agent presets** (`planner`, `reviewer`) | Optional preset directories shipped in `presets/` | Not mounted by default |
+
+## Install
+
+Requires the `dsh` CLI (npm: `@deepseek-ai/dsh`).
+
+```sh
+# from npm (once published)
+dsh plugin --profile my-profile add oh-my-dsh
+
+# or straight from this checkout
+dsh plugin --profile my-profile add ./path/to/oh-my-dsh
+
+# or from git (the package builds itself via `prepare`)
+dsh plugin --profile my-profile add github:you/oh-my-dsh
+```
+
+The bundle is a patch layer: it inserts one `oh-my-dsh` plugin row into the profile. Verify with:
+
+```sh
+dsh --profile my-profile --dump-config   # look for the "# == oh-my-dsh" layer
+```
+
+## Configure
+
+The plugin row takes a `config` block — override it in your profile's `cordis.patch.yml` or home `$DSH_HOME/cordis.patch.yml`:
+
+```yaml
+- id: oh-my-dsh
+  name: oh-my-dsh
+  config:
+    workRules: |
+      # My team's rules
+      Always run the full test suite before pushing.
+    orientOnSessionStart: true
+    doctorTool: true
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `workRules` | built-in discipline prose | Prompt-section text; empty string drops the section |
+| `orientOnSessionStart` | `true` | Inject the one-time orientation message at session start |
+| `doctorTool` | `true` | Register the `oh_my_dsh_doctor` tool |
+
+## Agent presets (optional)
+
+`presets/` ships two agent compositions (`planner`, `reviewer`) for `dsh-agent-presets`. They are **not mounted by default** because mounting the agent-presets row claims the profile's preset roster. To use one:
+
+1. Copy the preset directory into your presets root, e.g. `$DSH_HOME/.agent-presets/planner/`, or point `agent-presets.roots` at `<install>/node_modules/oh-my-dsh/presets`.
+2. Select it as the default preset for the profile.
+
+## Development
+
+```sh
+pnpm install
+pnpm build      # tsc → lib/
+pnpm typecheck
+pnpm test       # node --test
+```
+
+The package is ESM with zero runtime dependencies: all `@deepseek-ai/dsh-*` imports are type-only (erased at build), and `@deepseek-ai/cordis` is a peer provided by the harness.
+
+## Roadmap
+
+- More skills (debugging, refactoring, docs-writing).
+- A `dsh doctor`-style CLI surface in addition to the model-facing tool.
+- Theme-like prompt presets selectable per session.

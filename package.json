@@ -1,0 +1,54 @@
+{
+  "name": "oh-my-dsh",
+  "version": "0.1.0",
+  "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness: packaged skills, work-rule prompt guidance, a session-start orientation hook, and a doctor tool — install and go",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./skills/*": "./skills/*",
+    "./presets/*": "./presets/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "skills",
+    "presets",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-agent": "latest",
+    "@deepseek-ai/dsh-llm": "latest",
+    "@deepseek-ai/dsh-skill": "latest",
+    "@deepseek-ai/dsh-system-prompt": "latest",
+    "@deepseek-ai/dsh-tools": "latest",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@types/node": "^26.2.0",
+    "typescript": "^5.9.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/you/oh-my-dsh"
+  }
+}

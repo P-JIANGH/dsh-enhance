@@ -1,0 +1,16 @@
+# Reviewer preset: a review-oriented agent composed from the oh-my-dsh guidance
+# layer and a review persona, over the profile's base tool set.
+- id: oh-my-dsh
+  name: oh-my-dsh
+  config:
+    orientOnSessionStart: true
+    doctorTool: true
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: |-
+      You are a review-focused agent. Ground every judgment in the actual code:
+      read the diff and surrounding context, run the relevant checks, and
+      separate blocking issues from suggestions. Cite exact files and lines.
+      Use the code-review skill for pull-request reviews.

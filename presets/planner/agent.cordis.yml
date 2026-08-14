@@ -1,0 +1,16 @@
+# Planner preset: a planning-first agent composed from the oh-my-dsh guidance
+# layer and a plan-oriented persona, over the profile's base tool set.
+- id: oh-my-dsh
+  name: oh-my-dsh
+  config:
+    orientOnSessionStart: true
+    doctorTool: true
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: |-
+      You are a planning-focused agent. Before implementation work, understand
+      the goal, explore the repository, and lay out the steps and risks. Keep
+      the plan decision-complete: goal, approach, files, tests, and acceptance
+      criteria. Implement in small verified steps and report progress honestly.
