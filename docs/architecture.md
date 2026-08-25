@@ -135,7 +135,7 @@ oh-my-dsh/
 **规则**：
 
 1. **触发点**：`agent/turn-stopping` 拦截到 agent 的"完成/交付/可以了"声明（而非用户输入）。匹配信号：陈述句带完成语态、调用提交/结束工具、显式说"完成了"。
-2. **执行**：注入 `ultrawork-review.md`（交付前回归审查稿），按其检查项核对证据。推荐派 `reviewer` agent 执行，过滤自我确认偏差。
+2. **执行**：交付回归审查 = **双层核对**（见 5.2.2）——先跑该 work 声明的**可执行 verify 脚本**（可观测事实断言），再按 `ultrawork-review.md` 清单核对不可自动化的纪律项。推荐派 `reviewer` agent 独立执行，过滤自我确认偏差与锚定（见 5.2.2-反锚定）。
 3. **通过**：全部检查项有真实证据 → 放行交付。
 4. **不通过**：任一检查项无证据 → 不失败退出，而是**压缩上下文（压缩已完成步骤的证据，保留需求/计划/未清事项）→ 重新注入入口契约（ultrawork 工作前篇）→ 继续工作**，回到步骤 1。循环直到通过。
    - 压缩是"阶段状态转移"：把已核实的旧证据折叠成摘要，避免上下文膨胀后又进入规则混淆。
@@ -148,6 +148,42 @@ oh-my-dsh/
 - 两者都挂在 turn-stopping，先跑 todo 检查（未清则续作，不启动交付门卫），todo 清空后才进入 delivery-gate 的完成声明判定。
 
 **提示词来源**：工作前/交付前两篇见 `docs/prompts-review/ultrawork.md` 与 `ultrawork-review.md`。设计意图说明见 `README.md`。
+
+### 5.2.2 可执行验证绑定与反攻击
+
+交付门卫的回归审查不能只靠 agent 自述"有证据"。借鉴 MIT 评测体系（DeepSeek-Reasonix e2e 基准）的成熟做法，把交付验证**绑定到可执行的 verify 脚本**，并把"agent 制造通过"的路径堵死。
+
+**（1）task→work 级 verify 脚本绑定**
+
+- 每个非平凡 work（boulder work）可声明一组**可执行验证**：`verify` 字段（或在 plan/场景契约里）指向一个 `verify.sh`/DSL 断言脚本，退出码 0 = 该 work 交付物达标。
+- 场景契约（ultrawork 稿"五、证据"）中每个**可自动化断言**都应落为 verify 脚本的一条断言，而不是只在 review 时口头核对。
+- 交付门卫执行顺序：**先跑 verify.sh**（可观测事实，agent 无法假装），**再核对 `ultrawork-review.md` 中不可自动化的纪律项**（需求范围、禁止性声明、清理、提交完整性）。
+- 参考契约纪律：verify 脚本对 pristine 状态应为红（未做时失败）、对参考解应为绿（达标时通过）——保证它确实断言"交付达标"而非恒真。
+
+**（2）inverse contract / 反攻击**
+
+防止 agent 通过**改受保护测试、植入缺失依赖、特判断言**来"制造通过"：
+
+- verify 脚本可内嵌 **protected-file manifest**（受保护路径 + 期望哈希）。审查时先校验这些文件未被改/删，再 `verify.sh` 判定。
+- **最小可知性**：verify 脚本与 manifest **运行后才挂载到工作区**，agent 在执行中看不到被监控的文件清单与哈希——它无法针对监控项绕过。
+- 只读审查角色（reviewer）与写角色（task）分离：受保护文件的校验由门卫/审查方执行，不由被审查任务的写 agent 自己跑。
+- 落地警示：verify 脚本必须在「交付门卫执行」时注入，而非随 work 初始 seed 进入——避免 agent 工作前就获知断言细节。
+
+**（3）反锚定（anchor resistance）**
+
+独立审查要防"下传结论覆盖真实证据"：reviewer 若预持主 agent 的"已完成/正确"结论，常照单全收（锚定偏差），而非独立核验。
+
+- reviewer 执行回归审查时，**不携带主 agent 的完成结论与已备答案**，只看场景契约与 verify/evidence，独立下判断。
+- 若两个假设都合理，用**盲测量化**：对比"带给结论的 review"与"盲 review"的发现差异；若盲 review 经常推翻预持结论，说明委派独立核验是值得的（否则纯提示词足够）。
+- 落地：delivery-gate 派 reviewer 时通过显式指令去掉"你认为做完了"的锚定信号，让它对证据本身下结论。
+
+**（4）完成声明轨迹审计**
+
+- 完成声明与回归结果记入**结构化完成报告**（计划/场景契约/verify 结果/未过项/最终通过项），随会话轨迹持久化，而非只口头宣称。
+- 无 verify 证据的完成声明记 `unmeasured`（未测量）而非"通过"；诚实未完成 / 明确报告缺失项也是合法出口（对应场景无解、受保护时）。
+- 目的是让"交付质量"可回看、可审计：谁能查"这个 work 是怎么宣称并证明完成的"。
+
+**与 5.2.1 关系**：5.2.1 定状态机（触发→审查→未过回灌），5.2.2 定义"审查到底核对什么、如何防止被游戏"。
 
 ### 5.3 工具集（ToolRegistry）
 
@@ -324,7 +360,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 |---|---|---|
 | **M1 骨架重构** | src/ 按 5.3 布局重组；config 开关组；cordis.patch.yml 更新 | `pnpm typecheck` + 单测 + dsh 实驱加载 |
 | **M2 提示词审查** | 第 6 节全部对象完成中文精简 + 映射表 | 用户评审 + 实驱 |
-| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 回归审查 → 未过压缩上下文重注入入口契约） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过）。反向测试契约见 `tests/delivery-gate.test.mjs`（单测），实驱占位见 `qa/delivery-gate-drive.mjs` |
+| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 双层回归审查 → 未过压缩上下文重注入入口契约；含 verify 脚本绑定 / 反攻击 / 反锚定 / 轨迹审计，见 5.2.1-5.2.2） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过；改受保护文件伪造通过被 verify 揭穿）。反向契约见 `tests/delivery-gate.test.mjs`，实驱占位见 `qa/delivery-gate-drive.mjs` |
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
