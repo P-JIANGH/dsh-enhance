@@ -25,7 +25,9 @@
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test"
+    "test": "node --test",
+    "test:gate": "node --test tests/delivery-gate.test.mjs",
+    "qa:gate": "node qa/delivery-gate-drive.mjs"
   },
   "dsh": {
     "bundle": {

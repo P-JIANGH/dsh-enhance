@@ -324,7 +324,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 |---|---|---|
 | **M1 骨架重构** | src/ 按 5.3 布局重组；config 开关组；cordis.patch.yml 更新 | `pnpm typecheck` + 单测 + dsh 实驱加载 |
 | **M2 提示词审查** | 第 6 节全部对象完成中文精简 + 映射表 | 用户评审 + 实驱 |
-| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 回归审查 → 未过压缩上下文重注入入口契约） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过） |
+| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 回归审查 → 未过压缩上下文重注入入口契约） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过）。反向测试契约见 `tests/delivery-gate.test.mjs`（单测），实驱占位见 `qa/delivery-gate-drive.mjs` |
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
