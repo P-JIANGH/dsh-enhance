@@ -2,7 +2,7 @@
 
 > 范围：M2 提示词审查（架构文档第 6 节）。
 > 结构：自 2026-08 起，每个提示词一份独立审查稿（源材料 + 中文稿 + 映射表 + 校验 + 实驱状态），本文件为索引与公共内容（流程、评审结论、桌面对齐）。
-> 说明：hyperplan/team 模式因 team-mode 延后实现（roadmap，见架构文档 M8）而暂不移植；search/analyze 模式中文稿见 search-analyze.md（源材料：桌面工作流分析提示词 1，用户已确认起草）。
+> 说明：hyperplan/team 模式因 team-mode 延后实现（roadmap，见架构文档 M8）而暂不移植；search/analyze 模式中文稿见 search-analyze.md（源材料：桌面工作流分析提示词 1，用户已确认起草）。ultrawork 已拆分为**工作前（入口契约）**与**交付前（回归审查）**两篇，应对中后段规则混淆问题（见 ultrawork.md / ultrawork-review.md）。
 > 评审：6 项待确认问题已答复（1/2/3/4/6 通过，5 为信息查询），结论见「评审结论」与「桌面对齐·用户确认」。
 
 ---
@@ -11,7 +11,8 @@
 
 | # | 提示词 | 文件 | 状态 |
 |---|---|---|---|
-| 1 | ultrawork 模式 | [ultrawork.md](ultrawork.md) | 稿就绪（45 行/13%，25 条约束） |
+| 1 | ultrawork 工作前篇 | [ultrawork.md](ultrawork.md) | 稿就绪（入口契约，13 条） |
+| 1b | ultrawork 交付前回归审查 | [ultrawork-review.md](ultrawork-review.md) | 稿就绪（交付回归核对清单，可交 reviewer 执行） |
 | 2 | work-rules | [work-rules.md](work-rules.md) | 稿就绪（原 5 条 + 用户准则 2 条） |
 | 3 | orient 会话开场 | [orient.md](orient.md) | 稿就绪（3 句 → 2 段） |
 | 4 | planner persona | [planner.md](planner.md) | 稿就绪 |
@@ -28,7 +29,8 @@
 
 | 对象 | 原稿规模 | 本稿规模 | 达标（≤50%） |
 |---|---|---|---|
-| ultrawork | 339 行 | 45 行（13%） | ✅ |
+| ultrawork 工作前篇 | 339 行 | 13 条入口契约 | ✅ |
+| ultrawork 交付前回归审查 | 339 行 | 交付核对清单（可交 reviewer） | ✅ |
 | work-rules | 8 行 | 10 行（原 5 条 + 用户准则 2 条新增） | ✅ |
 | orient | 3 句 | 2 段 | ✅ |
 | planner/reviewer | 各 4 句英文 | 各 4-5 句中文 | ✅ |
@@ -38,7 +40,7 @@
 
 ## 实驱验证状态
 
-- 待做（标注在代码落地后执行）：ultrawork 触发 → 第一响应宣布 + 约束生效；planner/reviewer persona 在 dsh 会话中加载；work-rules/orient 注入可见。
+- 待做（标注在代码落地后执行）：ultrawork 工作前触发 → 第一响应宣布 + 入口契约生效；交付前触发（deliver 意图）→ 注入 ultrawork-review 回归审查；planner/reviewer persona 在 dsh 会话中加载；work-rules/orient 注入可见。
 - dsh CLI 已安装（@deepseek-ai/dsh@0.1.1-rc.2，仓库已更新核实），隔离 $DSH_HOME 实驱脚本留待 M1 骨架重构后随代码一起做（6.2 流程第 5 步）。
 
 ---

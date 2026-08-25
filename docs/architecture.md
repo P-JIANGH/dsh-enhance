@@ -112,6 +112,42 @@ oh-my-dsh/
 | `start-work` | 会话开始发现 boulder 活跃计划 → 注入续作上下文（计划、todo、notepad） |
 | `todo-continuation-enforcer` | turn-stopping 时若 todo 未清、无阻塞，注入"继续"提醒 |
 | `goal-guard` | goal 活跃时，完成前禁止宣称 done（注入校验提示） |
+| `delivery-gate` | **交付门卫**（在 agent 宣称完成/交付时触发回归审查，未过则压缩上下文后重注入入口契约继续工作，直到通过——见 5.2.1） |
+
+### 5.2.1 交付门卫（delivery-gate）状态机
+
+把 ultrawork 拆成"工作前 + 交付前"两篇的真正目的是应对**中后段规则混淆**：工作前只注入少而关键的入口契约，完整证据/QA 纪律留到交付前集中回归核验。二者由交付门卫串成闭环：
+
+```
+[入口契约] --(执行)--> [agent 宣称完成/交付]
+                             │
+                  ┌──────────▼──────────┐
+         不通过    │ 回归审查 ultrawork-  │  通过
+       ┌──────────┤ review（核对证据）   ├─────────► 交付完成
+       │          └──────────┬──────────┘
+       │                     │
+       ▼                     │ 未过
+  [压缩上下文] ◄────────────┘
+  + 重新注入入口契约
+  → 回到执行
+```
+
+**规则**：
+
+1. **触发点**：`agent/turn-stopping` 拦截到 agent 的"完成/交付/可以了"声明（而非用户输入）。匹配信号：陈述句带完成语态、调用提交/结束工具、显式说"完成了"。
+2. **执行**：注入 `ultrawork-review.md`（交付前回归审查稿），按其检查项核对证据。推荐派 `reviewer` agent 执行，过滤自我确认偏差。
+3. **通过**：全部检查项有真实证据 → 放行交付。
+4. **不通过**：任一检查项无证据 → 不失败退出，而是**压缩上下文（压缩已完成步骤的证据，保留需求/计划/未清事项）→ 重新注入入口契约（ultrawork 工作前篇）→ 继续工作**，回到步骤 1。循环直到通过。
+   - 压缩是"阶段状态转移"：把已核实的旧证据折叠成摘要，避免上下文膨胀后又进入规则混淆。
+   - 每轮入口契约注入的是同一份精简稿，不叠加整段历史。
+5. **幂等/不双启**：同一轮内不重复注入回归审查；上轮已通过的检查项记录为 `verified`，下轮只核对未过项与新增变更。
+
+**与 goal-guard / todo-continuation-enforcer 的关系**：
+- `todo-continuation-enforcer` 处理"还有 todo 没做"（工作没完）；
+- `delivery-gate` 处理"声称做完了但证据不符"（交付质量门）；
+- 两者都挂在 turn-stopping，先跑 todo 检查（未清则续作，不启动交付门卫），todo 清空后才进入 delivery-gate 的完成声明判定。
+
+**提示词来源**：工作前/交付前两篇见 `docs/prompts-review/ultrawork.md` 与 `ultrawork-review.md`。设计意图说明见 `README.md`。
 
 ### 5.3 工具集（ToolRegistry）
 
@@ -137,14 +173,14 @@ oh-my-dsh/
 
 **两层判定**：
 
-1. **意图分类（第一层）** —— 先把输入归入一个意图维度，据此路由：`ctx.on('agent/request')` 上先做意图分类，把用户消息归入五类意图之一：
+1. **意图分类（第一层）** —— 先把输入归入一个意图维度，据此路由：`ctx.on('agent/request')` 上先做意图分类，把用户消息归入意图之一：
 
    | 意图 | 语义 | 典型触发词 | 主要落点 |
    |---|---|---|---|
    | `research` | 研究/查证 | search/调研/有哪些/怎么用/文档 | scout / librarian / search 模式 |
    | `investigation` | 调查/定位根因 | 为什么/定位/排查/错误原因是 | debugger / investigate 流程 |
    | `evaluation` | 评估/审查/比较 | reviewer/审查/评估/对比/审查代码 | reviewer / analyze 模式 |
-   | `implementation` | 实现/改动 | 实现/添加/修复/重构/写 | ultrawork 或 task worker |
+   | `implementation` | 实现/改动 | 实现/添加/修复/重构/写 | ultrawork 工作前或 task worker |
    | `fix` | 明确排障修复 | 修 bug/修复/解决报错 | debugger + task |
 
 2. **意图 → 技能/mode 路由（第二层）** —— 意图判定后再精确匹配到具体 mode / skill：
@@ -263,7 +299,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 
 | 提示词 | 现状 | 审查动作 |
 |---|---|---|
-| ultrawork 模式 | 见 prompts-review/ultrawork.md（自主设计） | 中文精简稿已产出，目标 ≤ 100 行 |
+| ultrawork 模式 | 已拆工作前篇 + 交付前回归审查（见 prompts-review/ultrawork.md、ultrawork-review.md；交付门卫见 5.2.1） | 工作前入口契约 ≤ 100 行；交付前为回归核对清单 |
 | agents（planner/scout/librarian/task/reviewer/advisor） | 角色体系见 [roles.md](roles.md)，中文稿见 prompts-review/*.md | 按 roles.md 的合并/重命名/新增逐个重写 |
 | work-rules | v1 英文默认文案 | 中文重写 |
 | orient 会话消息 | v1 英文 | 中文重写 |
@@ -288,7 +324,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 |---|---|---|
 | **M1 骨架重构** | src/ 按 5.3 布局重组；config 开关组；cordis.patch.yml 更新 | `pnpm typecheck` + 单测 + dsh 实驱加载 |
 | **M2 提示词审查** | 第 6 节全部对象完成中文精简 + 映射表 | 用户评审 + 实驱 |
-| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector | 单测 + dsh 实驱（写未读文件被拒） |
+| **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 回归审查 → 未过压缩上下文重注入入口契约） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过） |
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
