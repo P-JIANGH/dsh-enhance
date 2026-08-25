@@ -15,6 +15,12 @@ import { registerDoctorTool } from './tools/doctor.js'
 import { registerSessionStartHook } from './hooks/orient.js'
 import { registerWorkRules } from './hooks/work-rules.js'
 import { registerSkillsProvider } from './features/skills-provider.js'
+import { registerToolGuards } from './tools/guard-register.js'
+import { registerBoulderTools } from './tools/boulder-tools.js'
+import { registerRulesInjector } from './hooks/rules-injector.js'
+import { registerStartWorkHook } from './hooks/start-work.js'
+import { registerTodoContinuationHook } from './hooks/todo-continuation.js'
+import { registerDeliveryGateHook } from './hooks/delivery-gate.js'
 
 /** Cordis plugin name. */
 export const name = 'oh-my-dsh'
@@ -42,6 +48,18 @@ export interface Config {
   orientOnSessionStart?: boolean
   /** Register the model-facing oh_my_dsh_doctor diagnostic tool. */
   doctorTool?: boolean
+  /**
+   * Master switch for the security/quality guard hooks (write-existing,
+   * path-traversal, bash-file-read, output truncator, rules injector) and the
+   * delivery gate. Architecture §5.2/§5.3. Default off until M3 is wired.
+   */
+  guards?: boolean
+  /**
+   * Master switch for work tracking (boulder + goal storage, write token,
+   * start-work / todo-continuation hooks). Architecture §5.5. Default off
+   * until M4 is wired.
+   */
+  workTracking?: boolean
 }
 
 /** Runtime schema for the plugin row. */
@@ -49,6 +67,8 @@ export const Config: z<Config> = z.object({
   workRules: z.string().default(DEFAULT_WORK_RULES),
   orientOnSessionStart: z.boolean().default(true),
   doctorTool: z.boolean().default(true),
+  guards: z.boolean().default(true),
+  workTracking: z.boolean().default(true),
 })
 
 /**
@@ -60,12 +80,29 @@ export function apply(ctx: Context, config: Config): void {
   const workRules = config.workRules ?? ''
   const orientOnSessionStart = config.orientOnSessionStart ?? true
   const doctorTool = config.doctorTool ?? true
+  const guards = config.guards ?? true
+  const workTracking = config.workTracking ?? true
+
   registerSkillsProvider(ctx)
   if (workRules) registerWorkRules(ctx, workRules)
   registerSessionStartHook(ctx, { enabled: orientOnSessionStart })
+
+  // M3: tool guards (write-read/path-traversal) + rules injector.
+  registerToolGuards(ctx, guards)
+  registerRulesInjector(ctx, guards)
+
+  // M4: boulder/goal tools + continuation hooks.
+  registerBoulderTools(ctx, workTracking)
+  registerStartWorkHook(ctx, workTracking)
+  registerTodoContinuationHook(ctx, workTracking)
+  // M3: delivery gate consumes goal/boulder, so it rides the same switch.
+  registerDeliveryGateHook(ctx, workTracking)
+
   registerDoctorTool(ctx, {
     workRulesChars: workRules.length,
     orientOnSessionStart,
     doctorTool,
+    guards,
+    workTracking,
   }, doctorTool)
 }

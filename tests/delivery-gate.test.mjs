@@ -1,53 +1,19 @@
-// delivery-gate 交付门卫 —— 单测占位（反向测试）
+// delivery-gate 交付门卫 —— 单测（反向测试 + 真实实现契约）
 //
-// 目的：把"完成声明拦截"做成可回归验证的契约。当前 M3 未落地真实
-// delivery-gate 实现，此处先用占位 stub 定义判定与状态机的期望行为，
-// 作为后续实现的规范（TDD 先行）。M3 落地后把 import 指向真实实现。
-//
+// 目的：把"完成声明拦截"做成可回归验证的契约。测试直接从真实
+// delivery-gate 模块 import，覆盖状态机 + 完成声明启发式 + goal 消歧。
 // 反向场景（用户要求重点覆盖）：
 //   - agent "声称完成"但无证据 → 必须判定为未通过并触发回灌（不能放行）
 //   - 同理，靠启发式完成声明最容易误放行，测试先从"恶意通过"角度攻击
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-
-// ---- 占位实现：M3 落地后替换为真实 delivery-gate 模块 ----
-
-// 完成声明判定：给定 agent 的输出信号，判断它是否"宣称完成/交付"。
-// 启发式特征（架构 5.2.1）：
-//   - 陈述句带完成语态（"完成了""交付""可以了""搞定"）
-//   - 调用提交/结束类工具
-//   - 出现 goal done / completion 标记
-export function detectCompletionClaim (signals) {
-  const { text = '', calledTools = [], hasDoneTag = false } = signals ?? {}
-  const completionPhrases = [
-    '完成了', '交付', '可以了', '搞定', '做完了', '全部完成',
-    'delivered', 'done', 'complete', 'finished', 'shipped'
-  ]
-  const hitPhrase = completionPhrases.some(p => text.includes(p))
-  const completionTools = ['git_commit', 'finish', 'end_task', 'complete']
-  const hitTool = calledTools.some(t => completionTools.includes(t))
-  return Boolean(hitPhrase || hitTool || hasDoneTag)
-}
-
-// delivery-gate 状态转移：返回下一阶段。
-//   phases: 'idle' | 'review' | 'working' | 'delivered'
-//   输入: 是否检测到完成声明 + 回归审查是否通过
-export function deliveryGateStep ({ declared = false, reviewPassed = false, phase = 'idle' }) {
-  if (phase === 'idle') {
-    // 入口契约已注入，待执行；等完成声明
-    return declared ? 'review' : 'working'
-  }
-  if (phase === 'review') {
-    // 回归审查核验证据
-    return reviewPassed ? 'delivered' : 'working'
-  }
-  if (phase === 'working') {
-    // 压缩上下文 + 重注入入口契约，等下一轮完成声明
-    return declared ? 'review' : 'working'
-  }
-  if (phase === 'delivered') return 'delivered'
-  return 'working'
-}
+import {
+  detectCompletionClaim,
+  deliveryGateStep,
+  findTampered,
+  buildReport,
+  runVerify,
+} from '../lib/features/delivery-gate/index.js'
 
 // ---- 反向测试：假完成声明必须被拦 ----
 
@@ -95,17 +61,61 @@ test('[completion-claim] false-positive：不含完成信号的不触发', () =>
   assert.equal(detectCompletionClaim({ text: '', calledTools: ['read'], hasDoneTag: false }), false)
 })
 
-test('[completion-claim] TODO(已知局限)：进展汇报含"完成了X"会被误判', () => {
-  // 已知歧义：启发式只看关键词，会把"已完成第一个文件的修改，继续第二个"
-  // 误判为完整完成声明。M3 实现应结合 goal 状态/ todo 清况消歧——
-  // 完成声明 ="goal 达成 + 证据齐全"，而非仅文本含"完成"。
-  assert.equal(detectCompletionClaim({ text: '我已经完成了第一个文件的修改，接下来继续看第二个' }), true)
-  // 期望改进后为 false，但当前启发式命中为 true —— 记录为已知局限
+test('[completion-claim] goal 消歧：进展汇报+未清todo 不误判为完成(c13)', () => {
+  // 原占位中的已知误判场景：文本含"完成了X"但实际是进展汇报。
+  // 真实实现结合 goal 的 remainingTodos>0 消歧 → 应判为 false。
+  assert.equal(
+    detectCompletionClaim({ text: '我已经完成了第一个文件的修改，接下来继续看第二个', remainingTodos: 3 }),
+    false,
+  )
 })
 
-// ---- 提示：M3 落地接真实实现时，替换上方占位 import 并保持反向契约 ----
-// 核心断言集合（不应随实现改动而放宽）：
+// ---- §5.2.2 verify 绑定 / 反攻击 / 轨迹 ----
+
+test('[delivery-gate] findTampered 检出被改的受保护文件并放行未改', () => {
+  assert.deepEqual(findTampered({ a: 'h1', b: 'h2' }, { a: 'h1', b: 'h2' }), [])
+  assert.deepEqual(findTampered({ a: 'h1' }, { a: 'hX' }), ['a'])
+})
+
+test('[delivery-gate] buildReport 用状态标记 unmeasured/tampered/passed', () => {
+  const unmeasured = buildReport({ text: 'done' }, undefined, [])
+  assert.equal(unmeasured.state, 'unmeasured')
+  const tampered = buildReport({ text: 'done' }, true, ['x'])
+  assert.equal(tampered.state, 'tampered')
+  const passed = buildReport({ text: 'done' }, true, [])
+  assert.equal(passed.state, 'passed')
+  const failed = buildReport({ text: 'done' }, false, [])
+  assert.equal(failed.state, 'failed')
+})
+
+test('[delivery-gate] runVerify 通过 exit 0 判 ok、非 0 判 fail', async () => {
+  const { writeFileSync, chmodSync, mkdtempSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const { tmpdir } = await import('node:os')
+  const dir = mkdtempSync(join(tmpdir(), 'omd-verify-'))
+  // Build tiny executable wrappers that exit 0 / 1.
+  const ext = process.platform === 'win32' ? '.cmd' : '.sh'
+  const ok = join(dir, `ok${ext}`)
+  const bad = join(dir, `bad${ext}`)
+  const okBody = process.platform === 'win32'
+    ? '@echo off\nexit /b 0\n'
+    : '#!/bin/sh\nexit 0\n'
+  const badBody = process.platform === 'win32'
+    ? '@echo off\nexit /b 1\n'
+    : '#!/bin/sh\nexit 1\n'
+  writeFileSync(ok, okBody)
+  writeFileSync(bad, badBody)
+  if (process.platform !== 'win32') { chmodSync(ok, 0o755); chmodSync(bad, 0o755) }
+
+  const okRes = await runVerify(ok, dir)
+  const badRes = await runVerify(bad, dir)
+  assert.equal(okRes.ok, true)
+  assert.equal(badRes.ok, false)
+  assert.equal(badRes.exitCode, 1)
+})
+
+// ---- 提示：反向契约核心断言集合 ----
 //   [] 假完成声明（无证据）→ 回归审查，未过回灌
 //   [] 完成声明是唯一进入审查的入口
 //   [] 仅审查通过才 delivered
-//   [] completion-claim 检测对"进展汇报"不误触发（false-positive 最小化）
+//   [] completion-claim 检测对"进展汇报"不误触发（false-positive 最小化，c13 已实现）

@@ -23,6 +23,8 @@ export interface DoctorReport {
     workRulesChars: number
     orientOnSessionStart: boolean
     doctorTool: boolean
+    guards: boolean
+    workTracking: boolean
   }
 }
 
@@ -32,7 +34,7 @@ function renderReport(report: DoctorReport): string {
     `# oh-my-dsh doctor`,
     `pluginLoaded: ${report.pluginLoaded}`,
     `workRulesSection: ${report.workRulesSection}`,
-    `config: orientOnSessionStart=${report.config.orientOnSessionStart} doctorTool=${report.config.doctorTool} workRulesChars=${report.config.workRulesChars}`,
+    `config: orientOnSessionStart=${report.config.orientOnSessionStart} doctorTool=${report.config.doctorTool} workRulesChars=${report.config.workRulesChars} guards=${report.config.guards} workTracking=${report.config.workTracking}`,
   ]
   if (report.skills.length === 0) {
     lines.push('skills: (none registered)')
@@ -84,8 +86,10 @@ export function registerDoctorTool(ctx: Context, config: DoctorReport['config'],
               workRulesChars: { type: 'number' },
               orientOnSessionStart: { type: 'boolean' },
               doctorTool: { type: 'boolean' },
+              guards: { type: 'boolean' },
+              workTracking: { type: 'boolean' },
             },
-            required: ['workRulesChars', 'orientOnSessionStart', 'doctorTool'],
+            required: ['workRulesChars', 'orientOnSessionStart', 'doctorTool', 'guards', 'workTracking'],
             additionalProperties: false,
           },
         },
