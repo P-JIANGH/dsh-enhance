@@ -87,7 +87,7 @@ oh-my-dsh 的 agents 目前是 5 个 persona（planner / reviewer / executor / e
 | **reviewer** | 审查（质量 + 安全）：阻塞/建议分级 | read/grep/glob/lsp | reviewer + security-reviewer |
 | **advisor** | 伴随审核（peer-shadow）或 reviewer 的持续形态 | read/grep/glob | advisor（独立层） |
 
-> 说明：这 6 个角色取代原 5 persona。planner、reviewer、advisor 为只读/审查/规划，task/worker 为执行，scout/librarian 为两类探索。
+> 说明：这 6 个角色取代原 5 persona。planner、reviewer、advisor、scout、librarian 为只读/审查/规划/探索，task/worker 为唯一写角色。**并发纪律**（见 architecture.md 5.5.1）：只读角色可任意并行；`task` 在无独立 worktree 时默认串行（抢写令牌），有独立 worktree 时可并行。
 
 ---
 

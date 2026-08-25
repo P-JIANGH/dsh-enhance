@@ -152,6 +152,33 @@ oh-my-dsh/
 
 **Goal 存储**：session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
 
+### 5.5.1 并发执行策略（写令牌 + worktree 可选并行）
+
+> 说明：上面 CAS/锁只保护 `boulder.json` 这个**状态文件**；它不保护**实际工作产物（代码文件、git 历史）**。多个 agent 同时在同一个工作目录上 plan + execute，boulder 不丢更新，但会写同一文件、交错 commit、互相破坏半成品——这是先行版设计的漏洞，本小节补齐。
+
+**读写角色分类**：
+
+| 动作 | 角色 | 是否写工作区 |
+|---|---|---|
+| plan / explore / 查证 / 审查 | planner / scout / librarian / reviewer | 否（只读） |
+| execute | task（worker） | 是（写文件、commit） |
+| assemble | 主 agent | 可能写 |
+
+**核心规则**（混合模型：默认串行 + worktree 可选并行）：
+
+1. **只读可并行**：`planner` / `scout` / `librarian` / `reviewer` 对这些只读角色可任意并行，不占写令牌，也不受写串行影响。它们读 boulder、读工作区，但绝不写文件系统产物。
+2. **默认串行（写令牌）**：**同一 repo 上同一时刻只允许一个写会话（execute）**。用"执行令牌"实现——boulder 中一个原子字段 `exec_holder: <sessionId>`（写令牌，通过 `mutateBoulderState` 的 CAS 原子抢占/释放）：
+   - 每个 task/execute 会话启动 execute 前必须**抢占令牌**（读-改-write CAS，失败重试，与 5.5 的 CAS 合并规则一致）；
+   - 抢占成功才可写文件、commit；结束（或 turn 暂停）必须**释放令牌**；
+   - 令牌被占时，其它 execute 会话**等待或提示"等当前执行者释放"**，不得硬写。
+   - 这保证无 worktree 时多个 agent plan+execute 也不会在文件系统上互相踩踏——写永远串行。
+3. **worktree 可选并行**：若某 execute 会话**在独立 worktree 中**运行（`worktree_path` 已登记、指向独立隔离目录），则**不受写令牌约束**——不同 worktree 的工作区物理隔离，天然可并行。判别：`start-work` 发现 `work.worktree_path` 存在且为该 work 专属 → 走并行通道（不抢令牌）；否则走默认串行（抢令牌）。
+4. **plan 与 execute 的关系**：planner 产出计划写入 boulder（只读角色、可并行），task 消费计划后抢令牌执行。多 planner 各写各的 work 条目（并集合并），不做全局互斥——因为它们只写 boulder 元数据、不碰工作区文件。
+
+**判定优先级**：worktree 隔离 > 写令牌串行。一个 work 只要有独立 worktree，就取消令牌约束；没有 worktree 就强制令牌串行。绝不允许"无 worktree 且无令牌"的 execute。
+
+**落地路径**：`boulder-link.ts` 负责登记/释放令牌与 worktree；`start-work` / `todo-continuation-enforcer` 在 execute 开始处检查"令牌 or worktree"是否就绪，未就绪则注入"等待/创建 worktree"提示而非直接执行。
+
 ### 5.6 Worktree 管理器（重点）
 
 在 dsh 的 `git worktree` 原生能力之上做成一等抽象：
@@ -215,7 +242,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 | **M1 骨架重构** | src/ 按 5.3 布局重组；config 开关组；cordis.patch.yml 更新 | `pnpm typecheck` + 单测 + dsh 实驱加载 |
 | **M2 提示词审查** | 第 6 节全部对象完成中文精简 + 映射表 | 用户评审 + 实驱 |
 | **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector | 单测 + dsh 实驱（写未读文件被拒） |
-| **M4 工作追踪** | boulder（防冲突协议）+ goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 跨会话续作实驱 |
+| **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 路由 | 单测 + 实驱 |
 | **M7 LSP + comment-checker** | 最小 LSP 集 + 写后校验 | 实驱 |
