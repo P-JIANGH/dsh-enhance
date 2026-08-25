@@ -2,7 +2,7 @@
 
 oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). One install gives you a curated set of working aids — packaged skills, a persistent work-rules prompt section, a session-start orientation hook, and a doctor tool. Install and go.
 
-Inspired by `oh-my-openagent` (for OpenCode) and the `oh-my-pi` ecosystem: opinionated defaults that make an agent harness noticeably more useful out of the box.
+Inspired by the `oh-my-pi` ecosystem and open-source agent enhancement tools: opinionated defaults that make an agent harness noticeably more useful out of the box.
 
 ## What you get
 

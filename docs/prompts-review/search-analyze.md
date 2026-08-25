@@ -2,7 +2,7 @@
 
 > 源材料：`D:\Desktop\opencode-workflows-analysis.md` 第四节提示词 1（用户已确认按此起草）。
 > 定位：skill-trigger 的意图触发提示（M6 落地），与 ultrawork 稿"一、动手前确认 + 三、技能与委派"同源。
-> 注：源稿中 omo 专属内容（delegate_task 的 load_skills / run_in_background 参数）改为能力中性表述，落地时映射 dsh 委派机制（用户确认项 1）。
+> 注：源材料为你的桌面工作流文件（个人材料）；其中个别专属参数（如委派任务的若干控制参数）改为能力中性表述，落地时映射 dsh 委派机制（用户确认项 1）。
 
 ## search 模式（搜索）
 

@@ -1,20 +1,20 @@
 # oh-my-dsh 借鉴分析：lazycodex & oh-my-pi
 
 > 调查时间：2026-07（用户 clone 两项目供调查）
-> 项目：`F:\lazycodex`（OmO 的 Codex marketplace 分发仓库，code-yeongyu）、`F:\oh-my-pi`（pi coding agent 本体 fork，badlogic/pi-mono → can1357/oh-my-pi，omp.sh）
-> 用途：为 oh-my-dsh（deepseek-harness 增强插件）的 M1 骨架与后续落地提供模式借鉴。借鉴的是模式与纪律，非代码；两项目均开源，引用保留来源。
+> 项目：`F:\lazycodex`（MIT，Codex 增强插件分发仓库，code-yeongyu）、`F:\oh-my-pi`（pi coding agent 本体 fork，badlogic/pi-mono → can1357/oh-my-pi，omp.sh，MIT）
+> 用途：为 oh-my-dsh（deepseek-harness 增强插件）的 M1 骨架与后续落地提供模式借鉴。借鉴的是模式与纪律，非代码；两项目均 MIT 开源，引用保留来源。
 
 ---
 
 ## 1. F:\lazycodex：prompt 传播链 + evidence 门
 
-lazycodex 是 OmO 的 Codex 版分发层（`plugins/omo/` 组件化：ultrawork、ulw-loop、start-work-continuation、lazycodex-executor-verify、teammode、rules、lsp、codegraph、comment-checker、telemetry、bootstrap…）。三类可直接借鉴：
+lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork、ulw-loop、start-work-continuation、executor-verify、teammode、rules、lsp、codegraph、comment-checker、telemetry、bootstrap…）。三类可直接借鉴：
 
 ### 1.1 prompt 单一源 + 生成链 + 字节 pin（A1）
 
-- 源唯一：`@oh-my-opencode/prompts-core/prompts/ultrawork/*.md`（如 `codex.md`）。
+- 源唯一：lazycodex 仓库内 `components/ultrawork/` 的 prompts 源目录（`*.md`）。
 - 生成：`components/ultrawork/scripts/sync-directive.mjs` 把源写入 `directive.md`（423 行），再包 frontmatter 生成 `skills/ultrawork/SKILL.md`。
-- 字节 pin：`test/directive-source.test.ts`（vitest）断言 `directive.md` 与 prompts-core 源逐字节相等、SKILL.md = frontmatter + 源。
+- 字节 pin：`test/directive-source.test.ts`（vitest）断言 `directive.md` 与 prompts 源逐字节相等、SKILL.md = frontmatter + 源。
 - 纪律：**不手改生成物，改源再 regenerate**，否则 pin 测试红。
 
 对 oh-my-dsh：提示词（M2 审查稿中文精简稿）应放独立源目录（如 `prompts/`），落地 dsh 侧产物（systemPrompt 段落、skills）用生成脚本 + 字节 pin 测试防漂移。
@@ -41,7 +41,7 @@ oh-my-pi 是完整 coding agent（Rust ~80k 行核心 + TS 包：agent、ai、ca
 
 ### 2.1 提示词纪律（B1）
 
-AGENTS.md 明文：prompts 只在静态 `.md` 文件，用 Handlebars 做动态内容（`{{var}}`、`{{#if}}`），`import content from "./prompt.md" with { type: "text" }`，**禁止代码内拼字符串/模板字面量/readFile**。实测形态（`src/autoresearch/prompt-setup.md`）：静态 .md + `{{base_system_prompt}}`/`{{working_dir}}` 占位 + MUST 清单式指令。与 omo prompts-core 理念一致，应作为 oh-my-dsh M1 落地纪律（提示词 .md 源 + `{{param}}` 参数化）。
+AGENTS.md 明文：prompts 只在静态 `.md` 文件，用 Handlebars 做动态内容（`{{var}}`、`{{#if}}`），`import content from "./prompt.md" with { type: "text" }`，**禁止代码内拼字符串/模板字面量/readFile**。实测形态（`src/autoresearch/prompt-setup.md`）：静态 .md + `{{base_system_prompt}}`/`{{working_dir}}` 占位 + MUST 清单式指令。与前述 lazycodex 的 prompt 单源纪律一致，应作为 oh-my-dsh M1 落地纪律（提示词 .md 源 + `{{param}}` 参数化）。
 
 ### 2.2 Central Utilities 纪律（B2）
 
@@ -54,7 +54,7 @@ AGENTS.md 明文：prompts 只在静态 `.md` 文件，用 Handlebars 做动态�
 ### 2.4 特色包（远期参考，非当前范围）
 
 - `metaharness`：benchmark 管理器（实验/run/trace 模型 + SQLite + REST/SSE + dashboard）。
-- `mnemopi`：本地 SQLite 记忆引擎（remember/recall/stats/sleep + BeamMemory），对应 omo memory-core，若 dsh 需要记忆功能再参考。
+- `mnemopi`：本地 SQLite 记忆引擎（remember/recall/stats/sleep + BeamMemory），若 dsh 需要记忆功能再参考（对应前述记忆相关能力，非当前范围）。
 - `snapcompact`：bitmap-frame 上下文压缩（历史渲染成 PNG 给视觉模型读），与 dsh 无直接关系。
 
 ---
@@ -88,7 +88,7 @@ AGENTS.md 明文：prompts 只在静态 `.md` 文件，用 Handlebars 做动态�
 | nit / concern / blocker 分级 | reviewer 输出分级；blocker 对应 ultrawork 稿"严格审查"条款 |
 | 沟通纪律（不重复已知/引用证据/静默优先） | reviewer persona 提示词直接移植（中文精简） |
 | WATCHDOG.yml 名册（model/tools/instructions 按项目配置） | oh-my-dsh config 的 agents 参数化（`{{project}}`/`{{stack}}` 等由配置注入，同 10.1 参数化约定） |
-| emission-guard 频率控制 | advisor/审查消息节流（防干扰主循环；呼应 omo 内部消息注入危险的经验） |
+| emission-guard 频率控制 | advisor/审查消息节流（防干扰主循环） |
 
 > 边界注意：advisor prompt 明确"不指示主 agent 去澄清/确认范围"（意图归主 agent）——这与 ultrawork 稿"尽可能多提问"不冲突：前者是监督者纪律，后者是主 agent 执行模式；落地时保持两层职责分离。
 

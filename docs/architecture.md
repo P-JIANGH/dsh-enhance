@@ -2,12 +2,12 @@
 
 > 状态：设计稿 v0.1，待评审
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
-> 参考蓝本：`oh-my-openagent`（OpenCode 插件，monorepo 分层架构）
-> 本设计由对 oh-my-openagent 的实地探索产出，探索证据见 `F:\oh-my-openagent\packages\*` 对应模块。
+> 参考蓝本：开源增强插件生态（MIT）——`oh-my-pi`（omp，MIT）、`lazycodex`（MIT）；能力边界与事件面以 `F:\deepseek-harness\packages\*`（MIT）实测类型定义为准，探索证据见对应模块。
+> 注：本设计不依赖任何 SUL 许可项目内容。
 
 ## 1. 定位与目标
 
-oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格），对标 oh-my-openagent 之于 OpenCode。它把 oh-my-openagent 验证过的能力按 dsh 的插件 API 重新落地：
+oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格）。它把经开源生态验证的能力按 dsh 的插件 API 重新落地：
 
 - **生命周期 hooks**：pre-step/request 守卫 + turn-stopping 续作
 - **工具集**：bash/read 守卫、LSP、comment-checker、goal/boulder 工作追踪
@@ -22,18 +22,18 @@ oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格�
 
 延后实现（roadmap feature，v2 只预留扩展缝、不实现）：
 
-- **Team mode**（多智能体并行协调）——参照 omo-opencode 的 team-mode：`team_mode.enabled` 配置门控 + `teamModeToolsRecord` 工具注册表 + `packages/team-core` 存储布局（`~/.omo/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
+- **Team mode**（多智能体并行协调）——dsh 侧需在 M1 实测后由插件层自建：`team_mode.enabled` 配置门控 + 独立工具注册表 + 存储布局（`~/.omo/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
 
 ## 2. 设计原则
 
-继承 oh-my-openagent 的 ROADMAP 决策原则，并按本项目的用户要求调整：
+按本项目的用户要求确立：
 
 1. **人是发起者，智能体是执行者**：提示词面向"一次交代、全程执行"，不面向逐轮澄清。
 2. **表达的层级顺序**：Skill（静态知识，零运行时成本）→ Tool（一等运行时能力）→ Hook（注入智能体循环本身）。能用技能表达的不写钩子。
-3. **提示词是产品，不是文档**：所有提示词逐条审查、中文化、精简。英文废话与威胁性强调（"ULTRAWORK MODE ENABLED!"、CODE RED、大写 MANDATORY）一律删除，只保留产生行为的约束。
+3. **提示词是产品，不是文档**：所有提示词逐条审查、中文化、精简。英文废话与威胁性强调（大写 MANDATORY、叹号堆砌）一律删除，只保留产生行为的约束。
 4. **防冲突是存储层职责**：任何共享状态（boulder）写入必须原子、带并发控制，不允许散落的 read-modify-write。
 5. **Worktree 是一等概念**：会话可以主动进入隔离工作区；boulder 状态与 worktree 关联并共享同一份事实。
-6. **明确不做抽象**：不建"统一 hook 层"去抽象 dsh 的事件面，直接对着 dsh API 写 adapter（对 oh-my-openagent 的怀疑论原样继承）。
+6. **明确不做抽象**：不建"统一 hook 层"去抽象 dsh 的事件面，直接对着 dsh API 写 adapter。
 
 ## 3. 总体架构
 
@@ -42,10 +42,10 @@ oh-my-dsh/
 ├── docs/                  # 设计 + 用户文档
 ├── skills/                # 打包 SKILL.md（静态知识层）
 ├── presets/               # dsh-agent-presets 预设目录（可选安装）
-├── src/                   # ★ adapter 层（参照 omo-opencode 的 src 布局）
+├── src/                   # ★ adapter 层（单一宿主平台插件）
 │   ├── index.ts           # 插件入口：name / inject / Config / apply
 │   ├── config/            # schemastery schema（插件行 config）
-│   ├── hooks/             # 生命周期钩子（每个能力一个目录，同 omo-opencode）
+│   ├── hooks/             # 生命周期钩子（每个能力一个目录）
 │   ├── tools/             # 工具注册（ToolRegistry）
 │   ├── agents/            # 智能体定义（AgentFactory 工厂）
 │   ├── features/          # 特性模块（skill 触发路由、worktree manager…）
@@ -56,23 +56,23 @@ oh-my-dsh/
 └── package.json
 ```
 
-**Adapters 层参照 omo-opencode**：`src/` 直接对应 omo-opencode 的 `src/` 组织方式（`hooks/{name}/` 一能力一目录、`tools/{name}/` 一工具一目录、`agents/` 工厂模式、`features/` 独立特性模块），而不是 omo-codex 的组件化 workspace 布局，也不是 omo-senpi 的 ExtensionAPI 组件布局。原因：dsh 是单包 Cordis 插件，omo-opencode 的"扁平目录 + 工厂 + 桶导出"结构与之最匹配，且便于逐能力审查。
+**Adapters 层布局**：`src/` 采用一能力一目录的扁平组织（`hooks/{name}/`、`tools/{name}/`、`agents/` 工厂模式、`features/` 独立特性模块），便于逐能力审查与桶导出。该思路借鉴自 MIT 开源插件生态（`oh-my-pi` coding-agent 的 prompts/tools/agents 域划分、`lazycodex` 的 `plugins/omo/` 组件化目录），并结合 dsh 单包 Cordis 插件的特点：扁平目录 + 工厂 + 桶导出与 dsh 最匹配。
 
-## 4. dsh API 映射表（omo → dsh）
+## 4. dsh API 能力映射（dsh 事件面 → oh-my-dsh 能力）
 
-探索自 `node_modules/@deepseek-ai/*` 类型定义，实现时以实际 d.ts 为准。
+探索自 `F:\deepseek-harness\packages\core\*` 类型定义（MIT），实现时以实际 d.ts 为准。
 
-| oh-my-openagent 概念 | dsh 对应物 | 备注 |
+| dsh 能力 | oh-my-dsh 落点 | 备注 |
 |---|---|---|
-| 插件入口 `serverPlugin()` | Cordis `apply(ctx, config)` | `name` / `inject: ['skills','systemPrompt','tools','agent']` |
-| 配置 Zod schema | `schemastery` schema | 插件行 `config` 块，`cordis.patch.yml` 注入 |
-| hook handler（tool.execute.before 等） | `ToolRegistry` guard / `ctx.on('agent/pre-step')` | dsh ToolRegistry 原生支持 guard waterfall（全局 + 作用域） |
-| `chat.message` / keyword-detector | `ctx.on('agent/request')` | 用户输入事件，负载字段实现时核实 |
-| 会话开始注入 | `ctx.on('agent/session-start')` + `agent.inject(createUserMessage(...))` | 已在 v1 验证可用 |
-| 续作 / todo 强制 | `ctx.on('agent/turn-stopping')` | 对应 todo-continuation-enforcer |
-| 系统提示段落 | `SystemPrompt.section()` | work-rules 即此机制（v1 已用） |
-| 技能注册 | `ctx.skills`（SkillService） | v1 已验证 `ctx.skills.list({})` |
-| agent 定义 | `AgentFactory` / `AgentRegistry` | dsh-agent-presets 模式 |
+| 插件入口 `apply(ctx, config)` | 插件入口 | `name` / `inject: ['skills','systemPrompt','tools','agent']` |
+| 配置 `schemastery` schema | 配置系统 | 插件行 `config` 块，`cordis.patch.yml` 注入 |
+| `ToolRegistry` guard / `ctx.on('agent/pre-step')` | 工具守卫 | dsh ToolRegistry 原生支持 guard waterfall（全局 + 作用域） |
+| `ctx.on('agent/request')` | 意图触发 | 用户输入事件，负载字段实现时核实 |
+| `ctx.on('agent/session-start')` + `agent.inject(...)` | 会话开始注入 | 已在 v1 验证可用 |
+| `ctx.on('agent/turn-stopping')` | 续作强制 | turn 关闭前注入"继续"或审核建议 |
+| `SystemPrompt.section()` | 系统提示段落 | work-rules 即此机制（v1 已用） |
+| `ctx.skills`（SkillService） | 技能注册 | v1 已验证 `ctx.skills.list({})` |
+| `AgentFactory` / `AgentRegistry` | agent 定义 + 需顾问/子会话 | dsh-agent-presets 模式；`ctx.agents.create()` 可拉起独立子会话（advisor 伴随模型可行性见 prompts-review/advisor.md） |
 | 事件面 | `agent/created` `agent/session-start` `agent/pre-step` `agent/request` `agent/status` `agent/turn-stopping` `agent/error` `agent/disposed` `session/created` `session/event` | 完整清单见 dsh-agent `runtime-types.d.ts` |
 
 ## 5. 子系统设计
@@ -80,29 +80,29 @@ oh-my-dsh/
 ### 5.1 配置系统
 
 - 插件行 `config`：`workRules` / `orientOnSessionStart` / `doctorTool`（沿用 v1）+ 新增 `skillsEnabled` / `guards` / `workTracking` / `worktree` 开关组。
-- 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格习惯）。
+- 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
 - 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 oh-my-dsh 一行。
 
 ### 5.2 Hooks 层（守卫 + 注入 + 续作）
 
-按 omo-opencode 的 5-tier 思路裁剪为 dsh 的 3 类：
+按 dsh 事件面能力裁剪为 3 类：
 
 **A. 工具守卫（ToolGuard）** —— 挂在 `ToolRegistry` guard 或 `agent/pre-step`：
 
-| 守卫 | 行为 | 移植来源 |
+| 守卫 | 行为 | 设计来源 |
 |---|---|---|
-| `write-existing-file-guard` | 未读过的文件禁止写（会话级读权限追踪，cap 1024 路径/会话） | omo-opencode `hooks/write-existing-file-guard` |
+| `write-existing-file-guard` | 未读过的文件禁止写（会话级读权限追踪，cap 1024 路径/会话） | v1 意向 + 安全实践 |
 | `bash-file-read-guard` | bash 读文件也计入"读过"权限 | 同上扩展 |
-| `path-traversal-guard` | 写入路径必须落在会话根内（canonical path + realpath，防 symlink 逃逸） | `toCanonicalPath` / `isPathInsideDirectory` |
-| `tool-output-truncator` | 超限工具输出截断，保护上下文 | omo-opencode `hooks/tool-output-truncator` |
-| `comment-checker` | 写类工具结果后跑 comment-checker 二进制 | omo-opencode `hooks/comment-checker`（二进制可换 dsh 可用实现） |
+| `path-traversal-guard` | 写入路径必须落在会话根内（canonical path + realpath，防 symlink 逃逸） | 安全实践 |
+| `tool-output-truncator` | 超限工具输出截断，保护上下文 | v1 意向 |
+| `comment-checker` | 写类工具结果后跑 comment-checker 二进制 | 通用注释校验（二进制可用 dsh 可用实现） |
 
 **B. 上下文注入（Transform）** —— 挂在 `agent/request` / `agent/session-start`：
 
 | 注入 | 行为 |
 |---|---|
-| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.omo/rules/`，注入为系统段落（复用 omo 的 finder/matcher 逻辑，缓存 + 距离计算） |
-| `skill-trigger`（keyword-detector 移植） | 检测输入意图（ultrawork / search / analyze），注入对应模式提示词 |
+| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.omo/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
+| `skill-trigger` | 检测输入意图（ultrawork / search / analyze），注入对应模式提示词 |
 | `work-rules` | v1 已有，保留 |
 
 **C. 会话续作（Continuation）** —— 挂在 `agent/turn-stopping` / `agent/session-start`：
@@ -118,10 +118,10 @@ oh-my-dsh/
 | 工具 | 来源 | 说明 |
 |---|---|---|
 | `bash` / `read` 守卫工具 | dsh 内置 | 通过 guard 增强，不重写 |
-| `lsp_*`（8 个别名） | omo `lsp-tools-mcp` | dsh 侧先做最小集：diagnostics / goto_definition / references；进程管理用 `lsp-daemon` 思路（每用户共享守护进程） |
-| `comment_check` | omo comment-checker | 写后校验 |
-| `goal_create` / `goal_get` / `goal_update` | omo goal 工具 | session 级 JSON 存储 |
-| `boulder_start` / `boulder_status` / `boulder_complete` | omo boulder CLI | 见 5.5 防冲突设计 |
+| `lsp_*` | 自建 | dsh 侧先做最小集：diagnostics / goto_definition / references；进程管理用每用户共享守护进程 |
+| `comment_check` | 自建 | 写后校验 |
+| `goal_create` / `goal_get` / `goal_update` | 自建 | session 级 JSON 存储 |
+| `boulder_start` / `boulder_status` / `boulder_complete` | 自建 | 见 5.5 防冲突设计 |
 | `worktree_create` / `worktree_list` / `worktree_cleanup` | 新增 | 见 5.6 |
 | `oh_my_dsh_doctor` | v1 已有 | 保留 |
 
@@ -133,14 +133,14 @@ oh-my-dsh/
 
 ### 5.5 Work tracking：boulder 防冲突设计（重点）
 
-现状问题（探索确认）：omo 的 boulder-state 写路径是 `writeFileSync` 直接覆盖 + 无锁 + 散落 read-modify-write，多会话/多 worktree 并发写会丢更新。oh-my-dsh 的 boulder 从第一版就按防冲突设计：
+现状问题：多会话/多 worktree 若对同一份共享状态做无约束写入（直接覆盖 + 无锁 + 散落 read-modify-write），并发会丢更新。oh-my-dsh 的 boulder 从第一版就按防冲突设计：
 
 **存储位置**：仓库根（`git rev-parse --show-toplevel`）的 `.omo/boulder.json`，全 repo 唯一实例。所有 worktree 的会话共享这一份，work 通过 `worktree_path` 字段关联——杜绝同 repo 多 worktree 各自持有副本导致的分叉。
 
 **写入协议**（核心）：
 
 1. **单一变更入口**：所有修改走 `mutateBoulderState(directory, mutateFn)`。内部 = 读最新 → 深拷贝 → 应用 mutateFn → 校验 → CAS 写回；冲突则重试（上限 3 次）。禁止在任何 hook/tool 里散落 read-modify-write。
-2. **原子写**：`writeFileSync(tmp)` + `renameSync`（参照 omo goal store 的 `writeGoal` 模式）。
+2. **原子写**：`writeFileSync(tmp)` + `renameSync`（写入 tmp 再 rename 的原子替换，取自通用文件原子写实践）。
 3. **乐观并发（CAS）**：state 携带单调递增 `revision`。写回前重读，`revision` 不匹配 → 冲突。
 4. **冲突合并（按 work 粒度，而非整体覆盖）**：
    - 每个 work 条目按 `updated_at` 取新；
@@ -148,18 +148,18 @@ oh-my-dsh/
    - 根级 `active_work_id` 以最后成功写入者为准；
    - `plan_name` / `status` 等标量：冲突时保留写入方值并记录 `conflict_log`。
 5. **进程级锁**：`.omo/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
-6. **schema 校验**：写入前 Zod 校验（参照 omo `GoalFileSchema`），坏文件读为 null 不崩溃。
+6. **schema 校验**：写入前 Zod 校验（自建 schema），坏文件读为 null 不崩溃。
 
-**Goal 存储**：沿用 omo 的 session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
+**Goal 存储**：session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
 
 ### 5.6 Worktree 管理器（重点）
 
-在 omo 零散实现（`team-worktree/manager.ts` 的 add --detach、`start-work/worktree-detector.ts` 的 list/rev-parse）之上做成一等抽象：
+在 dsh 的 `git worktree` 原生能力之上做成一等抽象：
 
 ```
 features/worktree/
 ├── manager.ts       # WorktreeManager：create / list / find / cleanup / reuse
-├── naming.ts        # 命名约定：<work-id>-<slug>，分支 omo/<work-id>
+├── naming.ts        # 命名约定：<work-id>-<slug>，分支 dsh/<work-id>
 ├── validation.ts    # 路径校验：拒绝 symlink 逃逸、.. 溢出、大小写规范化
 ├── git-runner.ts    # git 子进程运行器（可注入，便于单测）
 └── boulder-link.ts  # 与 boulder 联动：work.worktree_path 登记 / 注销
@@ -168,10 +168,10 @@ features/worktree/
 能力：
 
 - **create(repoRoot, {workId, slug, baseDir})**：`git worktree add --detach`，返回绝对路径；记录到 boulder work。
-- **list / find**：`git worktree list --porcelain` 解析（复用 omo 的解析器）；`rev-parse --show-toplevel` 检测当前是否已在 worktree 内。
+- **list / find**：`git worktree list --porcelain` 解析；`rev-parse --show-toplevel` 检测当前是否已在 worktree 内。
 - **cleanup(workId)**：`git worktree remove` + `git worktree prune`；boulder 中该 work 的 `worktree_path` 置空。
 - **reuse(workId)**：续作时若 worktree 仍存在则直接返回路径；被删除则给出重建指令（提示 `git worktree add` 命令本身，不偷偷重建）。
-- **安全性**：worktree 路径只允许 `./` `../` 相对或绝对路径（继承 validateWorktreeSpec），且必须位于约定的 baseDir 下。
+- **安全性**：worktree 路径只允许 `./` `../` 相对或绝对路径（validateWorktreeSpec），且必须位于约定的 baseDir 下。
 
 与续作链的集成：`start-work` 发现 boulder work 带 `worktree_path` 时，注入"你正在 worktree X 中工作"的上下文块。
 
@@ -181,31 +181,31 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 
 - **agent 清单**：`planner`（规划）、`reviewer`（审查，v1 已有）+ `executor`（执行）、`explorer`（只读探索）、`debugger`（排障）。每个 agent 定义 = 中文精简提示词 + 工具白名单 + 模型建议。
 - **提示词审查**：见第 6 节，这是 v2 的重头。
-- 不引入"11 个智能体 + 变体路由"的复杂度（那是 omo 为多模型护栏而设）；dsh v2 先做 4-5 个精干 agent，模型路由留待需要时。
+- dsh v2 先做 4-5 个精干 agent，不过度设计多 agent + 变体路由；模型路由留待需要时。
 
 ## 6. 提示词审查计划（用户指定：中文 + 精简 + 逐个审查）
 
 ### 6.1 审查对象清单
 
-| 提示词 | 现状（omo） | 审查动作 |
+| 提示词 | 现状 | 审查动作 |
 |---|---|---|
-| ultrawork 模式 | `prompts/ultrawork/default.md` 339 行英文，威胁性强调堆砌 | 逐条提取行为约束，中文重写，目标 ≤ 100 行 |
-| agents（planner/reviewer/executor/explorer/debugger） | omo 11 agent 各有长提示词 | 按 dsh 实际职责从零起草中文精简版，不复刻 omo 原文 |
+| ultrawork 模式 | 见 prompts-review/ultrawork.md（自主设计） | 中文精简稿已产出，目标 ≤ 100 行 |
+| agents（planner/scout/librarian/task/reviewer/advisor） | 角色体系见 [roles.md](roles.md)，中文稿见 prompts-review/*.md | 按 roles.md 的合并/重命名/新增逐个重写 |
 | work-rules | v1 英文默认文案 | 中文重写 |
 | orient 会话消息 | v1 英文 | 中文重写 |
-| mode 提示（search/analyze） | omo `prompts/mode/*` | 中文重写 |
+| mode 提示（search/analyze） | 桌面工作流文件 | 中文重写 |
 
 ### 6.2 审查流程（每个提示词走同一套）
 
-1. **提取**：列出原文的每条可执行约束（行为 → 触发条件 → 后果），丢弃情绪化措辞与重复强调（"MUST" 三连、CODE RED、叹号堆砌）。
-2. **中文重写**：每条约束用一句话中文陈述；保留必须的行为语义（如"写代码前先写失败测试"），不保留文体。
-3. **精简校验**：目标中文稿 ≤ 原文 50%（ultrawork 明确 ≤ 100 行）；无 em 破折号、无 AI 填充词（simply/obviously/moreover）。
-4. **行为守恒核对**：重写稿每一条都能对应回原稿的某条约束（建映射表），确保精简不丢行为。
+1. **起草/提取**：明确该提示词的职责边界与来源素材；列出要表达的可执行约束（行为 → 触发条件 → 后果），丢弃情绪化措辞与重复强调（大写 MUST 连用、叹号堆砌）。
+2. **中文精简**：每条约束用一句话中文陈述；保留必须的行为语义（如"写代码前先写失败测试"），不保留文体。
+3. **精简校验**：目标中文稿 ≤ 100 行（或足够精简）；无 em 破折号、无 AI 填充词（simply/obviously/moreover）。
+4. **行为守恒核对**：每一条都能对应回来源素材的某条约束（建映射表），确保精简不丢行为。
 5. **实驱验证**：在真实 dsh 会话中分别触发每个 agent / 模式，确认行为约束生效（见第 8 节 QA）。
 
 ### 6.3 评审门槛
 
-- 每个提示词交付物 = 中文稿 + 与原稿的约束映射表 + 实驱证据。缺一不算完成。
+- 每个提示词交付物 = 中文稿 + 约束来源映射表 + 实驱证据。缺一不算完成。
 - 用户对提示词有一票否决权：审查产出先过用户，再进代码。
 
 ## 7. 移植清单与里程碑
@@ -219,27 +219,27 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 路由 | 单测 + 实驱 |
 | **M7 LSP + comment-checker** | 最小 LSP 集 + 写后校验 | 实驱 |
-| **M8 Team mode（roadmap）** | 多智能体并行协调：team_* 工具 + 事件处理器，参照 omo team-mode 存储布局与成员 eligibility | 单测 + 多 agent 并行实驱 |
+| **M8 Team mode（roadmap）** | 多智能体并行协调：team_* 工具 + 事件处理器，存储布局与成员 eligibility 自建 | 单测 + 多 agent 并行实驱 |
 
 依赖顺序：M2 的提示词审查贯穿始终（agents/模式提示词先定稿，M3-M6 的注入文本才不返工）；M1 → M3/M4 可并行；M5 依赖 M4（boulder worktree_path 字段）；M6 依赖 M2（触发提示词）。M8 属 roadmap，在 M1-M7 全部稳定后启动，其扩展缝（配置门控 + 工具注册表挂载点）已在总体架构预留。
 
 ## 8. 验证策略（QA）
 
-沿用 oh-my-openagent 的 QA 纪律，但按 dsh 实驱落地：
+按 dsh 实驱落地：
 
 1. **单测**：`node --test`（现有 `tests/unit.test.mjs` 扩展）。纯逻辑（boulder 冲突合并、worktree 解析、路径校验）必须有单测，尤其**并发写冲突单测**（两个 mutate 交错 → 合并结果正确）。
-2. **dsh 实驱**：隔离 `$DSH_HOME`（参照 omo 的 XDG 隔离纪律），`dsh --profile <sandbox>` 真实加载插件，逐项断言：
+2. **dsh 实驱**：隔离 `$DSH_HOME`，`dsh --profile <sandbox>` 真实加载插件，逐项断言：
    - 守卫：写未读文件 → 拒绝；
    - 续作：turn-stopping 后 todo 未清 → 注入继续；
    - boulder：两个会话交错写 → 无丢失更新；
    - worktree：会话在 worktree 内续作 → 上下文正确。
-3. **证据**：每次实驱记录到 `.omo/evidence/`（继承 omo 的约定），证明隔离（真实 `$DSH_HOME` 未动）。
+3. **证据**：每次实驱记录到 `.omo/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
 4. **提示词验证**：每个 agent/模式一次实驱触发，输出行为核对。
 
 ## 9. 风险与开放问题
 
 - **dsh API 稳定性**：Cordis 4 是 deepseek-harness vendored 的，事件负载字段（尤其 `agent/request`、`agent/pre-step`）需在 M1 用真实 dsh 核实后再定守卫实现。
-- **LSP 集成成本**：omo 的 lsp 栈（lsp-tools-mcp + lsp-daemon）是独立进程 + stdio MCP，dsh 无 MCP 层则需直接内嵌或走工具直调；M7 先做最小集控制风险。
-- **comment-checker 二进制**：omo 用 `@code-yeongyu/comment-checker` 二进制；dsh 侧需确认可用或换实现。
+- **LSP 集成成本**：dsh 无 MCP 层则需直接内嵌 LSP 或走工具直调；M7 先做最小集控制风险。
+- **comment-checker 二进制**：需确认 dsh 侧可用实现或换方案。
 - **worktree 与 Windows**：dsh 跨平台，`git worktree` 路径处理（长短路径、大小写）需在 Windows 上实测（本项目仓库本身就在 Windows 上开发）。
-- **不预抽 Core 包**：单一宿主的现实选择；若未来出现第二个 dsh 系 harness，再按 omo 的 Core 分层抽取。
+- **不预抽 Core 包**：单一宿主的现实选择；若未来出现第二个 dsh 系 harness，再按 MIT 生态的 Core 分层思路抽取。

@@ -58,4 +58,4 @@ advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实
 
 ## 易混淆来源（已纠正）
 
-- **oracle / metis 不是"advisor 模式"**：它们是 oh-my-openagent（omo）按需委派的独立顾问 agent（oracle=战略技术顾问、metis=预规划顾问），带 `category: "advisor"` 元数据标签，但与 omp 的伴随 advisor 是不同架构。上一版占位稿将二者列为源材料，系误判，已更正。
+- **"按需委派的顾问 agent" ≠ 伴随 advisor**：部分 agent 生态（如 omp 之外的一些 harness 插件）会把"按需委派的外部顾问"（如战略技术顾问、预规划顾问）标为 advisor 类的元数据。那是主 agent 显式调用、响应一次的子 agent，与 omp 的伴随 advisor（常驻旁听、逐条审查、动态回注）是不同架构。本稿采用 omp 的伴随模型。
