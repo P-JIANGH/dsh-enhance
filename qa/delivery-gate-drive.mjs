@@ -1,11 +1,15 @@
-// delivery-gate 交付门卫 —— dsh 实驱 QA 脚本（占位）
+// delivery-gate 交付门卫 —— dsh 实驱 QA 脚本（占位，2026-08-25 测试轮更新）
 //
 // 目的：在真实 dsh 会话中验证交付门卫的"完成声明拦截 → 回归审查 → 回灌"。
 // 反向场景：向会话发出"假完成声明"（无证据），断言被 delivery-gate 拦截并
 // 回灌入口契约，而不是被当作交付放行。
 //
-// 依赖：M3 落地后 delivery-gate 实现了真实模块（tests/delivery-gate.test.mjs
-// 的单测已定义契约）。本脚本接上真实 dsh 实驱；占位阶段提供脚本骨架与断言，未跑。
+// 状态（2026-08-25 e2e 测试轮）：
+//   - delivery-gate 状态机/完成声明/goal 消歧已在单测覆盖（tests/delivery-gate.test.mjs 12 例通过）。
+//   - 真实会话触发（goal.status=done + remaining_todos=0 + active_work）依赖 boulder_*/goal_* 工具，
+//     而本轮 e2e 发现这些工具的 output.schema 与其返回字段（ok/active_work/goal）不匹配，
+//     被 harness "returned invalid output" 拒绝 → 真实会话里无法稳定建立要触发 delivery-gate 的状态。
+//   - 因此 delivery-gate 的 e2e 判定为 inconclusive（受上述工具 schema 缺陷阻塞），缺陷见 qa-e2e 证据。
 //
 // 运行约定（架构第 8 节）：
 //   1. 隔离 $DSH_HOME（真实用户目录不动）
