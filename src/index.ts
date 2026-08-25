@@ -17,6 +17,7 @@ import { registerWorkRules } from './hooks/work-rules.js'
 import { registerSkillsProvider } from './features/skills-provider.js'
 import { registerToolGuards } from './tools/guard-register.js'
 import { registerBoulderTools } from './tools/boulder-tools.js'
+import { registerWorktreeTools } from './tools/worktree-tools.js'
 import { registerRulesInjector } from './hooks/rules-injector.js'
 import { registerStartWorkHook } from './hooks/start-work.js'
 import { registerTodoContinuationHook } from './hooks/todo-continuation.js'
@@ -51,15 +52,21 @@ export interface Config {
   /**
    * Master switch for the security/quality guard hooks (write-existing,
    * path-traversal, bash-file-read, output truncator, rules injector) and the
-   * delivery gate. Architecture §5.2/§5.3. Default off until M3 is wired.
+   * delivery gate. Architecture §5.2/§5.3. Default on.
    */
   guards?: boolean
   /**
    * Master switch for work tracking (boulder + goal storage, write token,
-   * start-work / todo-continuation hooks). Architecture §5.5. Default off
-   * until M4 is wired.
+   * start-work / todo-continuation / delivery-gate hooks). Architecture §5.5.
+   * Default on.
    */
   workTracking?: boolean
+  /**
+   * Worktree support (architecture §5.6): worktree_create/list/cleanup tools and
+   * the start-work "you are in a worktree" continuation note. Requires
+   * workTracking (boulder records own the worktree_path). Default on.
+   */
+  worktree?: boolean
 }
 
 /** Runtime schema for the plugin row. */
@@ -69,6 +76,7 @@ export const Config: z<Config> = z.object({
   doctorTool: z.boolean().default(true),
   guards: z.boolean().default(true),
   workTracking: z.boolean().default(true),
+  worktree: z.boolean().default(true),
 })
 
 /**
@@ -82,6 +90,7 @@ export function apply(ctx: Context, config: Config): void {
   const doctorTool = config.doctorTool ?? true
   const guards = config.guards ?? true
   const workTracking = config.workTracking ?? true
+  const worktree = config.worktree ?? true
 
   registerSkillsProvider(ctx)
   if (workRules) registerWorkRules(ctx, workRules)
@@ -98,11 +107,15 @@ export function apply(ctx: Context, config: Config): void {
   // M3: delivery gate consumes goal/boulder, so it rides the same switch.
   registerDeliveryGateHook(ctx, workTracking)
 
+  // M5: worktree tools (depend on boulder linkage).
+  registerWorktreeTools(ctx, workTracking && worktree)
+
   registerDoctorTool(ctx, {
     workRulesChars: workRules.length,
     orientOnSessionStart,
     doctorTool,
     guards,
     workTracking,
+    worktree,
   }, doctorTool)
 }

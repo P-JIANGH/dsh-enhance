@@ -18,6 +18,8 @@
 | `tests/guards.test.mjs` | 守卫逻辑（write-existing/path-traversal/bash-read/truncator） | M3 | ✅ 9 例 |
 | `tests/rules.test.mjs` | rules-injector（AGENTS.md / .omd/rules/ 发现） | M3 | ✅ 4 例 |
 | `tests/delivery-gate.test.mjs` | 交付门卫状态机 + 完成声明（含 goal 消歧）+ verify/反拿/报告 | M3 | ✅ 12 例 |
+| `tests/worktree.test.mjs` | git-runner（run/must/GitError）、naming、validation | M5 | ✅ 9 例 |
+| `tests/worktree-manager.test.mjs` | WorktreeManager（create/find/cleanup/reuse）+ boulder-link 联动 + porcelain 解析 | M5 | ✅ 6 例 |
 
 ## 2. dsh 实驱脚本
 
@@ -34,7 +36,7 @@
 |---|---|---|---|
 | M3 | delivery-gate 在真实会话中的"完成声明→审查→回灌→通过"闭环 | 状态机/声明/verify 单测已实现 | 真实会话触发完成声明 → 拦截并回灌；改受保护文件被 verify 揭穿（`--llm`） |
 | M4 | boulder 跨会话交错写 / 双 execute 串行 | 并发合并单测已实现 | 两个真实会话交错写 → 无丢失更新（`--llm`） |
-| M5 | worktree manager + boulder 联动 | worktree 路径校验（symlink 逃逸 / `..` 溢出 / 大小写）；git-runner 注入单测 | worktree 内会话续作 → 上下文正确 |
+| M5 | worktree 内会话续作（真实 worktree 创建） | 单测已实现（见第 1 节 15 例 worktree 测试） | 真实会话在 worktree 内续作 → 上下文正确（`--llm`） |
 | M6 | skill-trigger 意图路由 | 意图分类 / 优先级仲裁 / 误触回退单测 | 多模式命中/误触回退注入实驱 |
 | M7 | 最小 LSP 集 + comment-check | LSP 响应解析 | 写后校验实驱 |
 | M8 | team mode（roadmap） | team_* 工具单测 | 多 agent 并行实驱 |

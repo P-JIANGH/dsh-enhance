@@ -40,7 +40,7 @@ async function startWorkFor(agent: Agent): Promise<void> {
       `正在继续的工作：${work.id}`,
       work.plan_name ? `计划：${work.plan_name}` : '',
       `状态：${work.status}`,
-      work.worktree_path ? `worktree：${work.worktree_path}` : '',
+      work.worktree_path ? `worktree：${work.worktree_path}（独立 worktree，可并行不抢写令牌）` : '',
       `关注的会话：${(work.session_ids ?? []).length} 个`,
     ].filter(Boolean)
 

@@ -91,6 +91,7 @@ The package is ESM with zero runtime dependencies: all `@deepseek-ai/dsh-*` impo
 - **M2 ✅ prompt review**: all prompts reviewed & Chineseized; 6-role system adopted.
 - **M3 ✅ guards + delivery-gate**: write-existing/path-traversal/bash-read guards, rules-injector, delivery-gate state machine + verify binding + tamper resistance + completion report.
 - **M4 ✅ work tracking**: boulder (CAS, work-merge), goal storage, write token, start-work + todo-continuation + delivery-gate hooks.
-- M5 worktree, M6 skill-trigger routing, M7 LSP/comment-check.
+- **M5 ✅ worktree**: WorktreeManager (create/list/find/cleanup/reuse), naming + path validation, boulder linkage, worktree_create/list/cleanup tools, start-work "you are in a worktree" continuation.
+- M6 skill-trigger routing, M7 LSP/comment-check.
 - M8 team mode (roadmap, post-stabilization).
 - More packaged skills (debugging, refactoring, docs-writing); a CLI surface; theme-like prompt presets.
