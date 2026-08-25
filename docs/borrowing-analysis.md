@@ -23,7 +23,7 @@ lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork�
 
 `lazycodex-executor-verify`（Codex `SubagentStop` hook）把"必须有证据"从 prompt 约束升级为 hook 强制：
 
-- 收据契约：`last_assistant_message` 含 `EVIDENCE_RECORDED: <path>`，path 必须是非空常规文件、位于 `<cwd>/.omo/evidence/` 内（symlink 拒、realpath 包含检查、traversal 安全）。
+- 收据契约：`last_assistant_message` 含 `EVIDENCE_RECORDED: <path>`，path 必须是非空常规文件、位于 `<cwd>/.omd/evidence/` 内（symlink 拒、realpath 包含检查、traversal 安全）。
 - 重试预算：3 次受阻后放行（`MAX_ATTEMPTS=3`，state 原子写 tmp+rename）；context-pressure 标记（"context compacted" 等）直接放行；无关 agent/畸形输入静默 exit 0（fail-open）。
 - 白名单：`RECEIPT_ENFORCED_AGENTS` 只约束 worker 类 agent（low/medium/high），只读审查角色不受限。
 

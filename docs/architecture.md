@@ -22,7 +22,7 @@ oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格�
 
 延后实现（roadmap feature，v2 只预留扩展缝、不实现）：
 
-- **Team mode**（多智能体并行协调）——dsh 侧需在 M1 实测后由插件层自建：`team_mode.enabled` 配置门控 + 独立工具注册表 + 存储布局（`~/.omo/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
+- **Team mode**（多智能体并行协调）——dsh 侧需在 M1 实测后由插件层自建：`team_mode.enabled` 配置门控 + 独立工具注册表 + 存储布局（`~/.omd/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
 
 ## 2. 设计原则
 
@@ -101,7 +101,7 @@ oh-my-dsh/
 
 | 注入 | 行为 |
 |---|---|
-| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.omo/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
+| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.omd/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
 | `skill-trigger` | 检测输入意图（ultrawork / search / analyze），注入对应模式提示词 |
 | `work-rules` | v1 已有，保留 |
 
@@ -135,7 +135,7 @@ oh-my-dsh/
 
 现状问题：多会话/多 worktree 若对同一份共享状态做无约束写入（直接覆盖 + 无锁 + 散落 read-modify-write），并发会丢更新。oh-my-dsh 的 boulder 从第一版就按防冲突设计：
 
-**存储位置**：仓库根（`git rev-parse --show-toplevel`）的 `.omo/boulder.json`，全 repo 唯一实例。所有 worktree 的会话共享这一份，work 通过 `worktree_path` 字段关联——杜绝同 repo 多 worktree 各自持有副本导致的分叉。
+**存储位置**：仓库根（`git rev-parse --show-toplevel`）的 `.omd/boulder.json`，全 repo 唯一实例。所有 worktree 的会话共享这一份，work 通过 `worktree_path` 字段关联——杜绝同 repo 多 worktree 各自持有副本导致的分叉。
 
 **写入协议**（核心）：
 
@@ -147,7 +147,7 @@ oh-my-dsh/
    - `session_ids` / `task_sessions` / `session_origins` 取并集（会话是追加型数据，不该互相覆盖）；
    - 根级 `active_work_id` 以最后成功写入者为准；
    - `plan_name` / `status` 等标量：冲突时保留写入方值并记录 `conflict_log`。
-5. **进程级锁**：`.omo/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
+5. **进程级锁**：`.omd/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
 6. **schema 校验**：写入前 Zod 校验（自建 schema），坏文件读为 null 不崩溃。
 
 **Goal 存储**：session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
@@ -233,7 +233,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
    - 续作：turn-stopping 后 todo 未清 → 注入继续；
    - boulder：两个会话交错写 → 无丢失更新；
    - worktree：会话在 worktree 内续作 → 上下文正确。
-3. **证据**：每次实驱记录到 `.omo/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
+3. **证据**：每次实驱记录到 `.omd/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
 4. **提示词验证**：每个 agent/模式一次实驱触发，输出行为核对。
 
 ## 9. 风险与开放问题
