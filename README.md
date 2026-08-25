@@ -12,7 +12,7 @@ Inspired by the `oh-my-pi` ecosystem and open-source agent enhancement tools: op
 | **Work-rules section** | A persistent system-prompt section (`oh-my-dsh/work-rules`) with general working discipline | `workRules: ''` |
 | **Orientation hook** | At each session start, injects one message naming the active bundle and its skills | `orientOnSessionStart: false` |
 | **Doctor tool** | `oh_my_dsh_doctor` reports live assembly state: loaded plugin, registered skills, effective config | `doctorTool: false` |
-| **Agent presets** (`planner`, `reviewer`) | Optional preset directories shipped in `presets/` | Not mounted by default |
+| **Agent presets** (`planner`, `reviewer`, `scout`, `librarian`, `task`) | Optional preset directories shipped in `presets/`, generated from `prompts/agents/` single sources | Not mounted by default |
 
 ## Install
 
@@ -58,10 +58,12 @@ The plugin row takes a `config` block — override it in your profile's `cordis.
 
 ## Agent presets (optional)
 
-`presets/` ships two agent compositions (`planner`, `reviewer`) for `dsh-agent-presets`. They are **not mounted by default** because mounting the agent-presets row claims the profile's preset roster. To use one:
+`presets/` ships five agent compositions for `dsh-agent-presets`: **planner / reviewer / scout / librarian / task**. (The v2 role set, see `docs/roles.md`, also includes **advisor**, but it is a session-level companion-review mechanism, not a standalone preset persona.) They are **not mounted by default** because mounting the agent-presets row claims the profile's preset roster. To use one:
 
 1. Copy the preset directory into your presets root, e.g. `$DSH_HOME/.agent-presets/planner/`, or point `agent-presets.roots` at `<install>/node_modules/oh-my-dsh/presets`.
 2. Select it as the default preset for the profile.
+
+The preset directories are generated from the single-source persona files under `prompts/agents/` — edit the `.persona.md`, then `pnpm sync:presets`. Never hand-edit `presets/`; a byte-pin test (`tests/presets-pin.test.mjs`) fails if the generated output drifts from the source.
 
 ## Development
 

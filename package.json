@@ -25,6 +25,7 @@
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "sync:presets": "node scripts/sync-presets.mjs",
     "test": "node --test",
     "test:gate": "node --test tests/delivery-gate.test.mjs",
     "qa:gate": "node qa/delivery-gate-drive.mjs"

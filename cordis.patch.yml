@@ -4,7 +4,10 @@
 # claims the profile's preset roster, which collides with any other bundle that
 # already mounts it. To enable, remove the `disabled: true` line, point `roots[0].path`
 # at this package's presets directory (e.g. <install>/node_modules/oh-my-dsh/presets),
-# and pick the `default` preset id you want (planner | reviewer).
+# and pick the `default` preset id you want (planner | reviewer | scout | librarian | task).
+#
+# The preset directories are generated from the single-source persona files under
+# prompts/agents/ — edit those, then `pnpm sync:presets`. Never hand-edit presets/.
 - insert:
     - id: oh-my-dsh
       name: oh-my-dsh

@@ -24,7 +24,7 @@ export const BUNDLED_RANK = 600
 export const SOURCE = 'bundled'
 
 /** Absolute path of the packaged skill bundles directory. */
-export const SKILLS_ROOT = fileURLToPath(new URL('../skills/', import.meta.url))
+export const SKILLS_ROOT = fileURLToPath(new URL('../../skills/', import.meta.url))
 
 /** A parsed SKILL.md body: frontmatter metadata plus the instruction body. */
 export interface ParsedSkill {

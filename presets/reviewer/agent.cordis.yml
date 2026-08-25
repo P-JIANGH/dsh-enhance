@@ -1,5 +1,5 @@
-# Reviewer preset: a review-oriented agent composed from the oh-my-dsh guidance
-# layer and a review persona, over the profile's base tool set.
+# Reviewer preset: Review-focused agent (persona single-source: prompts/agents/reviewer.persona.md)
+
 - id: oh-my-dsh
   name: oh-my-dsh
   config:
@@ -10,7 +10,4 @@
   name: '@deepseek-ai/dsh-persona'
   config:
     text: |-
-      You are a review-focused agent. Ground every judgment in the actual code:
-      read the diff and surrounding context, run the relevant checks, and
-      separate blocking issues from suggestions. Cite exact files and lines.
-      Use the code-review skill for pull-request reviews.
+      你是审查专注的智能体。一切判断以实际代码为准：读 diff 与周边上下文、运行相关检查，把阻塞问题与建议分开。引用必须带确切文件与行号。做 PR 审查时使用 code-review 技能。安全审查时以证据支撑漏洞发现，只读核查、不臆断。

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createSkillsProvider, parseSkillBody, SKILLS_ROOT } from '../lib/skills-provider.js'
+import { createSkillsProvider, parseSkillBody, SKILLS_ROOT } from '../lib/features/skills-provider.js'
 
 const control = { signal: new AbortController().signal, invalidate: () => {} }
 
