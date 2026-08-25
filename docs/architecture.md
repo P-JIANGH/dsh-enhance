@@ -128,8 +128,55 @@ oh-my-dsh/
 ### 5.4 技能体系与触发路由
 
 - **技能池**：v1 的 `code-review` / `git-workflow` / `tdd` + 新增 `debugging` / `refactoring` / `docs-writing`（README roadmap 已预告）。每个 SKILL.md 遵循 dsh 标准 frontmatter。
-- **触发路由**（skill-trigger）：`agent/request` 上做轻量意图分类（关键词 + 正则），命中则通过 `agent.inject` 注入"建议加载技能 X"提示，不强制、不重写用户输入。优先级低于显式 `/skill:` 调用。
+- **触发路由**（skill-trigger）：声明式意图路由，把用户输入映射到对应的 mode 提示词或技能加载建议（见 5.4.1）。
 - **技能自检**：doctor 工具列出当前会话可见技能（v1 已实现 `ctx.skills.list`）。
+
+### 5.4.1 意图路由体系（声明式 + 意图分类）
+
+把"用户输入 → 该做什么"的判定做成显式、可审计、可扩展的路由层，而不是散落的 if/正则。
+
+**两层判定**：
+
+1. **意图分类（第一层）** —— 先把输入归入一个意图维度，据此路由：`ctx.on('agent/request')` 上先做意图分类，把用户消息归入五类意图之一：
+
+   | 意图 | 语义 | 典型触发词 | 主要落点 |
+   |---|---|---|---|
+   | `research` | 研究/查证 | search/调研/有哪些/怎么用/文档 | scout / librarian / search 模式 |
+   | `investigation` | 调查/定位根因 | 为什么/定位/排查/错误原因是 | debugger / investigate 流程 |
+   | `evaluation` | 评估/审查/比较 | reviewer/审查/评估/对比/审查代码 | reviewer / analyze 模式 |
+   | `implementation` | 实现/改动 | 实现/添加/修复/重构/写 | ultrawork 或 task worker |
+   | `fix` | 明确排障修复 | 修 bug/修复/解决报错 | debugger + task |
+
+2. **意图 → 技能/mode 路由（第二层）** —— 意图判定后再精确匹配到具体 mode / skill：
+
+   - **声明式规则表**：每个触发目标（mode 如 ultrawork/search/analyze，skill 如 code-review/git-workflow/tdd）自带一份**触发规则**（关键词 + 正则 + 1-2 个正例）。规则集中在一个 `pattern-rules` 数据文件，而非散落在各处。
+   - **确定性优先**：显式的 `/skill:foo` 或 `/mode:ultrawork` 调用 > 意图分类 > 模糊关键词。任何显式指令最高优先，rule 不得覆盖。
+
+**匹配优先级（仲裁）** —— 一个输入可能命中多种规则，按此顺序裁决：
+
+1. **显式指令**：`/skill:` `/mode:` 前缀 —— 最高，直接命中，不再做意图分类。
+2. **精确强规则**：紧耦合关键词（`foo` 技能名、`ultrawork`/`ulw` 等专有触发词）。
+3. **意图维度匹配**：落入某个意图后，该意图的默认落点（如 `research`→search）。
+4. 同优先级多条命中时：**输入含专有词的那个优先**；仍并列则不注入（交给主 agent 自己判断）。
+
+**注入方式（不劫持）**：
+
+- 命中 mode → `agent.inject` 注入对应**模式提示词**（如 ultrawork 协议、search/analyze 流程）。
+- 命中 skill → `agent.inject` 注入**"建议加载技能 X"**提示，让主 agent 决定是否 `skill` 工具加载。
+- **只建议、不强制、不重写**：从不替换用户输入、从不静默执行，优先级始终低于显式调用。
+
+**误触回退**：
+
+- 命中但主 agent 判断用户其实真要别的（如 `evaluation` 命中 analyze 但用户其实要 document）：主 agent 直接忽略注入，或用户 `分析` 被误触反义纠正。
+- 每个注入都标注来源（`[skill-trigger:research→search]`），便于审计与撤销。
+- 规则表冲突/命中过多（>3）时 fallback 到不注入，避免噪声。
+
+**规则表的演进（skill 自描述）**：
+
+- 每个 SKILL.md frontmatter 增加可选 `triggers:`（关键词/正则/正例），构建时汇入 `pattern-rules` 集中表。新增技能 = 更新其 SKILL.md，无需改路由代码。
+- 优先命中分析：可记录"命中但被忽略"事件，帮助后续精简规则。
+
+**与 5.4 技能流的关系**：skill-trigger 是"入口"，doctor 的 `ctx.skills.list` 是"出口/自检"，二者配合让技能体系可发现、可触发、可审计。
 
 ### 5.5 Work tracking：boulder 防冲突设计（重点）
 
@@ -244,7 +291,7 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 | **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector | 单测 + dsh 实驱（写未读文件被拒） |
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
-| **M6 技能与触发** | 新增 skills + skill-trigger 路由 | 单测 + 实驱 |
+| **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
 | **M7 LSP + comment-checker** | 最小 LSP 集 + 写后校验 | 实驱 |
 | **M8 Team mode（roadmap）** | 多智能体并行协调：team_* 工具 + 事件处理器，存储布局与成员 eligibility 自建 | 单测 + 多 agent 并行实驱 |
 
