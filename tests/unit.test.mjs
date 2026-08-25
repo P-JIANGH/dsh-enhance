@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createSkillsProvider, parseSkillBody, SKILLS_ROOT } from '../lib/features/skills-provider.js'
+import { DEFAULT_WORK_RULES } from '../lib/index.js'
 
 const control = { signal: new AbortController().signal, invalidate: () => {} }
 
@@ -42,4 +43,18 @@ test('provider loads a full skill body for a listed candidate', async () => {
 
 test('packaged skills directory exists next to the published code', () => {
   assert.ok(SKILLS_ROOT.length > 0)
+})
+
+test('DEFAULT_WORK_RULES carries the key working-discipline constraints', () => {
+  // Content pin (borrowing-analysis A3): guards against accidental rewording of the
+  // shipped work-rules prose. This is a regression guard, not a behavior assertion.
+  for (const phrase of [
+    'AGENTS.md',
+    'Search before asking',
+    'Make small, reviewable steps',
+    'Report failures honestly',
+    'Keep changes minimal and symmetric',
+  ]) {
+    assert.ok(DEFAULT_WORK_RULES.includes(phrase), `DEFAULT_WORK_RULES should mention: ${phrase}`)
+  }
 })

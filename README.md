@@ -1,6 +1,6 @@
 # oh-my-dsh
 
-oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). One install gives you a curated set of working aids — packaged skills, a persistent work-rules prompt section, a session-start orientation hook, and a doctor tool. Install and go.
+oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). One install gives you a curated set of working aids — packaged skills, a persistent work-rules prompt section, a session-start orientation hook, and a doctor tool — plus a growing v2 surface: a reviewed 6-role agent set (`planner` / `scout` / `librarian` / `task` / `reviewer` / `advisor`), single-source prompt generation, and a delivery-gate discipline. Install and go.
 
 Inspired by the `oh-my-pi` ecosystem and open-source agent enhancement tools: opinionated defaults that make an agent harness noticeably more useful out of the box.
 
@@ -26,7 +26,7 @@ dsh plugin --profile my-profile add oh-my-dsh
 dsh plugin --profile my-profile add ./path/to/oh-my-dsh
 
 # or from git (the package builds itself via `prepare`)
-dsh plugin --profile my-profile add github:you/oh-my-dsh
+dsh plugin --profile my-profile add git@gitcode.com:jiangh_hnr/oh-my-dsh.git
 ```
 
 The bundle is a patch layer: it inserts one `oh-my-dsh` plugin row into the profile. Verify with:
@@ -69,15 +69,27 @@ The preset directories are generated from the single-source persona files under 
 
 ```sh
 pnpm install
-pnpm build      # tsc → lib/
+pnpm build          # tsc → lib/
 pnpm typecheck
-pnpm test       # node --test
+pnpm test           # node --test
+pnpm sync:presets   # regenerate presets/ from prompts/agents/ single sources
 ```
 
 The package is ESM with zero runtime dependencies: all `@deepseek-ai/dsh-*` imports are type-only (erased at build), and `@deepseek-ai/cordis` is a peer provided by the harness.
 
-## Roadmap
+## Design docs
 
-- More skills (debugging, refactoring, docs-writing).
-- A `dsh doctor`-style CLI surface in addition to the model-facing tool.
-- Theme-like prompt presets selectable per session.
+- `docs/architecture.md` — v2 architecture & the M1–M8 milestone plan.
+- `docs/roles.md` — the 6-role agent set (decided; this package implements it).
+- `docs/prompts-review/` — per-prompt review drafts: persona/review sources + constraint-mapping + size check + drive-state.
+- `docs/archive/` — superseded/obsolete documents kept for history.
+- `docs/borrowing-analysis.md` — pattern borrowing from MIT ecosystems (lazycodex, oh-my-pi) and how each lands.
+
+## Roadmap (v2 milestones)
+
+- **M1 ✅ skeleton**: `src/` reorg into per-capability dirs; `prompts/agents/` single sources + generation + byte-pin; 5 agent presets landed.
+- **M2 ✅ prompt review**: all prompts reviewed & Chineseized; 6-role system adopted.
+- M3 guards (write-pending / path-traversal / delivery-gate) — next.
+- M4 work tracking (boulder), M5 worktree, M6 skill-trigger routing, M7 LSP/comment-check.
+- M8 team mode (roadmap, post-stabilization).
+- More packaged skills (debugging, refactoring, docs-writing); a CLI surface; theme-like prompt presets.

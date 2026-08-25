@@ -3,3 +3,4 @@ lib/
 .env
 *.tgz
 .reasonix/
+.omd/
