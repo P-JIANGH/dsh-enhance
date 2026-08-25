@@ -1,7 +1,9 @@
 # oh-my-dsh 角色体系设计（roles）
 
-> 状态：设计稿（角色合并/重命名/重写的依据）
-> 目标：为 oh-my-dsh 定义一套精干、职责清晰、可组合的 agent 角色，替代当前"5 个 persona + 断言的 advisor 去向"。
+> 状态：**已定稿**（2026-08-25 用户确认采用，见 prompts-review/README.md 评审结论 7）。角色合并/重命名/新增已据此落地：
+> - explorer→scout 重命名、executor→task 重命名、debugger 并入 task、security 并入 reviewer（`mode: security`）、新增 librarian、advisor 纳入首批（伴随监督）。
+> - 对应提示词审查稿见 `docs/prompts-review/`（scout.md / task.md / librarian.md / reviewer.md / advisor.md）。
+> 目标：为 oh-my-dsh 定义一套精干、职责清晰、可组合的 agent 角色。
 > 性质：自主设计；借鉴来源均为 MIT（oh-my-pi 角色、lazycodex 组件）；不依赖任何 SUL 项目内容。
 
 ---
@@ -91,11 +93,13 @@ oh-my-dsh 的 agents 目前是 5 个 persona（planner / reviewer / executor / e
 
 ---
 
-## 8. 下一步（重命名 + 重写清单）
+## 8. 落地记录（2026-08-25 已完成）+ 剩余项
 
-1. **重命名**：`docs/prompts-review/explorer.md` → scout，`executor.md` → task；`debugger.md` 并入 task；合并 review 稿中 security 职责进 reviewer。
-2. **重写**：每个角色一份中文精简稿（走 prompts-review 统一流程：职责 → 约束 → 映射表 → 实驱）。
-3. **新增**：librarian.md、以及 advisor 的落地形态（伴随 vs 一次性审查——待 M1 实测 dsh 能力后定稿）。
-4. **同步**：architecture.md 5.7、README、presets/ 目录随之更新。
+**已完成**：
+1. **重命名/合并**：`docs/prompts-review/explorer.md` → `scout.md`；`executor.md` + `debugger.md` → `task.md`；security 职责并入 `reviewer.md`（`mode: security`）。
+2. **新增**：`librarian.md`（查证外部库）。
+3. **同步**：architecture.md 5.7（6 角色 + 并发纪律）、5.4.1 意图路由、prompts-review/README.md、根 README 已更新。
 
-> 待你确认：这套 6 角色体系是否采用？尤其 debugger 并入 task、security 并入 reviewer 这两个合并点，以及 explorer→scout、executor→task 的重命名。
+**剩余项（随 M1 落地）**：
+- advisor 落地形态接线细节待 M1 实驱确认（见 prompts-review/advisor.md）——伴随监督已纳入首批。
+- `presets/` 目录落地 6 角色 persona（当前仅 planner/reviewer），scout/task/librarian/advisor 待加。

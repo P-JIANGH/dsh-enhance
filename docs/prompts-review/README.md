@@ -15,13 +15,15 @@
 | 1b | ultrawork 交付前回归审查 | [ultrawork-review.md](ultrawork-review.md) | 稿就绪（交付回归核对清单，可交 reviewer 执行） |
 | 2 | work-rules | [work-rules.md](work-rules.md) | 稿就绪（原 5 条 + 用户准则 2 条） |
 | 3 | orient 会话开场 | [orient.md](orient.md) | 稿就绪（3 句 → 2 段） |
-| 4 | planner persona | [planner.md](planner.md) | 稿就绪 |
-| 5 | reviewer persona | [reviewer.md](reviewer.md) | 稿就绪 |
-| 6 | executor persona | [executor.md](executor.md) | 稿就绪（新增） |
-| 7 | explorer persona | [explorer.md](explorer.md) | 稿就绪（新增） |
-| 8 | debugger persona | [debugger.md](debugger.md) | 稿就绪（新增） |
+| 4 | planner persona | [planner.md](planner.md) | 稿就绪（保留；可 spawns scout） |
+| 5 | reviewer persona | [reviewer.md](reviewer.md) | 稿就绪（并入 security 口径，6 句） |
+| 6 | scout persona（原 explorer） | [scout.md](scout.md) | 稿就绪（roles.md 重命名） |
+| 7 | task persona（原 executor + debugger 并入） | [task.md](task.md) | 稿就绪（roles.md 重命名 + 合并） |
+| 8 | librarian persona | [librarian.md](librarian.md) | 稿就绪（新增，需 web_search） |
 | 9 | search / analyze 模式 | [search-analyze.md](search-analyze.md) | 稿就绪 |
-| 10 | advisor 模式 | [advisor.md](advisor.md) | **草案（omp 伴随审核模型，待确认移植形态）** |
+| 10 | advisor 模式 | [advisor.md](advisor.md) | 稿就绪（omp 伴随审核模型，已核实 dsh 可实现，2026-08-25 定稿，纳入首批） |
+
+> 角色体系（2026-08-25 确认）：按 [roles.md](../roles.md) 采用 **6 角色体系**——planner / scout / librarian / task(worker) / reviewer / advisor。原 executor/explorer/debugger 已被 scout/task 取代（executor→task、explorer→scout、debugger 并入 task、security 并入 reviewer、新增 librarian），对应审查稿已重命名/合并/新增。
 
 ---
 
@@ -33,14 +35,17 @@
 | ultrawork 交付前回归审查 | 339 行 | 交付核对清单（可交 reviewer） | ✅ |
 | work-rules | 8 行 | 10 行（原 5 条 + 用户准则 2 条新增） | ✅ |
 | orient | 3 句 | 2 段 | ✅ |
-| planner/reviewer | 各 4 句英文 | 各 4-5 句中文 | ✅ |
-| executor/explorer/debugger | 无 | 各 4 句 | 新增 |
+| planner | 4 句英文 | 4 句中文（可 spawns scout） | ✅ |
+| reviewer | 5 句英文 | 6 句中文（并入 security 口径） | ✅ |
+| scout（原 explorer） | 4 句中文 | 4 句中文（add 交接语义） | ✅ |
+| task（原 executor + debugger） | 各 4 句 = 8 句 | 5 句中文（合并去重） | ✅ |
+| librarian | 无 | 3 句中文 | 新增（需 web_search 实驱） |
 | search/analyze | 桌面文件提示词 1 | 各 3 句要点 | ✅（按桌面稿） |
-| advisor | omp 伴随审核模型（待定稿） | 草案 | 待定 |
+| advisor | omp advisor system.md（78 行英文） | 中文可执行约束清单（约 30 行要点） | ✅（2026-08-25 定稿） |
 
 ## 实驱验证状态
 
-- 待做（标注在代码落地后执行）：ultrawork 工作前触发 → 第一响应宣布 + 入口契约生效；交付前触发（deliver 意图）→ 注入 ultrawork-review 回归审查；planner/reviewer persona 在 dsh 会话中加载；work-rules/orient 注入可见。
+- 待做（标注在代码落地后执行）：ultrawork 工作前触发 → 第一响应宣布 + 入口契约生效；交付前触发（deliver 意图）→ 注入 ultrawork-review 回归审查；6 角色 persona（planner/scout/librarian/task/reviewer/advisor）在 dsh 会话中加载；work-rules/orient 注入可见；librarian 的 web_search 工具在 dsh 下的可用性实驱。advisor 需 M1 实驱确认 3 个接线点（见 advisor.md）。
 - dsh CLI 已安装（@deepseek-ai/dsh@0.1.1-rc.2，仓库已更新核实），隔离 $DSH_HOME 实驱脚本留待 M1 骨架重构后随代码一起做（6.2 流程第 5 步）。
 
 ---
@@ -49,9 +54,11 @@
 
 1. ✅ 认可：委派条款保持能力中性，M1 落地时确认 dsh 委派机制（dsh-agent-presets / AgentRegistry）后映射具体工具名。
 2. ✅ 认可：goal 注册条款暂缓，M4 goal 工具落地后补。
-3. ✅ 认可：planner/reviewer/executor/explorer/debugger 五个 persona 维持现状。
+3. ✅ 认可：planner/reviewer/executor/explorer/debugger 五个 persona 维持现状。（**后覆写**：2026-08-25 用户确认改为 roles.md 6 角色体系——见下条 7。）
 4. ✅ 修正：team mode 不是排除，而是 roadmap 延后实现（架构文档 M8）；hyperplan/team 模式因此暂不移植（非排除）。
 5. ✅ 修正：新增两条工作准则注入各提示词——「事实永远在文件」（上下文/会话记录不一定是事实，关键事实以文件为准）+「不臆想、不编造、多提问」；已注入 work-rules 第 6/7 条、ultrawork 一.1、planner/executor、search/analyze。
+6. ✅ 通过（2026-08-25）：**全部提示词审查通过**。1–9 已在更早评审通过；advisor（#10）本次完成——确认源材料为 omp 伴随审核模型，补中文可执行约束清单与精简校验，定为定稿（随 omp M4/M1 移植时执行，dsh 可行性已核实）。reviewer 原稿句数计数校正为 5 句。各提示词的实驱验证仍待代码落地后执行（README 第 7 节统一状态）。
+7. ✅ 角色体系定稿（2026-08-25）：按 roles.md 采用 6 角色体系（planner/scout/librarian/task/reviewer/advisor）。执行：explorer→scout 重命名、executor→task 重命名、debugger 并入 task、security 并入 reviewer（`mode: security`）、新增 librarian、advisor 纳入首批（伴随监督）。审查稿已同步（scout.md / task.md / librarian.md 新增，旧 explorer/executor/debugger 稿删除）。
 
 ---
 

@@ -214,10 +214,10 @@ oh-my-dsh/
    | 意图 | 语义 | 典型触发词 | 主要落点 |
    |---|---|---|---|
    | `research` | 研究/查证 | search/调研/有哪些/怎么用/文档 | scout / librarian / search 模式 |
-   | `investigation` | 调查/定位根因 | 为什么/定位/排查/错误原因是 | debugger / investigate 流程 |
+   | `investigation` | 调查/定位根因 | 为什么/定位/排查/错误原因是 | task（debugging 纪律） / investigate 流程 |
    | `evaluation` | 评估/审查/比较 | reviewer/审查/评估/对比/审查代码 | reviewer / analyze 模式 |
    | `implementation` | 实现/改动 | 实现/添加/修复/重构/写 | ultrawork 工作前或 task worker |
-   | `fix` | 明确排障修复 | 修 bug/修复/解决报错 | debugger + task |
+   | `fix` | 明确排障修复 | 修 bug/修复/解决报错 | task（debugging 纪律） |
 
 2. **意图 → 技能/mode 路由（第二层）** —— 意图判定后再精确匹配到具体 mode / skill：
 
@@ -325,9 +325,9 @@ features/worktree/
 
 dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `presets/` 已验证）。v2 设计：
 
-- **agent 清单**：`planner`（规划）、`reviewer`（审查，v1 已有）+ `executor`（执行）、`explorer`（只读探索）、`debugger`（排障）。每个 agent 定义 = 中文精简提示词 + 工具白名单 + 模型建议。
-- **提示词审查**：见第 6 节，这是 v2 的重头。
-- dsh v2 先做 4-5 个精干 agent，不过度设计多 agent + 变体路由；模型路由留待需要时。
+- **agent 清单（6 角色，roles.md 定稿）**：`planner`（规划）、`scout`（只读探索，原 explorer）、`librarian`（查证外部库）、`task`（执行/worker，原 executor + debugger 并入）、`reviewer`（审查：质量 + 安全，security 并入其口径）、`advisor`（伴随审核，peer-shadow）。每个 agent 定义 = 中文精简提示词 + 工具白名单 + 模型建议。
+- **提示词审查**：见第 6 节，这是 v2 的重头；角色稿见 prompts-review（scout/task/librarian 已按 roles.md 落地）。
+- **并发纪律**（见 5.5.1）：只读角色（planner/scout/librarian/reviewer/advisor）可任意并行；`task` 无独立 worktree 时默认串行（抢写令牌），有独立 worktree 时可并行。
 
 ## 6. 提示词审查计划（用户指定：中文 + 精简 + 逐个审查）
 

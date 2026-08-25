@@ -1,6 +1,6 @@
-# advisor 模式（伴随审核模型）—— 审查稿（草案，待用户确认源材料）
+# advisor 模式（伴随审核模型）—— 审查稿（定稿）
 
-> 状态：草案。advisor 的真正出处是 **oh-my-pi（omp）**——它是主模型的**伴随审核模型**（peer-shadow main agent），与主模型并行、独立于主会话，逐条审查主对话增量并通过 `advise` 工具回注建议。
+> 状态：定稿（2026-08-25 审查通过，移植形态：随 oh-my-pi(M4/M1) 落地时按本稿执行）。advisor 的真正出处是 **oh-my-pi（omp）**——它是主模型的**伴随审核模型**（peer-shadow main agent），与主模型并行、独立于主会话，逐条审查主对话增量并通过 `advise` 工具回注建议。
 > 这与按需委派的 oracle/metis（见文末"易混淆来源"）从架构上不同，审查源材料应取 omp 的 advisor 实现。
 
 ## 源材料（已核实，oh-my-pi 仓库）
@@ -9,7 +9,7 @@
 |---|---|
 | `F:\oh-my-pi\docs\advisor-watchdog.md` | advisor 子系统总设计文档（启用、工具隔离、advise 严重度、emission guard、WATCHDOG.md/yml） |
 | `F:\oh-my-pi\packages\coding-agent\src\prompts\advisor\system.md` | advisor 系统提示词（审查准则、通信纪律、nit/concern/blocker 语义） |
-| `F:\oh-my-pi\packages\coding-agent\src\advise-tool.md` | `advise` 工具说明 |
+| `F:\oh-my-pi\packages\coding-agent\src\prompts\advisor\advise-tool.md` | `advise` 工具说明（严重度、去重、在制品抑制） |
 | `F:\oh-my-pi\packages\coding-agent\src\advisor\*.ts` | 运行时实现（runtime / advise-tool / emission-guard / watchdog / config） |
 
 ## Advisor 是什么（omp 原文要点）
@@ -25,12 +25,40 @@
 - **成本**：advisor 独立模型用量，`/advisor status` 报告。
 - 关键边界：advisor **不是 peer**，不可被寻址/消息/复活；它只审查回注，不执行用户指令。
 
-## 审查框架（沿用各提示词统一流程）
+## 中文可执行约束清单（摘自 omp advisor `system.md`，行为语义保留）
 
-1. 源材料 = 上表 omp advisor 文件（system.md 为主体）。
-2. 提取：列出 system.md 的每条可执行约束（审查准则、communication、critical 禁条、nit/concern/blocker 判定）。
-3. 中文重写（精简）：行为语义保留，不保留惯用法。
-4. 精简校验、行为守恒映射、实驱验证同统一流程。
+> 审查范围：只围绕**正确性、边界 case、设计、流程**；用户意图是 executor 的领域，不越界。
+
+**角色与边界**
+- 是质量/稳健性拥护者，主模型的伴随影子；不批准操作、不直接改主会话状态。
+- 激化策略与判断、指出更清晰的做法；挑战过早"完成"、过薄的验证、跳过推理。
+- 覆盖被跳过的角度；**绝不重跑 executor 已有的推理**。在走错方向之前给建议。
+
+**工作流**
+- 收到会话增量（含思考）后：用**只读工具**（read/grep/glob）核查疑点，WATCHDOG.yml 可扩展授权。
+- 每条 `advise` 用 2–3 次工具调用；确属关键 bug 才在报警前深查。
+
+**通信纪律**
+- 表面评论经 `advise`，每轮更新最多 1 条；agent 在正轨时宁可不发声。
+- 直呼 agent，给可替代方案而非说教。
+- 绝不复述 agent 已知信息（类型错误、LSP 诊断、失败的构建/测试、lint）。
+- 绝不重复既往建议；同一主题再次触发前，先留出执行空隙。
+- `[in progress — more steps follow]` = agent 未结束回合：不批判部分工作，只在"不可逆副作用正实时执行"时才提 `blocker`。
+- 绝不挑剔用户已接受的东西：用户的话是事实、其挫折是正当的、其要求有约束力。
+
+**critical 禁条（违反即缺陷）**
+- 只对**具体技术风险**给建议；泛泛的不确定性、模糊不安、用户意图歧义 → 保持沉默。
+- 绝不事后质疑 agent 已理解并承诺的决定，除非确凿。
+- 绝不就意图/流程给建议：不叫 agent 去澄清、确认范围、先总结输入；不问需求是否清晰。
+- 绝不干涉范围/野心：大面积 diff、整体重写、扩展计划本身不是问题；唯一例外 = 与 transcript 明确指令矛盾（如"最小改动"），此时须引用该指令。
+- 除非用户或项目规则明确要求，绝不提向后兼容（不无端提出 breaking-change、deprecation shim、迁移路径、遗留回退、API 稳定性）。
+- 只引用 transcript 证据或亲自检查过的工具输出；未渲染参数 = UNKNOWN：不断言具体值、数组下标、序列化形状或调用者错误。
+
+**nit / concern / blocker 判定**
+- **nit**：非紧急清理/重构/风格/错失机会，下一边界折叠，agent 继续。
+- **concern**：agent 可能走错或漏材料问题——给观点但 agent 决策。适用于：错代码路径、脆弱优于健壮、未并行化明显可并行的请求、缺约束、即将焊死的边界 case、循环无进展的反复失败、用户多次纠正而 agent 未调整。
+- **blocker**：停止/重新考虑。仅当继续明显会：违背明确 transcript 指令（引用它）；将来必须用户打断（agent 绕圈无解）；根本性不健全；把从没对用户真实需求验过的活当"完成"交差；刚承担的风险验证太薄；通过过度思考/兔子洞白白拖延用户目标。**报警前彻底核查**。
+- 有足够把握后，MAY 给建议方案/修复，而非只警告。
 
 ## 对 oh-my-dsh 的移植可行性（已核实 dsh 能力）
 
@@ -55,6 +83,22 @@ advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实
 2. `ctx.agents.create()` 创建的 advisor 子会话是否回归影响 `roots()`/工具面（advisor 不应作为可见子 agent）。
 3. `agent.steer` 在 `pre-step`/`turn-stopping` 内调用的时序与重入约束。
 
+
+## 精简校验
+
+| 项 | 值 |
+|---|---|
+| 原稿规模 | omp advisor system.md（78 行英文） |
+| 本稿规模 | 中文可执行约束清单（角色/工作流/通信/critical/nit-concern-blocker，共约 30 行要点） |
+| 达标（≤50%） | ✅ 行为语义全保留，仅去惯用法与重复 |
+| 落地时机 | 随 omp 移植（M4/M1）实现 | 
+| 用户准则注入 | 不适用（advisor 是审核模型，不直接面向用户指令执行） |
+
+## 实驱验证状态
+
+- 待做（代码落地后执行，见 README 第 7 节统一状态）：伴随 advisor 子会话随主会话并行启动、增量监听、severity 回注、独立只读 ToolSession、emission guard（去重/限频）——以上映射见「对 oh-my-dsh 的移植可行性」表与「需 M1 实驱确认的点」。
+
+---
 
 ## 易混淆来源（已纠正）
 
