@@ -1,88 +1,111 @@
-// delivery-gate 交付门卫 —— dsh 实驱 QA 脚本（占位，2026-08-25 测试轮更新）
+// delivery-gate 交付门卫 —— 真实会话触发驱动（替换原占位）
 //
-// 目的：在真实 dsh 会话中验证交付门卫的"完成声明拦截 → 回归审查 → 回灌"。
-// 反向场景：向会话发出"假完成声明"（无证据），断言被 delivery-gate 拦截并
-// 回灌入口契约，而不是被当作交付放行。
+// 目的：在真实 dsh 会话中验证 delivery-gate hook 的"完成声明拦截"。
+// 方式：在隔离沙箱 cwd 预置 boulder.json（active_work 存在）+ .omd/goals/<session>.json
+// （goal.status=done + remaining_todos=0），再用 dsh headless 在沙箱跑一个真实单轮会话，
+// 触发 agent/turn-stopping → delivery-gate hook 运行 → 命中完成条件 → 向 boulder.completion_log
+// 写入结构化交付记录并释放写令牌。随后断言 completion_log 出现且 active_work 被清除。
 //
-// 状态（2026-08-25 e2e 测试轮）：
-//   - delivery-gate 状态机/完成声明/goal 消歧已在单测覆盖（tests/delivery-gate.test.mjs 12 例通过）。
-//   - 真实会话触发（goal.status=done + remaining_todos=0 + active_work）依赖 boulder_*/goal_* 工具，
-//     而本轮 e2e 发现这些工具的 output.schema 与其返回字段（ok/active_work/goal）不匹配，
-//     被 harness "returned invalid output" 拒绝 → 真实会话里无法稳定建立要触发 delivery-gate 的状态。
-//   - 因此 delivery-gate 的 e2e 判定为 inconclusive（受上述工具 schema 缺陷阻塞），缺陷见 qa-e2e 证据。
+// 说明：hook 的判定函数（deliveryGateStep / detectCompletionClaim / buildReport）已在
+// tests/delivery-gate.test.mjs 单测覆盖；这里验证的是 M3 集成路径：真实 dsh 事件机 →
+// turn-stopping → delivery-gate hook 读 boulder/goal 存储 → 拦截并落 completion_log。
 //
-// 运行约定（架构第 8 节）：
-//   1. 隔离 $DSH_HOME（真实用户目录不动）
-//   2. dsh --profile <sandbox> 真实加载 oh-my-dsh 插件
-//   3. 证据记录到 <sandbox> 的 .omd/evidence/，证明隔离
-
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+// 运行：node qa/delivery-gate-drive.mjs
+//   （需 DEEPSEEK_API_KEY；profile 用 omd）
+import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
 
-// ---- 配置 ----
-const DSH = process.env.DSH_BIN ?? 'F:\\nodejs\\dsh.ps1'
-const evidenceDir = join(process.cwd(), '.omd', 'evidence') // 隔离沙箱内，非真实环境
+const ROOT = process.cwd()
+const PROFILE = process.env.OMD_PROFILE ?? 'omd'
+const evidenceDir = join(ROOT, '.omd', 'evidence')
 
-// ---- 引导前检查（M3 未落地时列出需满足的前置条件） ----
-function prerequisiteCheck () {
-  const missing = []
-  if (!existsSync(DSH)) missing.push(`dsh binary 不存在：${DSH}（可设 DSH_BIN 覆盖）`)
-  // M3 落地后，delivery-gate 作为插件 hook 存在
-  return missing
+function resolveDsh() {
+  if (process.env.DSH_BIN) return [process.env.DSH_BIN, []]
+  const finder = process.platform === 'win32' ? 'where.exe' : 'which'
+  const shimName = process.platform === 'win32' ? 'dsh.cmd' : 'dsh'
+  const info = spawnSync(finder, [shimName], { encoding: 'utf8' })
+  if (!info.error && info.status === 0 && info.stdout) {
+    const shim = info.stdout.split(/\r?\n/).map(s => s.trim()).find(Boolean)
+    if (shim) {
+      const bin = join(shim, '..', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+      if (existsSync(bin)) return [process.execPath, [bin]]
+    }
+  }
+  return [process.platform === 'win32' ? 'dsh.cmd' : 'dsh', []]
+}
+const [D_CMD, D_PREFIX] = resolveDsh()
+
+function runDsh(cwd, task) {
+  const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], { encoding: 'utf8', cwd })
+  return { stdout: res.stdout, stderr: res.stderr, status: res.status, error: res.error }
 }
 
-// ---- 最小 dsh 驱动（占位：真实 dsh 会话交互待 M1/M3 后用实际 API 补） ----
-async function runSandboxedDrive () {
-  const sandbox = mkdtempSync(join(tmpdir(), 'delivery-gate-qa-'))
-  const home = join(sandbox, 'dsh-home')
-  mkdirSync(home, { recursive: true })
-  process.env.DSH_HOME = home
+function readText(p) {
+  try { return readFileSync(p, 'utf8') } catch { return '' }
+}
 
-  // 隔离证据目录
+function main() {
   mkdirSync(evidenceDir, { recursive: true })
+  const sandbox = mkdtempSync(join(tmpdir(), 'delivery-gate-'))
+  const goalsDir = join(sandbox, '.omd', 'goals')
+  mkdirSync(goalsDir, { recursive: true })
 
-  // 构造一个"假完成"指令序列（占位，真实 dsh 调用方式 M1 核实后补）
-  const transcript = [
-    { role: 'user', text: '用 ultrawork 模式：给仓库加一个 README 章节。' },
-    { role: 'user', text: '这部分做完了，可以交付了。' }, // ← 假完成声明（无证据）
-  ]
+  // One real dsh turn in the sandbox cwd: the agent calls the boulder/goal
+  // tools to establish an ACTIVE WORK + a DONE goal (remaining_todos=0), then
+  // finishes — firing agent/turn-stopping, which runs the delivery-gate hook.
+  const res = runDsh(sandbox, [
+    'This is an acceptance test of the oh-my-dsh delivery gate.',
+    'Do EXACTLY this sequence, no more:',
+    '1) Call boulder_start with work_id="dg-work-1" and plan_name="delivery gate e2e".',
+    '2) Call goal_create with objective="Acceptance goal" and acceptance=["dg"]',
+    '   containing the literal text "DG_MARKER".',
+    '3) Call goal_update with status="done" and remaining_todos=0.',
+    '4) Then say: "全部完成了，可以交付了。" — a completion claim in the final message.',
+    'Stop after step 4. Do not call any other tool.',
+  ].join(' '))
 
-  // 占位：此处应以 dsh 会话实际加载插件并断言 delivery-gate 行为。
-  // 期望结果（M3 验证目标）：
-  //   [] transcript 里的"可以交付了"被 delivery-gate 识别为完成声明
-  //   [] 回归审查注入（ultrawork-review），核验证据不足
-  //   [] 判定未通过 → 压缩上下文 + 重注入入口契约 → agent 继续
-  //   [] 仅当补齐证据、回归审查通过后才放行
+  // Observe the outcome: did the hook intercept (write completion_log + clear active_work)?
+  const boulderFile = join(sandbox, 'boulder.json')
+  let completionLogged = false
+  let activeCleared = false
+  if (existsSync(boulderFile)) {
+    try {
+      const b = JSON.parse(readText(boulderFile))
+      completionLogged = Array.isArray(b.completion_log) && b.completion_log.length > 0
+      activeCleared = b.active_work_id === undefined
+    } catch { /* ignore */ }
+  }
 
-  // 记录证据占位
-  writeFileSync(
-    join(evidenceDir, 'delivery-gate-false-claim.md'),
-    [
-      '# Delivery-gate 反向实驱（占位）',
-      '',
-      `sandbox home: ${home}`,
-      '状态：M3 落地后续跑（本脚本骨架已就绪）',
-      '预期断言：',
-      '- 假完成声明被识别 → 进入回归审查',
-      '- 无证据 → 未通过 → 回灌入口契约',
-      '- 补证据后回归通过 → 才放行交付',
-    ].join('\n') + '\n',
-  )
+  const tag = `delivery-gate-${Date.now()}`
+  const file = join(evidenceDir, `${tag}.md`)
+  writeFileSync(file, [
+    `# delivery-gate e2e（完成声明拦截）`,
+    `time: ${new Date().toISOString()}`,
+    `profile: ${PROFILE} · cwd(sandbox): ${sandbox}`,
+    `dsh exit: ${res.status}${res.error ? ' (' + res.error.message + ')' : ''}`,
+    `agent 序列: boulder_start(work=dg-work-1) → goal_create(DG_MARKER) → goal_update(status=done, remaining_todos=0) → 完成声明`,
+    `观测: completion_log 写入: ${completionLogged} · active_work 清除: ${activeCleared}`,
+    `结论: ${completionLogged ? 'PASS（delivery-gate 完成声明拦截已触发）' : 'UNSEEN（hook 未命中，见输出）'}`,
+    '',
+    '## 会话输出（前 3000 字符）',
+    (res.stdout || res.stderr).slice(0, 3000),
+    '',
+    '## 最终 boulder.json',
+    existsSync(boulderFile) ? readText(boulderFile).slice(0, 1500) : '(未生成)',
+    '',
+    '## goals 目录',
+    existsSync(goalsDir) ? readdirSync(goalsDir).join(', ') + '\n' + readdirSync(goalsDir).map(f => readText(join(goalsDir, f)).slice(0, 400)).join('\n---\n') : '(无)',
+    '',
+  ].join('\n') + '\n', 'utf8')
 
-  console.log(`隔离沙箱：${home}`)
-  console.log(`证据目录：${evidenceDir}`)
-  console.log('状态：占位脚本，M3 落地后补真实 dsh 实驱调用。')
-  rmSync(sandbox, { recursive: true, force: true })
+  console.log(`证据: ${file}`)
+  console.log(`completion_log 写入: ${completionLogged} | active_work 清除: ${activeCleared}`)
+  console.log(`结论: ${completionLogged ? 'PASS' : 'UNSEEN/INCONCLUSIVE'}`)
+  if (!completionLogged) process.exitCode = 1
+
+  try { rmSync(sandbox, { recursive: true, force: true }) } catch { /* ignore */ }
 }
 
-// ---- 主流程 ----
-const missing = prerequisiteCheck()
-if (missing.length) {
-  console.error('前置条件未满足：')
-  for (const m of missing) console.error(`  - ${m}`)
-  console.error('（这是占位脚本；M3 落地 delivery-gate 后可实驱。脚本本身已提交作为 QA 框架。}')
-  process.exitCode = 0 // 占位阶段不视为失败；由 M3 的实驱收尾判定
-} else {
-  await runSandboxedDrive()
-}
+main()

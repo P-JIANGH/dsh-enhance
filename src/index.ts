@@ -22,12 +22,14 @@ import { registerRulesInjector } from './hooks/rules-injector.js'
 import { registerStartWorkHook } from './hooks/start-work.js'
 import { registerTodoContinuationHook } from './hooks/todo-continuation.js'
 import { registerDeliveryGateHook } from './hooks/delivery-gate.js'
+import { registerSkillTrigger } from './features/skill-trigger.js'
+import { registerAdvisorRuntime } from './features/advisor/runtime.js'
 
 /** Cordis plugin name. */
 export const name = 'oh-my-dsh'
 
 /** Services this plugin waits for before activating. */
-export const inject = ['skills', 'systemPrompt', 'tools']
+export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm']
 
 /** Default work-rules prose: general working discipline, project-agnostic. */
 export const DEFAULT_WORK_RULES = `# Work rules
@@ -67,6 +69,14 @@ export interface Config {
    * workTracking (boulder records own the worktree_path). Default on.
    */
   worktree?: boolean
+  /**
+   * Advisor companion-review runtime (the 6th agent / advisor mode): spawns a
+   * peer-shadow sub-agent per main session that reviews transcript increments
+   * and steers/injects suggestions back. Default on.
+   */
+  advisor?: boolean
+  /** Independent model for the advisor sub-agent. Undefined → inherit the main route. */
+  advisorModel?: string
 }
 
 /** Runtime schema for the plugin row. */
@@ -77,6 +87,8 @@ export const Config: z<Config> = z.object({
   guards: z.boolean().default(true),
   workTracking: z.boolean().default(true),
   worktree: z.boolean().default(true),
+  advisor: z.boolean().default(true),
+  advisorModel: z.string(),
 })
 
 /**
@@ -91,6 +103,8 @@ export function apply(ctx: Context, config: Config): void {
   const guards = config.guards ?? true
   const workTracking = config.workTracking ?? true
   const worktree = config.worktree ?? true
+  const advisor = config.advisor ?? true
+  const advisorModel = config.advisorModel
 
   registerSkillsProvider(ctx)
   if (workRules) registerWorkRules(ctx, workRules)
@@ -109,6 +123,12 @@ export function apply(ctx: Context, config: Config): void {
 
   // M5: worktree tools (depend on boulder linkage).
   registerWorktreeTools(ctx, workTracking && worktree)
+
+  // §5.4: skill-trigger mode routing (ulw / ultrawork).
+  registerSkillTrigger(ctx, { enabled: true })
+
+  // §advisor: companion-review runtime (the 6th agent / advisor mode).
+  registerAdvisorRuntime(ctx, { enabled: advisor, model: advisorModel })
 
   registerDoctorTool(ctx, {
     workRulesChars: workRules.length,

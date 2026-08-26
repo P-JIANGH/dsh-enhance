@@ -4,8 +4,8 @@
 // 覆盖（架构第 8 节 dsh 实驱）：插件加载、work-rules 段、打包技能、doctor 工具。
 //
 // 运行方式（PowerShell）：
-//   node qa/ohmy-drive.mjs --dump    # 零成本：仅确认 bundle 合入 compose config
-//   node qa/ohmy-drive.mjs --llm     # 真实 headless（需 DEEPSEEK_API_KEY，消耗 token）
+//   node qa/omd-drive.mjs --dump    # 零成本：仅确认 bundle 合入 compose config
+//   node qa/omd-drive.mjs --llm     # 真实 headless（需 DEEPSEEK_API_KEY，消耗 token）
 //
 // 隔离纪律（架构 8.2/8.3）：脚本默认记录证据到 <cwd>/.omd/evidence/，
 // 并在输出中标注本次所用的 profile 与 $DSH_HOME，便于审计未污染真实环境。
@@ -55,7 +55,7 @@ function runDsh (args) {
 
 function writeEvidence(tag, content) {
   mkdirSync(evidenceDir, { recursive: true })
-  const file = join(evidenceDir, `ohmy-drive-${tag}.md`)
+  const file = join(evidenceDir, `omd-drive-${tag}.md`)
   writeFileSync(file, content)
   console.log(`证据已记录：${file}`)
 }

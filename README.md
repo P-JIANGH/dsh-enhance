@@ -1,97 +1,125 @@
-# oh-my-dsh
+# oh-my-dsh（`omd`）
 
-oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`). One install gives you a curated set of working aids — packaged skills, a persistent work-rules prompt section, a session-start orientation hook, and a doctor tool — plus a growing v2 surface: a reviewed 6-role agent set (`planner` / `scout` / `librarian` / `task` / `reviewer` / `advisor`), single-source prompt generation, and a delivery-gate discipline. Install and go.
+面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的 oh-my-zsh 风格增强插件。一次安装即可获得：打包的技能、持久的 work-rules 提示词段、会话开场 orient 钩子、doctor 工具，以及不断增长的 v2 能力面：工作追踪（boulder/goal）、守卫 + delivery-gate 纪律、worktree、`ulw` 深度工作模式、advisor 伴随审核运行时，以及一个把 scout / librarian / reviewer / task 作为子代理派发的 oh-my-dsh 编排人设。
 
-Inspired by the `oh-my-pi` ecosystem and open-source agent enhancement tools: opinionated defaults that make an agent harness noticeably more useful out of the box.
+本项目仅称为 **oh-my-dsh**（或其简称 **omd**）。
 
-## What you get
+## 你能获得什么
 
-| Piece | What it does | Turn it off |
+| 能力 | 作用 | 关闭方式 |
 |---|---|---|
-| **Packaged skills** (`code-review`, `git-workflow`, `tdd`) | Skill bundles shipped inside the package and exposed through the standard `skill` tool | `skills` are always on |
-| **Work-rules section** | A persistent system-prompt section (`oh-my-dsh/work-rules`) with general working discipline | `workRules: ''` |
-| **Orientation hook** | At each session start, injects one message naming the active bundle and its skills | `orientOnSessionStart: false` |
-| **Doctor tool** | `oh_my_dsh_doctor` reports live assembly state: loaded plugin, registered skills, effective config | `doctorTool: false` |
-| **Agent presets** (`planner`, `reviewer`, `scout`, `librarian`, `task`) | Optional preset directories shipped in `presets/`, generated from `prompts/agents/` single sources | Not mounted by default |
+| **打包技能**（`code-review`、`git-workflow`、`tdd`） | 随包内置的技能包，通过标准的 `skill` 工具暴露 | 始终开启 |
+| **work-rules 段** | 常驻系统提示词段（`oh-my-dsh/work-rules`），内容为通用工作纪律 | `workRules: ''` |
+| **orient 开场钩子** | 每次会话开始注入一条消息，点名当前激活的插件包与其技能 | `orientOnSessionStart: false` |
+| **doctor 工具** | `oh_my_dsh_doctor` 报告实时装配状态：已加载插件、已注册技能、生效配置 | `doctorTool: false` |
+| **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器、完成声明 delivery-gate | `guards: false` |
+| **工作追踪** | boulder（CAS）+ goal 存储、写令牌、start-work / todo-continuation / delivery-gate 钩子 | `workTracking: false` |
+| **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
+| **`ulw` / ultrawork 模式** | 输入提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`） | — |
+| **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
+| **工作模式** | 在同一能力基底之上的三种可选预设：**OMD 万能**（默认编排者，意图驱动按需委派）、**Planner 计划实施**（固定骨架：scout/librarian 收集 → 澄清 → 计划 → 计划审查 → 用户确认 → 并行 task 执行 → 执行审查）、**Advisor 目标回归**（目标驱动：advisor 持续向目标纠偏，delivery-gate 回归循环直到达标） | 选择对应 persona 预设 / 见 `docs/modes.md` |
+| **Agent 预设** | 底层 6 角色：`planner` / `scout` / `librarian` / `task` / `reviewer` 作为 persona 预设，外加 `advisor`（伴随机制）；上面三种**工作模式**对它们进行编排 | 见 `docs/modes.md` |
 
-## Install
+## 安装
 
-Requires the `dsh` CLI (npm: `@deepseek-ai/dsh`).
-
-```sh
-# from npm (once published)
-dsh plugin --profile my-profile add oh-my-dsh
-
-# or straight from this checkout
-dsh plugin --profile my-profile add ./path/to/oh-my-dsh
-
-# or from git (the package builds itself via `prepare`)
-dsh plugin --profile my-profile add git@gitcode.com:jiangh_hnr/oh-my-dsh.git
-```
-
-The bundle is a patch layer: it inserts one `oh-my-dsh` plugin row into the profile. Verify with:
+需要 `dsh` CLI（npm：`@deepseek-ai/dsh`）。示例使用名为 `omd` 的 profile；如有不同可替换为你自己的 profile 名。
 
 ```sh
-dsh --profile my-profile --dump-config   # look for the "# == oh-my-dsh" layer
+# 发布后
+dsh plugin --profile omd add oh-my-dsh
+
+# 或直接从本 checkout
+dsh plugin --profile omd add ./path/to/oh-my-dsh
+
+# 或从 git（包通过 `prepare` 自构建）
+dsh plugin --profile omd add git@.../oh-my-dsh.git
+
+# 或作为实时调试链接（指向本 checkout；改 src/ 后执行 `pnpm build`）
+dsh plugin --profile omd add link:F:/oh-my-dsh
 ```
 
-## Configure
+本插件是一个补丁层：它向 profile 中插入一行 `oh-my-dsh` 插件。验证方式：
 
-The plugin row takes a `config` block — override it in your profile's `cordis.patch.yml` or home `$DSH_HOME/cordis.patch.yml`:
+```sh
+dsh --profile omd --dump-config   # 查找 "# == oh-my-dsh" 层
+```
+
+### 在 web 中作为可见 persona 启用
+
+若要在 `dsh web` 中可选到 **工作模式预设 / 编排者**（以及可选地底层角色预设），把预设目录复制到 `dsh-agent-presets` 扫描的 harness-home 预设根下：
+
+```sh
+mkdir -p "$HOME/.dsh/.agent-presets"
+cp -r presets/omd "$HOME/.dsh/.agent-presets/"   # 工作模式 A：OMD 万能（默认编排者）
+cp -r presets/planner "$HOME/.dsh/.agent-presets/"   # 工作模式 B：Planner
+cp -r presets/advisor "$HOME/.dsh/.agent-presets/"   # 工作模式 C：Advisor 目标回归
+# 如需，可重复复制 presets/scout、presets/librarian、presets/reviewer、presets/task
+```
+
+`omd` 编排者预设把四个子 persona（`scout` / `librarian` / `reviewer` / `task`）接线为受作用域限制的 `subagent` 工具，各自带 persona 文本与限制其工具面的 `toolFilter`。三种工作模式共享同一工具平面与子代理池，只通过驱动流程的编排人设相区分（见 `docs/modes.md`）。
+
+## 配置
+
+插件行接受一个 `config` 块——可在你的 profile 的 `cordis.patch.yml` 或 home `$DSH_HOME/cordis.patch.yml` 中覆盖：
 
 ```yaml
 - id: oh-my-dsh
   name: oh-my-dsh
   config:
     workRules: |
-      # My team's rules
+      # 团队规则
       Always run the full test suite before pushing.
     orientOnSessionStart: true
     doctorTool: true
 ```
 
-| Field | Default | Meaning |
+| 字段 | 默认 | 含义 |
 |---|---|---|
-| `workRules` | built-in discipline prose | Prompt-section text; empty string drops the section |
-| `orientOnSessionStart` | `true` | Inject the one-time orientation message at session start |
-| `doctorTool` | `true` | Register the `oh_my_dsh_doctor` tool |
+| `workRules` | 内置纪律文案 | 提示词段文本；空字符串则移除该段 |
+| `orientOnSessionStart` | `true` | 会话开始时注入一次性开场消息 |
+| `doctorTool` | `true` | 注册 `oh_my_dsh_doctor` 工具 |
+| `guards` | `true` | 守卫钩子 + rules 注入器 + delivery-gate 的总开关 |
+| `workTracking` | `true` | boulder/goal 存储、写令牌、工作钩子的总开关 |
+| `worktree` | `true` | `worktree_create/list/cleanup` 工具（需要 workTracking） |
+| `advisor` | `true` | Advisor 伴随审查运行时 |
+| `advisorModel` | — | advisor 子代理的独立模型；默认继承主 agent 的路由 |
 
-## Agent presets (optional)
-
-`presets/` ships five agent compositions for `dsh-agent-presets`: **planner / reviewer / scout / librarian / task**. (The v2 role set, see `docs/roles.md`, also includes **advisor**, but it is a session-level companion-review mechanism, not a standalone preset persona.) They are **not mounted by default** because mounting the agent-presets row claims the profile's preset roster. To use one:
-
-1. Copy the preset directory into your presets root, e.g. `$DSH_HOME/.agent-presets/planner/`, or point `agent-presets.roots` at `<install>/node_modules/oh-my-dsh/presets`.
-2. Select it as the default preset for the profile.
-
-The preset directories are generated from the single-source persona files under `prompts/agents/` — edit the `.persona.md`, then `pnpm sync:presets`. Never hand-edit `presets/`; a byte-pin test (`tests/presets-pin.test.mjs`) fails if the generated output drifts from the source.
-
-## Development
+## 开发
 
 ```sh
 pnpm install
 pnpm build          # tsc → lib/
 pnpm typecheck
 pnpm test           # node --test
-pnpm sync:presets   # regenerate presets/ from prompts/agents/ single sources
+pnpm sync:presets   # 从 prompts/agents/<role>.persona.md 重新生成 presets/<role>/
+node scripts/sync-omd-preset.mjs   # 重新生成 presets/omd/（编排者 + 子代理行）
 ```
 
-The package is ESM with zero runtime dependencies: all `@deepseek-ai/dsh-*` imports are type-only (erased at build), and `@deepseek-ai/cordis` is a peer provided by the harness.
+包是 ESM，零运行时依赖：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除），`@deepseek-ai/cordis` 由 harness 作为 peer 提供。
 
-## Design docs
+贡献者的工作纪律：先读 `AGENTS.md`；改动 prompts 或 roles 之前先查看 `docs/architecture.md` 与 `docs/roles.md`；persona 文本单源维护在 `prompts/agents/`（绝不手改生成的 `presets/`——字节锁定测试强制这一约定）。
 
-- `docs/architecture.md` — v2 architecture & the M1–M8 milestone plan.
-- `docs/roles.md` — the 6-role agent set (decided; this package implements it).
-- `docs/prompts-review/` — per-prompt review drafts: persona/review sources + constraint-mapping + size check + drive-state.
-- `docs/archive/` — superseded/obsolete documents kept for history.
-- `docs/borrowing-analysis.md` — pattern borrowing from MIT ecosystems (lazycodex, oh-my-pi) and how each lands.
+## 设计文档
 
-## Roadmap (v2 milestones)
+- `AGENTS.md` — 如何在本仓库工作。
+- `docs/architecture.md` — 架构与 M1–M8 里程碑计划。
+- `docs/roles.md` — 6 角色智能体集。
+- `docs/modes.md` — 三种工作模式（OMD 万能 / Planner 计划实施 / Advisor 目标回归）及它们如何编排这些角色。
+- `docs/prompts-review/` — 逐提示词审查稿：persona/review 源 + 约束映射 + 规模校验 + 实驱状态。
+- `docs/borrowing-analysis.md` — 从 MIT 生态（lazycodex、oh-my-pi）借用的模式及其落点。
+- `docs/archive/` — 被取代/过时但保留作历史的文档。
 
-- **M1 ✅ skeleton**: `src/` reorg into per-capability dirs; `prompts/agents/` single sources + generation + byte-pin; 5 agent presets landed.
-- **M2 ✅ prompt review**: all prompts reviewed & Chineseized; 6-role system adopted.
-- **M3 ✅ guards + delivery-gate**: write-existing/path-traversal/bash-read guards, rules-injector, delivery-gate state machine + verify binding + tamper resistance + completion report.
-- **M4 ✅ work tracking**: boulder (CAS, work-merge), goal storage, write token, start-work + todo-continuation + delivery-gate hooks.
-- **M5 ✅ worktree**: WorktreeManager (create/list/find/cleanup/reuse), naming + path validation, boulder linkage, worktree_create/list/cleanup tools, start-work "you are in a worktree" continuation.
-- M6 skill-trigger routing, M7 LSP/comment-check.
-- M8 team mode (roadmap, post-stabilization).
-- More packaged skills (debugging, refactoring, docs-writing); a CLI surface; theme-like prompt presets.
+## 路线图（v2 里程碑）
+
+- **M1 ✅ 骨架**：`src/` 按能力目录重组；`prompts/agents/` 单源 + 生成 + 字节锁定；persona 预设落地。
+- **M2 ✅ 提示词审查**：所有提示词经审查并中文化；采用 6 角色体系。
+- **M3 ✅ 守卫 + delivery-gate**：write-existing/path-traversal/bash-read 守卫、rules-injector、delivery-gate 状态机 + verify 绑定 + 防篡改 + 完成报告。
+- **M4 ✅ 工作追踪**：boulder（CAS、work 合并）、goal 存储、写令牌、start-work + todo-continuation + delivery-gate 钩子。
+- **M5 ✅ worktree**：WorktreeManager（create/list/find/cleanup/reuse）、命名 + 路径校验、boulder 联动、worktree_create/list/cleanup 工具。
+- **M6 skill-trigger**：`ulw` / ultrawork 入口契约注入。
+- **M7 LSP / comment-check**：计划中。
+- **M8 团队模式**：roadmap，稳定后推进。
+
+## 许可证
+
+MIT

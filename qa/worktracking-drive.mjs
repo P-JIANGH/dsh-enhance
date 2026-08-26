@@ -61,7 +61,7 @@ function main() {
   // 2) run the real LLM session scoped to the sandbox cwd
   const res = runDsh(sandbox, task)
 
-  const boulderFile = join(sandbox, '.omd', 'boulder.json')
+  const boulderFile = join(sandbox, 'boulder.json')
   const goalsDir = join(sandbox, '.omd', 'goals')
   const worked = existsSync(boulderFile) && readText(boulderFile).includes('qa-e2e')
   let goalFound = false

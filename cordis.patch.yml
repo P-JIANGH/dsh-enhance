@@ -1,22 +1,14 @@
-# oh-my-dsh bundle patch: one install row plus (disabled) agent-presets integration.
+# oh-my-dsh bundle patch: one install row.
 #
-# The presets row is shipped disabled on purpose: mounting @deepseek-ai/dsh-agent-presets
-# claims the profile's preset roster, which collides with any other bundle that
-# already mounts it. To enable, remove the `disabled: true` line, point `roots[0].path`
-# at this package's presets directory (e.g. <install>/node_modules/oh-my-dsh/presets),
-# and pick the `default` preset id you want (planner | reviewer | scout | librarian | task).
-#
-# The preset directories are generated from the single-source persona files under
-# prompts/agents/ — edit those, then `pnpm sync:presets`. Never hand-edit presets/.
+# Mounts the oh-my-dsh plugin for any profile that includes this bundle. The
+# plugin contributes packaged skills, the work-rules prompt section, the
+# session-start orientation hook, the doctor tool, work-tracking (boulder/goal)
+# tools, and the advisor companion-review runtime.
+# Note: the 5 agent personas (planner | reviewer | scout | librarian | task)
+# under prompts/agents/ are NOT mounted here, because dsh-base / dsh-web-app
+# already provide the @deepseek-ai/dsh-agent-presets service — mounting it
+# again would double-register the `agentPresets` service and crash the loader
+# ("service agentPresets has been registered").
 - insert:
     - id: oh-my-dsh
       name: oh-my-dsh
-
-    - id: oh-my-dsh-presets
-      name: '@deepseek-ai/dsh-agent-presets'
-      disabled: true
-      config:
-        default: planner
-        roots:
-          - path: /absolute/path/to/oh-my-dsh/presets
-            trust: system

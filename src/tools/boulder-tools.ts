@@ -3,15 +3,74 @@
  * thin wrappers over the shared store so the CAS/atomic guarantees hold. Only
  * registered when workTracking is enabled.
  *
+ * These tools are authored as raw {@link ToolDefinition}s (not `defineTool`) so
+ * their `output.schema` can carry the enforced JSON-Schema subset with object
+ * roots, `required` arrays, and `oneOf` unions — matching the lossless values
+ * `execute` actually returns (the harness rejects tools whose declared schema
+ * does not cover the canonical output).
  * @module oh-my-dsh/tools/boulder-tools
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { defineTool, type ToolExecution } from '@deepseek-ai/dsh-tools'
+import type { JsonValue, JsonSchemaNode, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { join } from 'node:path'
 import { readBoulder, mutateBoulderState, upsertWork, type BoulderState } from '../features/boulder/store.js'
-import { claimWriteToken, releaseWriteToken, readWriteToken } from '../features/boulder/write-token.js'
+import { releaseWriteToken, readWriteToken } from '../features/boulder/write-token.js'
 import { readGoal, upsertGoal } from '../features/boulder/goal.js'
+
+/** Output schema for one boulder work record (mirrors {@link BoulderWork}). */
+const WORK_SCHEMA: JsonSchemaNode = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    plan_name: { type: 'string' },
+    status: { type: 'string', enum: ['planned', 'active', 'blocked', 'completed'] },
+    worktree_path: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+    goal_id: { type: 'string' },
+    updated_at: { type: 'integer' },
+    session_ids: { type: 'array', items: { type: 'string' } },
+    task_sessions: { type: 'array', items: { type: 'string' } },
+    session_origins: { type: 'object' },
+  },
+  required: ['id', 'status', 'updated_at', 'session_ids'],
+  additionalProperties: false,
+}
+
+/** Output schema for a session goal (mirrors {@link Goal}). */
+const GOAL_SCHEMA: JsonSchemaNode = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    objective: { type: 'string' },
+    status: { type: 'string', enum: ['open', 'in_progress', 'done', 'abandoned'] },
+    acceptance: { type: 'array', items: { type: 'string' } },
+    remaining_todos: { type: 'integer' },
+    work_id: { type: 'string' },
+    created_at: { type: 'integer' },
+    updated_at: { type: 'integer' },
+  },
+  required: ['id', 'objective', 'status', 'created_at', 'updated_at'],
+  additionalProperties: false,
+}
+
+/** Compact object-root output helper: `{ok:true}`-style simple results. */
+function objectOutput(schema: Record<string, JsonSchemaNode>, required: string[]): ToolDefinition['output'] {
+  return {
+    schema: {
+      type: 'object',
+      properties: schema as Record<string, JsonSchemaNode>,
+      required,
+      additionalProperties: false,
+    },
+    // Render the canonical result as readable text so the model sees it.
+    render: (_args, value) => {
+      const lines = typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? Object.entries(value as Record<string, unknown>).map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+        : [JSON.stringify(value)]
+      return [{ type: 'text', text: lines.join('\n') }]
+    },
+  }
+}
 
 /**
  * Resolve the session's boulder store root. Prefers `agent.session.header.cwd`
@@ -42,124 +101,170 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
   if (!enabled) return () => {}
   const d: Array<() => void> = []
 
-  d.push(ctx.tools.register(defineTool({
+  const start: ToolDefinition = {
     name: 'boulder_start',
     description: 'Start or update a tracked work item in the boulder. Records the plan name, status, a new or existing session, and an optional goal id.',
     parameters: {
-      work_id: { type: 'string', required: true },
-      plan_name: { type: 'string' },
-      goal_id: { type: 'string' },
+      type: 'object',
+      properties: {
+        work_id: { type: 'string' },
+        plan_name: { type: 'string' },
+        goal_id: { type: 'string' },
+      },
+      required: ['work_id'],
+      additionalProperties: false,
     },
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    output: objectOutput({ ok: { type: 'boolean' }, active_work: WORK_SCHEMA }, ['ok', 'active_work']),
     async execute(args, exec) {
+      const a = args as { work_id: string; plan_name?: string; goal_id?: string }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       mutateBoulderState(base, (s: BoulderState) => {
         upsertWork(s, {
-          id: String(args.work_id),
-          plan_name: args.plan_name,
+          id: String(a.work_id),
+          plan_name: a.plan_name,
           status: 'active',
-          goal_id: args.goal_id,
+          goal_id: a.goal_id,
           updated_at: Date.now(),
           session_ids: [session],
         })
-        s.active_work_id = String(args.work_id)
+        s.active_work_id = String(a.work_id)
       })
       const { state } = readBoulder(base)
-      return { ok: true, active_work: state.works[String(args.work_id)] }
+      return { ok: true, active_work: state.works[String(a.work_id)] as unknown as JsonValue }
     },
-  })))
+  }
+  d.push(ctx.tools.register(start))
 
-  d.push(ctx.tools.register(defineTool({
+  const status: ToolDefinition = {
     name: 'boulder_status',
     description: 'Report the current boulder: the write-token holder (exec shape) and the active work items.',
-    parameters: {},
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+    output: objectOutput({
+      exec_holder: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+      active_work_id: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+      works: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            status: { type: 'string', enum: ['planned', 'active', 'blocked', 'completed'] },
+            updated_at: { type: 'integer' },
+          },
+          required: ['id', 'status', 'updated_at'],
+          additionalProperties: false,
+        },
+      },
+    }, ['exec_holder', 'active_work_id', 'works']),
     async execute(_args, exec) {
       const base = repoBaseOf(exec)
       const { state } = readBoulder(base)
+      const holder = readWriteToken(state)
       return {
-        exec_holder: readWriteToken(state),
-        active_work_id: state.active_work_id,
+        exec_holder: holder ?? null,
+        active_work_id: state.active_work_id ?? null,
         works: Object.values(state.works).map(w => ({ id: w.id, status: w.status, updated_at: w.updated_at })),
       }
     },
-  })))
+  }
+  d.push(ctx.tools.register(status))
 
-  d.push(ctx.tools.register(defineTool({
+  const complete: ToolDefinition = {
     name: 'boulder_complete',
     description: 'Mark a work item completed and release this session\u2019s write token.',
-    parameters: { work_id: { type: 'string', required: true } },
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    parameters: {
+      type: 'object',
+      properties: { work_id: { type: 'string' } },
+      required: ['work_id'],
+      additionalProperties: false,
+    },
+    output: objectOutput({ ok: { type: 'boolean' } }, ['ok']),
     async execute(args, exec) {
+      const a = args as { work_id: string }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       mutateBoulderState(base, (s: BoulderState) => {
-        upsertWork(s, { id: String(args.work_id), status: 'completed', updated_at: Date.now(), session_ids: [session] })
+        upsertWork(s, { id: String(a.work_id), status: 'completed', updated_at: Date.now(), session_ids: [session] })
       })
       releaseWriteToken(base, session)
       return { ok: true }
     },
-  })))
+  }
+  d.push(ctx.tools.register(complete))
 
-  d.push(ctx.tools.register(defineTool({
+  const goalCreate: ToolDefinition = {
     name: 'goal_create',
     description: 'Create the session goal (acceptance contract). Sets status open and optional acceptance criteria.',
     parameters: {
-      objective: { type: 'string', required: true },
-      acceptance: { type: 'array', items: { type: 'string' } },
+      type: 'object',
+      properties: {
+        objective: { type: 'string' },
+        acceptance: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['objective'],
+      additionalProperties: false,
     },
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    output: objectOutput({ ok: { type: 'boolean' }, goal: GOAL_SCHEMA }, ['ok', 'goal']),
     async execute(args, exec) {
+      const a = args as { objective: string; acceptance?: string[] }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       const goal = upsertGoal(goalsDir(base), session, {
         id: session,
-        objective: String(args.objective),
+        objective: String(a.objective),
         status: 'open',
-        acceptance: Array.isArray(args.acceptance) ? args.acceptance.map(String) : undefined,
+        acceptance: Array.isArray(a.acceptance) ? a.acceptance.map(String) : undefined,
         remaining_todos: 0,
         created_at: Date.now(),
         updated_at: Date.now(),
       })
-      return { ok: true, goal }
+      return { ok: true, goal: goal as unknown as JsonValue }
     },
-  })))
+  }
+  d.push(ctx.tools.register(goalCreate))
 
-  d.push(ctx.tools.register(defineTool({
+  const goalGet: ToolDefinition = {
     name: 'goal_get',
     description: 'Read this session\u2019s goal.',
-    parameters: {},
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+    output: objectOutput({ goal: { oneOf: [GOAL_SCHEMA, { type: 'null' }] } }, ['goal']),
     async execute(_args, exec) {
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
-      return { goal: readGoal(goalsDir(base), session) }
+      return { goal: readGoal(goalsDir(base), session) as unknown as JsonValue }
     },
-  })))
+  }
+  d.push(ctx.tools.register(goalGet))
 
-  d.push(ctx.tools.register(defineTool({
+  const goalUpdate: ToolDefinition = {
     name: 'goal_update',
     description: 'Update the session goal\u2019s status and/or remaining todo count.',
     parameters: {
-      status: { type: 'string', enum: ['open', 'in_progress', 'done', 'abandoned'] },
-      remaining_todos: { type: 'number' },
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['open', 'in_progress', 'done', 'abandoned'] },
+        remaining_todos: { type: 'number' },
+      },
+      additionalProperties: false,
     },
-    output: { schema: { type: 'object', additionalProperties: false, properties: {} }, render: () => [] },
+    output: objectOutput({ ok: { type: 'boolean' }, goal: GOAL_SCHEMA, error: { type: 'string' } }, ['ok']),
     async execute(args, exec) {
+      const a = args as { status?: 'open' | 'in_progress' | 'done' | 'abandoned'; remaining_todos?: number }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       const current = readGoal(goalsDir(base), session)
       if (!current) return { ok: false, error: 'no goal yet; create one first' }
       const updated = upsertGoal(goalsDir(base), session, {
         ...current,
-        status: (args.status as typeof current.status) ?? current.status,
-        remaining_todos: args.remaining_todos ?? current.remaining_todos,
+        status: a.status ?? current.status,
+        remaining_todos: a.remaining_todos ?? current.remaining_todos,
         updated_at: Date.now(),
       })
-      return { ok: true, goal: updated }
+      return { ok: true, goal: updated as unknown as JsonValue }
     },
-  })))
+  }
+  d.push(ctx.tools.register(goalUpdate))
 
   return () => { for (const fn of d) fn() }
 }

@@ -24,6 +24,8 @@
 | 10 | advisor 模式 | [advisor.md](advisor.md) | 稿就绪（omp 伴随审核模型，已核实 dsh 可实现，2026-08-25 定稿，纳入首批） |
 
 > 角色体系（2026-08-25 确认）：按 [roles.md](../roles.md) 采用 **6 角色体系**——planner / scout / librarian / task(worker) / reviewer / advisor。原 executor/explorer/debugger 已被 scout/task 取代（executor→task、explorer→scout、debugger 并入 task、security 并入 reviewer、新增 librarian），对应审查稿已重命名/合并/新增。
+>
+> **三种工作模式（2026-08-26，设计定稿）**：6 角色是能力原子；用户视角的模式编排见 [modes.md](../modes.md)——OMD 万能（默认，意图驱动按需委派）、Planner 计划实施（固定骨架：scout/librarian 收集→澄清→计划→计划审查→用户确认→并行 task 执行→执行审查）、Advisor 目标回归（goal 驱动：advisor 持续纠偏 + delivery-gate 回归闸 + 压缩续作）。各模式复用下的 persona 审查稿仍以本目录为准。
 
 ---
 

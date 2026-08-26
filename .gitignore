@@ -4,3 +4,5 @@ lib/
 *.tgz
 .reasonix/
 .omd/
+# Reasonix host (workspace/agent runner) local config — not part of the project.
+reasonix.toml

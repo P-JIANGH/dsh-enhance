@@ -329,6 +329,22 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 - **提示词审查**：见第 6 节，这是 v2 的重头；角色稿见 prompts-review（scout/task/librarian 已按 roles.md 落地）。
 - **并发纪律**（见 5.5.1）：只读角色（planner/scout/librarian/reviewer/advisor）可任意并行；`task` 无独立 worktree 时默认串行（抢写令牌），有独立 worktree 时可并行。
 
+### 5.8 三种工作模式/预设（modes）
+
+> 详细设计见 **[modes.md](modes.md)**（设计定稿）。本节为架构层的挂载点说明。
+
+oh-my-dsh 把 6 角色按**三种工作模式/预设**组织和呈现，三者共享同一份 v2 能力基底（tool plane + 4 专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal + worktree/写令牌纪律），差异只在**编排 persona**（谁主导、按什么流程、如何处理"完成"）：
+
+| 模式 | 预设 | 编排风格 | 一句话 |
+|---|---|---|---|
+| **A OMD 万能**（默认） | `presets/omd/` | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer |
+| **B Planner 计划实施** | `presets/planner/` | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
+| **C Advisor 目标回归** | `presets/advisor/` | goal 驱动的回归环 | 设 goal；advisor 持续纠偏；结束前回归审查，不过则压缩上下文继续直到达标 |
+
+**落地挂载点**：三种模式复用同一份 `agent.cordis.yml` 工具平面（sync-omd-preset 产出的 5.4 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "Enabling as a web-visible persona"。
+
+**统一纪律**：无论哪种模式，完成声明都过 delivery-gate；只读角色可并行、写角色受令牌/worktree 约束（5.5.1）；委派用六要素模板；persona 单源 + presets-pin 锁定（modes.md 第 6 节）。
+
 ## 6. 提示词审查计划（用户指定：中文 + 精简 + 逐个审查）
 
 ### 6.1 审查对象清单

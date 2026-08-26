@@ -78,9 +78,23 @@ advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实
 - 监听 `agent/pre-step` 或 `agent/inbox/claimed` 拿会话增量 → 交给一个由 `ctx.agents.create()` 拉的独立 advisor 子会话（独立 agentOptions.model）→ advisor 在隔离 ToolSession 用只读工具核查 → 结果通过 `agent.steer()` 回注主会话（severity 语义可映射：steer=concern/blocker，inject=nit）。
 - 建议引入放到 `agent/turn-stopping`（turn 关闭前）交付，符合 "steer before boundary commits"。
 
+**实施修订（2026-08-25 实驱后更新，覆盖上表"旁路驱动影子子会话"方案）**：
+已实测确认：`ctx.agents.create()` 启动的影子子会话**无法被旁路唤醒驱动**——主 agent 结束一轮后，
+用 `followup() + whenIdle()` 等旁路方式唤醒 advisor 影子子会话，其 turn 会空转（`turn/start → turn/end`
+中间**没有 `step/start`**、`deriveMessages().length = 0`、`answerLen = 0`，无任何模型输出）。这是 dsh
+平台对"常驻影子子 agent"的原生限制：影子子 agent 只能由主 agent 通过**显式 tool-call 委派**驱动，
+不响应消息唤醒。tool-subagent 能工作正是因为它是按需 tool-call 驱动的，而伴随 advisor 是常驻旁听，
+两者驱动机制不同。
+
+因此落地实现改为**直接 `ctx.llm.stream()` 独立审查调用**（保留全部对外契约：`agent/turn-stopping`
+监听 + 增量 transcript 提取 + severity 信封解析 + `nit→inject` / `concern|blocker→steer` 回注 +
+emission guard 去重/限频）。实测通过：advisor 审查调用真实完成（`answerLen` 由 0 提升到 13），
+输出 `ADVISOR: NONE` 合规信封（无风险不强打扰）。`runReviewCall(ctx.llm, GenerateOptions)` 组装
+stream 文本并返回，纯逻辑可用假 LLM 单测。
+
 **需 M1 实驱确认的点**（非可行性风险，是接线细节）：
 1. `agent/request` 内返回替换 `LlmCallConfig.model` 是否仅影响该次调用（隔离 advisor 模型）还是全局——实测确认。
-2. `ctx.agents.create()` 创建的 advisor 子会话是否回归影响 `roots()`/工具面（advisor 不应作为可见子 agent）。
+2. `ctx.agents.create()` 创建的 advisor 子会话是否回归影响 `roots()`/工具面（advisor 不应作为可见子 agent）。〔已解决：advisor 不再用 `ctx.agents.create()`，改用直接 stream 审查，天然不引入可见子 agent〕
 3. `agent.steer` 在 `pre-step`/`turn-stopping` 内调用的时序与重入约束。
 
 
@@ -96,7 +110,8 @@ advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实
 
 ## 实驱验证状态
 
-- 待做（代码落地后执行，见 README 第 7 节统一状态）：伴随 advisor 子会话随主会话并行启动、增量监听、severity 回注、独立只读 ToolSession、emission guard（去重/限频）——以上映射见「对 oh-my-dsh 的移植可行性」表与「需 M1 实驱确认的点」。
+- **进行中（2026-08-26，headless 闭环已打通；web 可视化待观测）**：advisor 独立审查调用已在真实 dsh 会话多次实测——`context.llm.stream()` 审查调用真实完成（`answerLen` 由影子子会话的 0 提升到 13），本会话多次 headless 与 web 会话均稳定输出合规信封 `ADVISOR: NONE`（无风险时静默、不强打扰），severity 解析与 emission guard 正常。增量监听（`agent/turn-stopping`）+ severity 回注（steer/inject）+ 去重/限频已在 `src/features/advisor/runtime.ts` 落地，`runReviewCall` 有假 LLM 单测。
+- **诚实标注（覆盖口径）**：真实会话中 advisor 均判 `ADVISOR: NONE`（审查的增量无技术风险），因此 **`nit`/`concern`/`blocker` 的正向回注（steer/inject 注入主会话并产生可见建议）尚未在真实会话中直接观测到**。机制（`deliver` 调 `main.inject`/`main.steer`，已被 kickReview 的 try/catch 兜底防 unhandled rejection）与解析/守卫已单测+按路径核实，但"回注在主对话可见"这一目标准确说来是"机制已就绪、正向触发待构造一个确会触发 concern 的真实审查来观测"。当前为"机制打通、正向回注效果待实证"状态。
 
 ---
 

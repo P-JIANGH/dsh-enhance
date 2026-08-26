@@ -25,7 +25,7 @@
 
 | 脚本 | 覆盖 | 里程碑 | 状态 |
 |---|---|---|---|
-| `qa/ohmy-drive.mjs` | 插件激活实驱：`--dump` 零成本 compose 校验 / `--llm` 真实 headless | M1 | ✅ 已实现并跑通 dump |
+| `qa/omd-drive.mjs` | 插件激活实驱：`--dump` 零成本 compose 校验 / `--llm` 真实 headless | M1 | ✅ 已实现并跑通 dump |
 | `qa/delivery-gate-drive.mjs` | 交付门卫反向实驱（假完成声明） | M3 | 占位（需真实 dsh 会话，`--llm` 验证） |
 
 ## 3. 后续里程碑测试规划（能力未实现 → 规划先行）
@@ -44,7 +44,7 @@
 ## 4. 提示词验证（架构 8.4，M2 已审查）
 
 - 每个 agent/模式一次实驱触发，核对行为约束生效。依赖 agents 落地（presets 已就绪 5 角色；advisor 需伴随机制）。
-- 状态：审查稿已定稿（M2）；实驱随各能力落地时由 `qa/ohmy-drive.mjs --llm` 逐步执行。
+- 状态：审查稿已定稿（M2）；实驱随各能力落地时由 `qa/omd-drive.mjs --llm` 逐步执行。
 
 ## 5. 证据纪律
 
