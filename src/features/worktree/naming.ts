@@ -2,7 +2,7 @@
  * Worktree naming conventions (architecture §5.6 `naming.ts`): directory names
  * are `<work-id>-<slug>`, branches are `dsh/<work-id>`. Pure functions.
  *
- * @module oh-my-dsh/features/worktree/naming
+ * @module dsh-enhance/features/worktree/naming
  */
 
 /**

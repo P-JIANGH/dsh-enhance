@@ -1,10 +1,10 @@
 /**
  * rules-injector (architecture §5.2-B): at session start, discover the
- * workspace rules (AGENTS.md, .omd/rules/*.md) and inject them as a system
+ * workspace rules (AGENTS.md, .dsh-enhance/rules/*.md) and inject them as a system
  * prompt section. Own finder (cached, distance-sorted) rather than re-using a
  * harness-specific loader.
  *
- * @module oh-my-dsh/hooks/rules-injector
+ * @module dsh-enhance/hooks/rules-injector
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -21,7 +21,7 @@ const CACHE_CAP = 64
 
 /**
  * Discover workspace-level rules for a directory. Prefers AGENTS.md, then
- * `.omd/rules/` files (sorted by name), concatenated.
+ * `.dsh-enhance/rules/` files (sorted by name), concatenated.
  * @param base - session working directory.
  * @returns combined rules text, or undefined when none found.
  */
@@ -33,7 +33,7 @@ export function discoverRules(base: string): string | undefined {
   if (existsSync(agents)) {
     try { parts.push(`# AGENTS.md\n${readFileSync(agents, 'utf8')}`) } catch { /* ignore */ }
   }
-  const rulesDir = join(base, '.omd', 'rules')
+  const rulesDir = join(base, '.dsh-enhance', 'rules')
   if (existsSync(rulesDir)) {
     let files: string[] = []
     try { files = readdirSync(rulesDir).filter(f => f.endsWith('.md')).sort() } catch { /* ignore */ }

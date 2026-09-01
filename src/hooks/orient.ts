@@ -1,10 +1,10 @@
 /**
  * Session-start orientation hook: when an agent session begins, inject one
- * durable user-role message telling the model oh-my-dsh is active and naming
+ * durable user-role message telling the model dsh-enhance is active and naming
  * the packaged skills. `agent.inject()` is the documented seeded-context path
  * (the same mechanism AGENTS.md subdirectory notices use), so the injection is
  * logged and replay-safe.
- * @module oh-my-dsh/hooks
+ * @module dsh-enhance/hooks
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -42,10 +42,11 @@ async function orientAgent(ctx: Context, agent: Agent, extra?: string): Promise<
     // without the skill names, so the swallow is bounded to this one list call.
   }
   const parts = [
-    'oh-my-dsh is active in this session: it contributes the work-rules section of this system prompt, packaged skills, and the `oh_my_dsh_doctor` tool.',
+    'dsh-enhance 已在本会话生效：本系统提示包含工作准则段落；通过 skill 工具提供打包技能；并提供 dsh_enhance_doctor 诊断工具。',
+    '从何开始：调 `dsh_enhance_doctor` 查看装配与可开启项；输入 `ulw` 进入深度工作模式。',
   ]
   if (skills.length > 0) {
-    parts.push(`Packaged skills available through the \`skill\` tool: ${skills.join(', ')}.`)
+    parts.splice(1, 0, `本会话可用的打包技能：${skills.join('、')}。`)
   }
   if (extra) parts.push(extra)
   agent.inject(createUserMessage({

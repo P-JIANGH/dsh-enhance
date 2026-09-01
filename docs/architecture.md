@@ -1,4 +1,4 @@
-# oh-my-dsh 架构设计（v2 重设计）
+# dsh-enhance 架构设计（v2 重设计）
 
 > 状态：设计稿 v0.1，待评审
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
@@ -7,7 +7,7 @@
 
 ## 1. 定位与目标
 
-oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格）。它把经开源生态验证的能力按 dsh 的插件 API 重新落地：
+dsh-enhance 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格）。它把经开源生态验证的能力按 dsh 的插件 API 重新落地：
 
 - **生命周期 hooks**：pre-step/request 守卫 + turn-stopping 续作
 - **工具集**：bash/read 守卫、LSP、comment-checker、goal/boulder 工作追踪
@@ -22,7 +22,7 @@ oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格�
 
 延后实现（roadmap feature，v2 只预留扩展缝、不实现）：
 
-- **Team mode**（多智能体并行协调）——dsh 侧需在 M1 实测后由插件层自建：`team_mode.enabled` 配置门控 + 独立工具注册表 + 存储布局（`~/.omd/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
+- **Team mode**（多智能体并行协调）——dsh 侧需在 M1 实测后由插件层自建：`team_mode.enabled` 配置门控 + 独立工具注册表 + 存储布局（`~/.dsh-enhance/teams/{name}/` 的 mailbox / tasklist.jsonl / worktrees，成员 eligibility 注册表）。当前 adapter 层与 hook 分层不堵死该扩展：后续新增 team_* 工具与事件处理器时，挂进 ToolRegistry 与事件面即可，无需重构。
 
 ## 2. 设计原则
 
@@ -38,7 +38,7 @@ oh-my-dsh 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风格�
 ## 3. 总体架构
 
 ```
-oh-my-dsh/
+dsh-enhance/
 ├── docs/                  # 设计 + 用户文档
 ├── skills/                # 打包 SKILL.md（静态知识层）
 ├── presets/               # dsh-agent-presets 预设目录（可选安装）
@@ -58,11 +58,11 @@ oh-my-dsh/
 
 **Adapters 层布局**：`src/` 采用一能力一目录的扁平组织（`hooks/{name}/`、`tools/{name}/`、`agents/` 工厂模式、`features/` 独立特性模块），便于逐能力审查与桶导出。该思路借鉴自 MIT 开源插件生态（`oh-my-pi` coding-agent 的 prompts/tools/agents 域划分、`lazycodex` 的 `plugins/omo/` 组件化目录），并结合 dsh 单包 Cordis 插件的特点：扁平目录 + 工厂 + 桶导出与 dsh 最匹配。
 
-## 4. dsh API 能力映射（dsh 事件面 → oh-my-dsh 能力）
+## 4. dsh API 能力映射（dsh 事件面 → dsh-enhance 能力）
 
 探索自 `F:\deepseek-harness\packages\core\*` 类型定义（MIT），实现时以实际 d.ts 为准。
 
-| dsh 能力 | oh-my-dsh 落点 | 备注 |
+| dsh 能力 | dsh-enhance 落点 | 备注 |
 |---|---|---|
 | 插件入口 `apply(ctx, config)` | 插件入口 | `name` / `inject: ['skills','systemPrompt','tools','agent']` |
 | 配置 `schemastery` schema | 配置系统 | 插件行 `config` 块，`cordis.patch.yml` 注入 |
@@ -81,7 +81,7 @@ oh-my-dsh/
 
 - 插件行 `config`：`workRules` / `orientOnSessionStart` / `doctorTool`（沿用 v1）+ 新增 `skillsEnabled` / `guards` / `workTracking` / `worktree` 开关组。
 - 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
-- 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 oh-my-dsh 一行。
+- 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 dsh-enhance 一行。
 
 ### 5.2 Hooks 层（守卫 + 注入 + 续作）
 
@@ -101,7 +101,7 @@ oh-my-dsh/
 
 | 注入 | 行为 |
 |---|---|
-| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.omd/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
+| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.dsh-enhance/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
 | `skill-trigger` | 检测输入意图（ultrawork / search / analyze），注入对应模式提示词 |
 | `work-rules` | v1 已有，保留 |
 
@@ -195,7 +195,7 @@ oh-my-dsh/
 | `goal_create` / `goal_get` / `goal_update` | 自建 | session 级 JSON 存储 |
 | `boulder_start` / `boulder_status` / `boulder_complete` | 自建 | 见 5.5 防冲突设计 |
 | `worktree_create` / `worktree_list` / `worktree_cleanup` | 新增 | 见 5.6 |
-| `oh_my_dsh_doctor` | v1 已有 | 保留 |
+| `dsh_enhance_doctor` | v1 已有 | 保留 |
 
 ### 5.4 技能体系与触发路由
 
@@ -252,9 +252,9 @@ oh-my-dsh/
 
 ### 5.5 Work tracking：boulder 防冲突设计（重点）
 
-现状问题：多会话/多 worktree 若对同一份共享状态做无约束写入（直接覆盖 + 无锁 + 散落 read-modify-write），并发会丢更新。oh-my-dsh 的 boulder 从第一版就按防冲突设计：
+现状问题：多会话/多 worktree 若对同一份共享状态做无约束写入（直接覆盖 + 无锁 + 散落 read-modify-write），并发会丢更新。dsh-enhance 的 boulder 从第一版就按防冲突设计：
 
-**存储位置**：仓库根（`git rev-parse --show-toplevel`）的 `.omd/boulder.json`，全 repo 唯一实例。所有 worktree 的会话共享这一份，work 通过 `worktree_path` 字段关联——杜绝同 repo 多 worktree 各自持有副本导致的分叉。
+**存储位置**：仓库根（`git rev-parse --show-toplevel`）的 `.dsh-enhance/boulder.json`，全 repo 唯一实例。所有 worktree 的会话共享这一份，work 通过 `worktree_path` 字段关联——杜绝同 repo 多 worktree 各自持有副本导致的分叉。
 
 **写入协议**（核心）：
 
@@ -266,7 +266,7 @@ oh-my-dsh/
    - `session_ids` / `task_sessions` / `session_origins` 取并集（会话是追加型数据，不该互相覆盖）；
    - 根级 `active_work_id` 以最后成功写入者为准；
    - `plan_name` / `status` 等标量：冲突时保留写入方值并记录 `conflict_log`。
-5. **进程级锁**：`.omd/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
+5. **进程级锁**：`.dsh-enhance/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
 6. **schema 校验**：写入前 Zod 校验（自建 schema），坏文件读为 null 不崩溃。
 
 **Goal 存储**：session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
@@ -333,15 +333,15 @@ dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `
 
 > 详细设计见 **[modes.md](modes.md)**（设计定稿）。本节为架构层的挂载点说明。
 
-oh-my-dsh 把 6 角色按**三种工作模式/预设**组织和呈现，三者共享同一份 v2 能力基底（tool plane + 4 专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal + worktree/写令牌纪律），差异只在**编排 persona**（谁主导、按什么流程、如何处理"完成"）：
+dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者共享同一份 v2 能力基底（tool plane + 4 专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal + worktree/写令牌纪律），差异只在**编排 persona**（谁主导、按什么流程、如何处理"完成"）：
 
 | 模式 | 预设 | 编排风格 | 一句话 |
 |---|---|---|---|
-| **A OMD 万能**（默认） | `presets/omd/` | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer |
+| **A dsh-enhance 万能**（默认） | `presets/dsh-enhance/` | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer |
 | **B Planner 计划实施** | `presets/planner/` | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
 | **C Advisor 目标回归** | `presets/advisor/` | goal 驱动的回归环 | 设 goal；advisor 持续纠偏；结束前回归审查，不过则压缩上下文继续直到达标 |
 
-**落地挂载点**：三种模式复用同一份 `agent.cordis.yml` 工具平面（sync-omd-preset 产出的 5.4 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "Enabling as a web-visible persona"。
+**落地挂载点**：三种模式复用同一份 `agent.cordis.yml` 工具平面（sync-dsh-enhance-preset 产出的 5.4 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "Enabling as a web-visible persona"。
 
 **统一纪律**：无论哪种模式，完成声明都过 delivery-gate；只读角色可并行、写角色受令牌/worktree 约束（5.5.1）；委派用六要素模板；persona 单源 + presets-pin 锁定（modes.md 第 6 节）。
 
@@ -395,7 +395,7 @@ oh-my-dsh 把 6 角色按**三种工作模式/预设**组织和呈现，三者�
    - 续作：turn-stopping 后 todo 未清 → 注入继续；
    - boulder：两个会话交错写 → 无丢失更新；
    - worktree：会话在 worktree 内续作 → 上下文正确。
-3. **证据**：每次实驱记录到 `.omd/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
+3. **证据**：每次实驱记录到 `.dsh-enhance/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
 4. **提示词验证**：每个 agent/模式一次实驱触发，输出行为核对。
 
 ## 9. 风险与开放问题

@@ -4,7 +4,7 @@
  * worktree path) so a resumed session picks up cleanly. Seeding via
  * `agent.inject` (no wake) is correct here: the driver is about to start a turn.
  *
- * @module oh-my-dsh/hooks/start-work
+ * @module dsh-enhance/hooks/start-work
  */
 
 import type { Context } from '@deepseek-ai/cordis'

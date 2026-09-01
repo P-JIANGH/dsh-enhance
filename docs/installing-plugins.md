@@ -1,10 +1,10 @@
 # 如何将插件安装到 DeepSeek Harness
 
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
-> 本文档以 `oh-my-dsh` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
+> 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
 > 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
 >
-> **本机约定**：本项目统一用 `omd` 指称 `oh-my-dsh`（含用作 profile 名示例）。文档里的 `omd` 命令可直接复制执行；如果你要装在别的 profile 名下，把 `omd` 换成你的 profile 名即可。
+> **本机约定**：本项目统一用 `dsh-enhance` 指称 `dsh-enhance`（含用作 profile 名示例）。文档里的 `dsh-enhance` 命令可直接复制执行；如果你要装在别的 profile 名下，把 `dsh-enhance` 换成你的 profile 名即可。
 
 ## 1. 理解背景：profile、bundle 与 patch 层
 
@@ -53,13 +53,13 @@ dsh plugin --profile <name> <pnpm 参数...>
 该 profile 目录不存在时，`dsh plugin` 会自动初始化（无内置模板时以 `@deepseek-ai/dsh-base` 为第一层）、写入 `package.json`、`cordis.patch.yml` 和 `pnpm-workspace.yaml`：
 
 ```sh
-dsh plugin --profile omd add oh-my-dsh
+dsh plugin --profile dsh-enhance add dsh-enhance
 ```
 
 ### 3.2 安装来源一：npm registry（已发布）
 
 ```sh
-dsh plugin --profile omd add oh-my-dsh
+dsh plugin --profile dsh-enhance add dsh-enhance
 ```
 
 ### 3.3 安装来源二：本地 checkout / 本地路径
@@ -67,10 +67,10 @@ dsh plugin --profile omd add oh-my-dsh
 `dsh plugin` 会把相对/`file:`/`link:` 形式的路径规格**锚定到你在哪里调用它的目录**（避免在 profile 目录里被误解析），所以从插件仓库直接装：
 
 ```sh
-# 在 oh-my-dsh 所在目录之外调用，用相对或绝对路径均可
-dsh plugin --profile omd add ../../path/to/oh-my-dsh
-dsh plugin --profile omd add file:./oh-my-dsh
-dsh plugin --profile omd add link:./oh-my-dsh
+# 在 dsh-enhance 所在目录之外调用，用相对或绝对路径均可
+dsh plugin --profile dsh-enhance add ../../path/to/dsh-enhance
+dsh plugin --profile dsh-enhance add file:./dsh-enhance
+dsh plugin --profile dsh-enhance add link:./dsh-enhance
 ```
 
 > 提示：`add .` 若在插件仓库目录直接调用会被重写成该目录的绝对路径，`dsh plugin` 的 `anchorPathSpec` 会保证它指向你的调用目录而不是 profile 目录。
@@ -81,40 +81,40 @@ dsh plugin --profile omd add link:./oh-my-dsh
 
 ```sh
 # 相对于你调用 dsh plugin 的目录（或给绝对路径）。
-# 本项目作者在本机使用名为 omd 的 profile（约等于 `oh-my-dsh` 的简称）。
-dsh plugin --profile omd add link:F:/oh-my-dsh
+# 本项目作者在本机使用名为 dsh-enhance 的 profile（约等于 `dsh-enhance` 的简称）。
+dsh plugin --profile dsh-enhance add link:F:/dsh-enhance
 ```
 
 安装成功后 profile 的 `package.json` `dependencies` 里会出现：
 
 ```json
-"oh-my-dsh": "link:F:/oh-my-dsh"
+"dsh-enhance": "link:F:/dsh-enhance"
 ```
 
-而 `node_modules/oh-my-dsh` 是一个指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: F:\oh-my-dsh`）。
+而 `node_modules/dsh-enhance` 是一个指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: F:\dsh-enhance`）。
 
-**⚠️ 关键点：链接安装 ≠ 源码即时生效。** dsh 的 loader 解析的是包的 `main` / `exports` 入口，oh-my-dsh 指向 `lib/index.js`（**构建产物**）。因此：
+**⚠️ 关键点：链接安装 ≠ 源码即时生效。** dsh 的 loader 解析的是包的 `main` / `exports` 入口，dsh-enhance 指向 `lib/index.js`（**构建产物**）。因此：
 
 1. pnpm 的 `link:` 依赖**不会自动运行** `prepare` 构建脚本（`prepare` 只在从 registry 或 git 源安装时触发，本地链接不发构建）。
 2. 每次修改 `src/` 后，必须在**插件仓库**里手动重新构建：
    ```sh
-   cd F:/oh-my-dsh
+   cd F:/dsh-enhance
    pnpm build        # 产出到 lib/（main 指向 lib/index.js）
    ```
-3. 然后重启你正在跑的 `dsh --profile omd ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
+3. 然后重启你正在跑的 `dsh --profile dsh-enhance ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
 
 完整的开发迭代循环是：
 
 ```
-改 src/ → pnpm build → 重启 dsh --profile omd → 在 dsh 里验证 →（回到第一步）
+改 src/ → pnpm build → 重启 dsh --profile dsh-enhance → 在 dsh 里验证 →（回到第一步）
 ```
 
-> 为什么已经链接了还要 build？因为 `dsh`（和其它 Node 加载器一样）读取的是包入口指向的**已编译 JS**。你要是愿意，可以把 oh-my-dsh 的 `main`/`exports` 临时指向 `src/index.ts`，并让 profile 用 tsx 之类的运行时打开 —— 但这不是 dsh 默认的加载方式，日常调试按上面的 build 循环最省事。
+> 为什么已经链接了还要 build？因为 `dsh`（和其它 Node 加载器一样）读取的是包入口指向的**已编译 JS**。你要是愿意，可以把 dsh-enhance 的 `main`/`exports` 临时指向 `src/index.ts`，并让 profile 用 tsx 之类的运行时打开 —— 但这不是 dsh 默认的加载方式，日常调试按上面的 build 循环最省事。
 
 ### 3.4 安装来源三：Git 托管（包通过 `prepare` 自构建）
 
 ```sh
-dsh plugin --profile omd add git@gitcode.com:jiangh_hnr/oh-my-dsh.git
+dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ```
 
 > 注意：pnpm ≥10 默认会拦截 git 依赖的 `prepare`（构建）脚本，直到你在 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 里放行它。失败时 `dsh plugin` 会在 stderr 打印 pnpm 报出的确切 key，按其提示加白后重跑即可。
@@ -128,27 +128,27 @@ dsh plugin --profile omd add git@gitcode.com:jiangh_hnr/oh-my-dsh.git
 查看该 profile 实际启动时会装配成什么样的树（不会真的启动，只打印组成结果）：
 
 ```sh
-dsh --profile omd --dump-config
+dsh --profile dsh-enhance --dump-config
 # 或只看默认/内置层（不含用户覆盖与 --patch）：
-dsh --profile omd --dump-default-config
+dsh --profile dsh-enhance --dump-default-config
 ```
 
-在输出中查找 oh-my-dsh 的补丁层标记（其 `cordis.patch.yml` 头部注释为 `# oh-my-dsh bundle patch ...`，且插入的插件行 id 为 `oh-my-dsh`）。所见即所加载——任何一行都可以被你自己更高的补丁层覆盖。
+在输出中查找 dsh-enhance 的补丁层标记（其 `cordis.patch.yml` 头部注释为 `# dsh-enhance bundle patch ...`，且插入的插件行 id 为 `dsh-enhance`）。所见即所加载——任何一行都可以被你自己更高的补丁层覆盖。
 
 实际启动 profile：
 
 ```sh
-dsh --profile omd ...
+dsh --profile dsh-enhance ...
 ```
 
 ## 5. 配置插件的 config
 
-插件行接受 `config` 块。由于补丁覆盖是**整行替换 config** 的语义，需在有更高优先级的层里覆盖，即 profile 的 `cordis.patch.yml` 或 home 级 `$DSH_HOME/cordis.patch.yml`。针对 oh-my-dsh：
+插件行接受 `config` 块。由于补丁覆盖是**整行替换 config** 的语义，需在有更高优先级的层里覆盖，即 profile 的 `cordis.patch.yml` 或 home 级 `$DSH_HOME/cordis.patch.yml`。针对 dsh-enhance：
 
 ```yaml
-# $DSH_HOME/profiles/omd/cordis.patch.yml
-- id: oh-my-dsh
-  name: oh-my-dsh
+# $DSH_HOME/profiles/dsh-enhance/cordis.patch.yml
+- id: dsh-enhance
+  name: dsh-enhance
   config:
     workRules: |
       # My team's rules
@@ -159,29 +159,29 @@ dsh --profile omd ...
 
 > 覆盖 key 时**必须带 `name` 并在 `config` 里写全你要保留的每个字段**——补丁会替换目标行的整个 `config`，不写即清掉。
 
-配置项速查（oh-my-dsh）：
+配置项速查（dsh-enhance）：
 
 | 字段 | 默认 | 含义 |
 |---|---|---|
 | `workRules` | 内置纪律文案 | 系统提示词 sections 正文；设空字符串即移除该 section |
 | `orientOnSessionStart` | `true` | 会话开始时注入一条一次性 orientation 消息 |
-| `doctorTool` | `true` | 注册 `oh_my_dsh_doctor` 工具 |
+| `doctorTool` | `true` | 注册 `dsh_enhance_doctor` 工具 |
 
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
 ```sh
-dsh --profile omd --patch ./extra.yml ...
+dsh --profile dsh-enhance --patch ./extra.yml ...
 ```
 
 ## 6. 启停 / 卸载
 
 - **从 profile 卸载插件**（移除依赖并自动从 `bundles` 列表剔除）：
   ```sh
-  dsh plugin --profile omd remove oh-my-dsh
+  dsh plugin --profile dsh-enhance remove dsh-enhance
   ```
-- **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`（oh-my-dsh 自带的 `presets` 行默认就是 disabled 的示例）。例如在业务上禁用 oh-my-dsh 主行：
+- **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`（dsh-enhance 自带的 `presets` 行默认就是 disabled 的示例）。例如在业务上禁用 dsh-enhance 主行：
   ```yaml
-  - id: oh-my-dsh
+  - id: dsh-enhance
     disabled: true
   ```
 
@@ -202,6 +202,6 @@ dsh --profile omd --patch ./extra.yml ...
    ```json
    "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
    ```
-2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 oh-my-dsh 插入 `id: oh-my-dsh` / `name: oh-my-dsh` 一行）。
+2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: dsh-enhance` 一行）。
 
 这样"万物皆插件"的插件就齐了：加一个依赖声明、一个补丁文件，就能用 `dsh plugin --profile <name> add <pkg>` 完成安装。

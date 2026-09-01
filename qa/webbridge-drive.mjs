@@ -1,11 +1,11 @@
-// Browser e2e for oh-my-dsh via kimi-webbridge (drives the user's real Chrome).
+// Browser e2e for dsh-enhance via kimi-webbridge (drives the user's real Chrome).
 //   node qa/webbridge-drive.mjs [--snapshot] [--navigate <url>] [--action <json>]
 // Requires the webbridge daemon on 127.0.0.1:10086 with a connected Chrome extension.
 import { request } from 'node:http'
 
 const PORT = 10086
 const HOST = '127.0.0.1'
-const SESSION = 'omd-e2e-browser'
+const SESSION = 'dsh-enhance-e2e-browser'
 
 function cmd(action, args = {}) {
   return new Promise((resolve, reject) => {

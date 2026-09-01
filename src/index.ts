@@ -1,9 +1,9 @@
 /**
- * oh-my-dsh: an oh-my-zsh-style enhancement bundle for DeepSeek Harness.
+ * dsh-enhance: an oh-my-zsh-style enhancement bundle for DeepSeek Harness.
  * One installable plugin that contributes packaged skills, a persistent
  * work-rules prompt section, a session-start orientation hook, and a doctor
  * tool. Everything is configurable through the plugin row's `config`.
- * @module oh-my-dsh
+ * @module dsh-enhance
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -26,22 +26,20 @@ import { registerSkillTrigger } from './features/skill-trigger.js'
 import { registerAdvisorRuntime } from './features/advisor/runtime.js'
 
 /** Cordis plugin name. */
-export const name = 'oh-my-dsh'
+export const name = 'dsh-enhance'
 
 /** Services this plugin waits for before activating. */
 export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm']
 
 /** Default work-rules prose: general working discipline, project-agnostic. */
-export const DEFAULT_WORK_RULES = `# Work rules
-
-Follow the repository's own conventions first: read AGENTS.md, README.md, and
-contributing guides before changing code, and prefer existing functions and
-patterns over new machinery.
-
-- Search before asking: inspect the workspace and history before asking the user.
-- Make small, reviewable steps; keep each change focused and tested.
-- Report failures honestly, with the exact error, and propose the next attempt.
-- Keep changes minimal and symmetric; do not leave dead code or debug output.`
+export const DEFAULT_WORK_RULES = `# 工作准则
+1. 仓库约定优先：改代码前先读 AGENTS.md、README 与贡献指南；优先沿用现有函数与既有模式，不新造机制。
+2. 先搜索后提问：查工作区与历史记录之后仍无解，才问用户。
+3. 小步可审查：每次改动小而聚焦，保持可独立评审与测试。
+4. 诚实报告：失败就报失败，附上确切错误与下一步尝试。
+5. 最小化改动：不留死代码、不留调试输出，改动对称。
+6. 事实永远在文件：上下文/会话记录不一定是事实；关键事实以文件为准（代码、配置、AGENTS.md、测试），行动前先读文件核实。
+7. 不臆想、不编造：信息不足时多提问，不猜；宁可多问，不要假设。`
 
 /** Plugin configuration. */
 export interface Config {
@@ -49,7 +47,7 @@ export interface Config {
   workRules?: string
   /** Inject a one-time orientation message at each session start, naming the packaged skills. */
   orientOnSessionStart?: boolean
-  /** Register the model-facing oh_my_dsh_doctor diagnostic tool. */
+  /** Register the model-facing dsh_enhance_doctor diagnostic tool. */
   doctorTool?: boolean
   /**
    * Master switch for the security/quality guard hooks (write-existing,
@@ -92,7 +90,7 @@ export const Config: z<Config> = z.object({
 })
 
 /**
- * Apply the oh-my-dsh bundle to one context.
+ * Apply the dsh-enhance bundle to one context.
  * @param ctx - context with the `skills`, `systemPrompt`, and `tools` services.
  * @param config - validated plugin configuration.
  */
@@ -137,5 +135,5 @@ export function apply(ctx: Context, config: Config): void {
     guards,
     workTracking,
     worktree,
-  }, doctorTool)
+  }, doctorTool, advisor)
 }

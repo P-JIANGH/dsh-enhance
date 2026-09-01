@@ -8,7 +8,7 @@
  * roots, `required` arrays, and `oneOf` unions — matching the lossless values
  * `execute` actually returns (the harness rejects tools whose declared schema
  * does not cover the canonical output).
- * @module oh-my-dsh/tools/boulder-tools
+ * @module dsh-enhance/tools/boulder-tools
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -86,9 +86,9 @@ function sessionKey(exec: ToolExecution): string {
   return String(exec.agent?.session?.header?.id ?? 'session')
 }
 
-/** Goal base dir is per-repo `.omd/goals`. */
+/** Goal base dir is per-repo `.dsh-enhance/goals`. */
 function goalsDir(base: string): string {
-  return join(base, '.omd', 'goals')
+  return join(base, '.dsh-enhance', 'goals')
 }
 
 /**
@@ -103,7 +103,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const start: ToolDefinition = {
     name: 'boulder_start',
-    description: 'Start or update a tracked work item in the boulder. Records the plan name, status, a new or existing session, and an optional goal id.',
+    description: '开始或更新一项受追踪的工作（boulder）。记录计划名、状态、一个新会话或已有会话，以及可选的 goal id。',
     parameters: {
       type: 'object',
       properties: {
@@ -138,7 +138,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const status: ToolDefinition = {
     name: 'boulder_status',
-    description: 'Report the current boulder: the write-token holder (exec shape) and the active work items.',
+    description: '报告当前 boulder 状态：写令牌持有者与进行中的工作项。',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: objectOutput({
       exec_holder: { oneOf: [{ type: 'string' }, { type: 'null' }] },
@@ -172,7 +172,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const complete: ToolDefinition = {
     name: 'boulder_complete',
-    description: 'Mark a work item completed and release this session\u2019s write token.',
+    description: '将一项工作标记为已完成，并释放本会话的写令牌。',
     parameters: {
       type: 'object',
       properties: { work_id: { type: 'string' } },
@@ -195,7 +195,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const goalCreate: ToolDefinition = {
     name: 'goal_create',
-    description: 'Create the session goal (acceptance contract). Sets status open and optional acceptance criteria.',
+    description: '创建会话目标（验收契约）。将状态设为 open 并记录可选的验收标准。',
     parameters: {
       type: 'object',
       properties: {
@@ -226,7 +226,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const goalGet: ToolDefinition = {
     name: 'goal_get',
-    description: 'Read this session\u2019s goal.',
+    description: '读取本会话的目标。',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: objectOutput({ goal: { oneOf: [GOAL_SCHEMA, { type: 'null' }] } }, ['goal']),
     async execute(_args, exec) {
@@ -239,7 +239,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const goalUpdate: ToolDefinition = {
     name: 'goal_update',
-    description: 'Update the session goal\u2019s status and/or remaining todo count.',
+    description: '更新本会话目标的状态与/或剩余待办数。',
     parameters: {
       type: 'object',
       properties: {
@@ -254,7 +254,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       const current = readGoal(goalsDir(base), session)
-      if (!current) return { ok: false, error: 'no goal yet; create one first' }
+      if (!current) return { ok: false, error: '尚无目标，请先用 goal_create 创建目标后再更新' }
       const updated = upsertGoal(goalsDir(base), session, {
         ...current,
         status: a.status ?? current.status,

@@ -4,7 +4,7 @@
  * `rev-parse`. The command executor is injectable so unit tests can stub git
  * output without a real repository. Defaults to `child_process.execFile`.
  *
- * @module oh-my-dsh/features/worktree/git-runner
+ * @module dsh-enhance/features/worktree/git-runner
  */
 
 import { execFile } from 'node:child_process'

@@ -1,12 +1,12 @@
-# oh-my-dsh preset: Orchestrating oh-my-dsh agent (persona single-source: prompts/agents/oh-my-dsh.persona.md)
+# dsh-enhance preset: Orchestrating dsh-enhance agent (persona single-source: prompts/agents/dsh-enhance.persona.md)
 #
-# Tool plane mirrors the shipped `standard` preset (apps/cli/config/agent-presets/standard) so an omd
+# Tool plane mirrors the shipped `standard` preset (apps/cli/config/agent-presets/standard) so a dsh-enhance
 # session mounts fs/shell/todo/web/etc. itself — the Web surface disables every tool-* row in the host
 # composition and a preset that omits them leaves its subagents' toolFilter (read/glob/grep/write/edit)
 # pointing at unknown global tools, which rejects every delegation.
 
-- id: oh-my-dsh
-  name: oh-my-dsh
+- id: dsh-enhance
+  name: dsh-enhance
   config:
     orientOnSessionStart: true
     doctorTool: true
@@ -15,12 +15,12 @@
   name: '@deepseek-ai/dsh-persona'
   config:
     text: |-
-      你是 oh-my-dsh 工作智能体：一个能编排整套 oh-my-dsh 能力的执行型主代理（也被称为"主 persona"）。这个会话已经装载了 oh-my-dsh 插件的全部能力（work-rules、技能、doctor、boulder/goal 工作追踪、advisor 伴随审核），并且你可以通过 subagent 工具按需派出四个专职子代理来分担工作。不要在不需要时派子代理——能自己直接、经济地做完的就自己做；只有当下述子代理确实更合适时才派。
+      你是 dsh-enhance 工作智能体：一个能编排整套 dsh-enhance 能力的执行型主代理（也被称为"主 persona"）。这个会话已经装载了 dsh-enhance 插件的全部能力（work-rules、技能、doctor、boulder/goal 工作追踪、advisor 伴随审核），并且你可以通过 subagent 工具按需派出四个专职子代理来分担工作。不要在不需要时派子代理——能自己直接、经济地做完的就自己做；只有当下述子代理确实更合适时才派。
       
       ## 能力总览
       - 完成用户请求是首要责任。先理解真实意图，再按需规划，再小步实现并验证，如实汇报进度与风险。
       - 需要独立核查证据（代码、配置、测试）时，先读文件核实，不凭会话记忆臆断。
-      - 使用 work-rules 段与 oh_my_dsh_doctor 确认插件装配状态。
+      - 使用 work-rules 段与 dsh_enhance_doctor 确认插件装配状态。
       - 对较大/非平凡任务，用 boulder/goal 工具建立工作项与会话目标，逐步提交。
       
       ## 可调用的专职子代理（subagent）
@@ -133,8 +133,8 @@
         toolName: subagent_fork
         backgroundMode: continuable
 
-    # omd-scoped subagent: scout
-    - id: omd-subagent-scout
+    # dsh-enhance-scoped subagent: scout
+    - id: dsh-enhance-subagent-scout
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
         provider: spawn
@@ -144,8 +144,8 @@
           你是只读探索智能体（scout）。快速摸清仓库结构与约定，输出带文件路径的事实清单（每文件的职责、关键模式），以压缩上下文形式交接给调用方。不做修改、不写代码、不执行有副作用的操作。
         toolFilter:
           allow: ["read", "glob", "grep"]
-    # omd-scoped subagent: librarian
-    - id: omd-subagent-librarian
+    # dsh-enhance-scoped subagent: librarian
+    - id: dsh-enhance-subagent-librarian
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
         provider: spawn
@@ -155,8 +155,8 @@
           你是查证外部智能体（librarian）。定位外部库/包的源码与文档，回答概念、实现、行为三类问题。本地优先：先查本地安装的源码与缓存；本地不足才走 web_search / 拉取。结论附来源路径（以文件与工具输出为准，不凭上下文记忆），标注未覆盖的盲区。
         toolFilter:
           allow: ["read", "glob", "grep"]
-    # omd-scoped subagent: reviewer
-    - id: omd-subagent-reviewer
+    # dsh-enhance-scoped subagent: reviewer
+    - id: dsh-enhance-subagent-reviewer
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
         provider: spawn
@@ -166,8 +166,8 @@
           你是审查专注的智能体。一切判断以实际代码为准：读 diff 与周边上下文、运行相关检查，把阻塞问题与建议分开。引用必须带确切文件与行号。做 PR 审查时使用 code-review 技能。安全审查时以证据支撑漏洞发现，只读核查、不臆断。
         toolFilter:
           allow: ["read", "glob", "grep"]
-    # omd-scoped subagent: task
-    - id: omd-subagent-task
+    # dsh-enhance-scoped subagent: task
+    - id: dsh-enhance-subagent-task
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
         provider: spawn

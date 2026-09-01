@@ -16,7 +16,7 @@ test('[guards] filePathOf extracts file_path', () => {
 test('[guards] guardWriteExisting rejects unread write, allows read-first', () => {
   const read = new Set([`${root}/a.ts`])
   assert.equal(guardWriteExisting({ file_path: `${root}/a.ts` }, read, root), undefined)
-  assert.ok(guardWriteExisting({ file_path: `${root}/b.ts` }, read, root)?.includes('read'))
+  assert.ok(guardWriteExisting({ file_path: `${root}/b.ts` }, read, root)?.includes('读过'))
   assert.equal(guardWriteExisting({ content: 'no-path' }, read, root), undefined)
 })
 
@@ -27,7 +27,7 @@ test('[guards] guardWriteExisting force bypasses read requirement', () => {
 
 test('[guards] guardWriteExisting rejects out-of-root as traversal', () => {
   const read = new Set()
-  assert.ok(guardWriteExisting({ file_path: `${root}/../secret` }, read, root)?.includes('outside'))
+  assert.ok(guardWriteExisting({ file_path: `${root}/../secret` }, read, root)?.includes('越界'))
 })
 
 test('[guards] guardPathTraversal blocks escapes, allows inside', () => {
@@ -49,7 +49,7 @@ test('[guards] bashReadPaths ignores flags', () => {
 
 test('[guards] truncateText caps output', () => {
   assert.equal(truncateText('hello', 10), 'hello')
-  assert.ok(truncateText('a'.repeat(100), 10).includes('truncated'))
+  assert.ok(truncateText('a'.repeat(100), 10).includes('截断'))
   assert.ok(truncateText('a'.repeat(100), 10).length < 100)
 })
 

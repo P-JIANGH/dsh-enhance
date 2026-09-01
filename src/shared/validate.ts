@@ -2,7 +2,7 @@
  * Minimal validation helpers for boulder/goal storage, keeping the package
  * zero-runtime-dependency. These are intentionally small hand-rolled guards,
  * not a general schema engine.
- * @module oh-my-dsh/shared/validate
+ * @module dsh-enhance/shared/validate
  */
 
 /** Ensure a value is a finite non-negative integer. */

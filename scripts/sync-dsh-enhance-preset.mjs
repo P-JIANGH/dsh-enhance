@@ -1,15 +1,15 @@
 /**
- * sync-omd-preset: render the oh-my-dsh MAIN preset (the orchestrating persona)
+ * sync-dsh-enhance-preset: render the dsh-enhance MAIN preset (the orchestrating persona)
  * from its single-source persona file, including the four subagent tool
  * instances used to dispatch the focused sub-personas (scout / librarian /
  * reviewer / task) as in-process subagents here.
  *
  * Single-source discipline mirrors scripts/sync-presets.mjs: edit
- * `prompts/agents/oh-my-dsh.persona.md` (main) and the `<role>.persona.md`
+ * `prompts/agents/dsh-enhance.persona.md` (main) and the `<role>.persona.md`
  * sources, then re-run this script. Output goes to
- * `presets/omd/<agent.cordis.yml|preset.yml>`.
+ * `presets/dsh-enhance/<agent.cordis.yml|preset.yml>`.
  *
- * The omd preset is a FULL agent composition, mirroring the shipped `standard`
+ * The dsh-enhance preset is a FULL agent composition, mirroring the shipped `standard`
  * preset's tool plane (shell / fs / search / jobs / skills / goals / plan /
  * compaction / delegation / ask-user / todo / web) because the Web surface
  * disables every `tool-*` row in the HOST composition and lets each session
@@ -17,9 +17,9 @@
  * leaves the session with no file/shell/todo tools — so the four subagents'
  * `toolFilter` (read/glob/grep/write/edit/todo_write) resolves to unknown
  * global tools and every delegation is rejected. This file's tool skeleton is
- * the invariant contract every session on `omd` needs.
+ * the invariant contract every session on `dsh-enhance` needs.
  *
- * @module scripts/sync-omd-preset
+ * @module scripts/sync-dsh-enhance-preset
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -30,13 +30,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const personasRoot = path.join(root, 'prompts', 'agents')
 const presetsRoot = path.join(root, 'presets')
 
-/** Main preset metadata (id = directory name = preset id). Use `omd`, the short form. */
+/** Main preset metadata (id = directory name = preset id). Use `dsh-enhance`. */
 export const MAIN = {
-  id: 'omd',
-  personaSource: 'oh-my-dsh',
-  name: 'oh-my-dsh',
-  title: 'Orchestrating oh-my-dsh agent',
-  description: 'oh-my-dsh orchestrator: full bundle + scout/librarian/reviewer/task subagents.',
+  id: 'dsh-enhance',
+  personaSource: 'dsh-enhance',
+  name: 'dsh-enhance',
+  title: 'Orchestrating dsh-enhance agent',
+  description: 'dsh-enhance orchestrator: full bundle + scout/librarian/reviewer/task subagents.',
 }
 
 /**
@@ -71,8 +71,8 @@ function flowArray(items) {
 export function subagentRow(role, toolName, filter, personaText) {
   const personaIndent = '          ' // 10 spaces: under `config:` (8) inside the delegation list item
   return [
-    `    # omd-scoped subagent: ${role}`,
-    `    - id: omd-subagent-${role}`,
+    `    # dsh-enhance-scoped subagent: ${role}`,
+    `    - id: dsh-enhance-subagent-${role}`,
     "      name: '@deepseek-ai/dsh-tool-subagent'",
     '      config:',
     '        provider: spawn',
@@ -86,9 +86,9 @@ export function subagentRow(role, toolName, filter, personaText) {
 }
 
 /**
- * The model-facing tool-plane rows every session on `omd` needs. Mirrors the
+ * The model-facing tool-plane rows every session on `dsh-enhance` needs. Mirrors the
  * shipped `standard` preset's tool skeleton (apps/cli/config/agent-presets/standard).
- * The omd-specific subagents are appended inside the delegation group.
+ * The dsh-enhance-specific subagents are appended inside the delegation group.
  */
 function toolPlane(subagentRows) {
   return [
@@ -228,7 +228,7 @@ export async function generate() {
   const header = `# ${MAIN.name} preset: ${MAIN.title} (persona single-source: prompts/agents/${MAIN.personaSource}.persona.md)`
   const headerNote = [
     '#',
-    '# Tool plane mirrors the shipped `standard` preset (apps/cli/config/agent-presets/standard) so an omd',
+    '# Tool plane mirrors the shipped `standard` preset (apps/cli/config/agent-presets/standard) so a dsh-enhance',
     '# session mounts fs/shell/todo/web/etc. itself — the Web surface disables every tool-* row in the host',
     '# composition and a preset that omits them leaves its subagents\' toolFilter (read/glob/grep/write/edit)',
     '# pointing at unknown global tools, which rejects every delegation.',
@@ -245,8 +245,8 @@ export async function generate() {
   const body = [
     header,
     headerNote,
-    '- id: oh-my-dsh',
-    '  name: oh-my-dsh',
+    '- id: dsh-enhance',
+    '  name: dsh-enhance',
     '  config:',
     '    orientOnSessionStart: true',
     '    doctorTool: true',
@@ -276,5 +276,5 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const written = await generate()
   const names = Object.keys(written).map(p => path.relative(root, p))
-  console.log(`synced omd preset: ${names.length} files\n${names.join('\n')}`)
+  console.log(`synced dsh-enhance preset: ${names.length} files\n${names.join('\n')}`)
 }

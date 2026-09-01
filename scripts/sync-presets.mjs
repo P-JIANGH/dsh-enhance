@@ -62,7 +62,7 @@ function renderPersonaScalar(persona) {
 
 /**
  * The model-facing tool-plane rows every session on one of these preset need.
- * Mirrors the same skeleton used by the omd main preset (scripts/sync-omd-preset.mjs),
+ * Mirrors the same skeleton used by the dsh-enhance main preset (scripts/sync-dsh-enhance-preset.mjs),
  * which in turn mirrors the shipped `standard` preset — the Web surface disables
  * every `tool-*` row in the HOST composition, so each preset must mount its tools
  * itself or its session has no file/shell/todo tools.
@@ -136,7 +136,7 @@ function toolPlane() {
     '        headChars: 4096',
     '        tailChars: 1024',
     '',
-    // ── delegation (generic subagent only; no omd scoped rows here) ────────
+    // ── delegation (generic subagent only; no dsh-enhance scoped rows here) ────────
     '- id: delegation',
     '  name: cordis:group',
     '  group: true',
@@ -210,8 +210,8 @@ export async function generate() {
     const agentBody = [
       header,
       headerNote,
-      '- id: oh-my-dsh',
-      '  name: oh-my-dsh',
+      '- id: dsh-enhance',
+      '  name: dsh-enhance',
       '  config:',
       '    orientOnSessionStart: true',
       '    doctorTool: true',

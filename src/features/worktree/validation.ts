@@ -4,7 +4,7 @@
  * resolved directory must live under the configured baseDir. Rejects
  * symlink escape (via realpath) and `..` overflow (via containment).
  *
- * @module oh-my-dsh/features/worktree/validation
+ * @module dsh-enhance/features/worktree/validation
  */
 
 import path from 'node:path'

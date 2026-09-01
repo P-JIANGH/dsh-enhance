@@ -3,8 +3,8 @@
 # Tool plane mirrors the shipped `standard` preset so a Web session on this persona mounts
 # fs/shell/todo/web itself (the Web surface disables every tool-* row in the host composition).
 
-- id: oh-my-dsh
-  name: oh-my-dsh
+- id: dsh-enhance
+  name: dsh-enhance
   config:
     orientOnSessionStart: true
     doctorTool: true

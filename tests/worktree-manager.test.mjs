@@ -43,7 +43,7 @@ test('[worktree parse] porcelain with branch and detached', () => {
 })
 
 test('[worktree manager] create runs git worktree add --detach and registers boulder', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-wtm-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-wtm-'))
   const git = stubGit(new Map([['worktree', '']]))
   const mgr = createWorktreeManager(dir, git)
 
@@ -59,7 +59,7 @@ test('[worktree manager] create runs git worktree add --detach and registers bou
 })
 
 test('[worktree manager] find matches by directory name', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-wtm-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-wtm-'))
   const git = stubGit(new Map([['worktree', 'worktree /x\nbranch refs/heads/main\n\nworktree /y/W-9-feature-x\nHEAD zzz\n\n']]))
   const mgr = createWorktreeManager(dir, git)
   const found = await mgr.find('/repo', 'W-9')
@@ -68,7 +68,7 @@ test('[worktree manager] find matches by directory name', async () => {
 })
 
 test('[worktree manager] cleanup runs remove + prune and clears boulder', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-wtm-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-wtm-'))
   setWorktreePath(dir, 'W-1', join(dir, 'W-1'))
   const git = stubGit(new Map([
     ['worktree', ''], // remove + prune both start with 'worktree'
@@ -82,7 +82,7 @@ test('[worktree manager] cleanup runs remove + prune and clears boulder', async 
 })
 
 test('[worktree manager] reuse returns path when it exists, else rebuild instruction', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-wtm-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-wtm-'))
   const git = stubGit(new Map())
   const mgr = createWorktreeManager(dir, git)
   // not registered → rebuild
@@ -96,7 +96,7 @@ test('[worktree manager] reuse returns path when it exists, else rebuild instruc
 })
 
 test('[worktree boulder-link] null clears the path', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-wtm-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-wtm-'))
   setWorktreePath(dir, 'W-2', 'C:\\path')
   setWorktreePath(dir, 'W-2', null)
   assert.equal(getWorktreePath(dir, 'W-2'), null)

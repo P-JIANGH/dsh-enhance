@@ -1,11 +1,11 @@
 // work-tracking + guards e2e driver: exercise boulder/goal tools and the
 // path-traversal guard in a REAL dsh LLM session running inside a throwaway git
-// repo (sandbox cwd). Sandboxed so boulder/goal land under .omd/ there, not in
-// the oh-my-dsh checkout.
+// repo (sandbox cwd). Sandboxed so boulder/goal land under .dsh-enhance/ there, not in
+// the dsh-enhance checkout.
 //
 //   node qa/worktracking-drive.mjs        # runs one sandboxed LLM session
 //
-// Requires DEEPSEEK_API_KEY (or dsh credentials) and the `oh-my` profile linked
+// Requires DEEPSEEK_API_KEY (or dsh credentials) and the `dsh-enhance` profile linked
 // to this checkout. Consumes tokens.
 
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
@@ -14,8 +14,8 @@ import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 
 const ROOT = process.cwd()
-const PROFILE = process.env.OMD_PROFILE ?? 'oh-my'
-const evidenceDir = join(ROOT, '.omd', 'evidence')
+const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
+const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 // Resolve dsh via the node bin entry (no shell trampoline).
 function resolveDsh() {
@@ -41,7 +41,7 @@ function runDsh(cwd, task) {
 }
 
 const task = [
-  'This is an acceptance test of the oh-my-dsh work-tracking and guards.',
+  'This is an acceptance test of the dsh-enhance work-tracking and guards.',
   'Do EXACTLY this sequence, no more:',
   '1) Call boulder_start with work_id="qa-e2e" and plan_name="E2E work tracking".',
   '2) Call goal_create with objective="Acceptance goal" and acceptance=["a"] ',
@@ -55,14 +55,14 @@ const task = [
 function main() {
   mkdirSync(evidenceDir, { recursive: true })
   // 1) throwaway git repo (so worktrees/boulder are scoped there)
-  const sandbox = mkdtempSync(join(tmpdir(), 'omd-e2e-'))
+  const sandbox = mkdtempSync(join(tmpdir(), 'dsh-enhance-e2e-'))
   spawnSync('git', ['init', '-q'], { cwd: sandbox, encoding: 'utf8' })
 
   // 2) run the real LLM session scoped to the sandbox cwd
   const res = runDsh(sandbox, task)
 
   const boulderFile = join(sandbox, 'boulder.json')
-  const goalsDir = join(sandbox, '.omd', 'goals')
+  const goalsDir = join(sandbox, '.dsh-enhance', 'goals')
   const worked = existsSync(boulderFile) && readText(boulderFile).includes('qa-e2e')
   let goalFound = false
   if (existsSync(goalsDir)) {

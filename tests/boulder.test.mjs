@@ -16,7 +16,7 @@ import {
 } from '../lib/features/boulder/goal.js'
 
 function tmpStore() {
-  return mkdtempSync(join(tmpdir(), 'omd-boulder-'))
+  return mkdtempSync(join(tmpdir(), 'dsh-enhance-boulder-'))
 }
 
 test('[boulder] empty state is valid; malformed file reads as empty', () => {

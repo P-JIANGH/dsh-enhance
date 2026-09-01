@@ -7,7 +7,7 @@
  * Deep defense: dsh's own fs/observation and sandbox remain authoritative; this
  * layer is behind `config.guards`.
  *
- * @module oh-my-dsh/tools/guard-register
+ * @module dsh-enhance/tools/guard-register
  */
 
 import type { Context } from '@deepseek-ai/cordis'

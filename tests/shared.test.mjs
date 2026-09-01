@@ -47,8 +47,8 @@ test('[path] isContained with .. traversal is rejected', () => {
 })
 
 test('[path] isContainedRobust rejects lexical escapes deterministically', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-path-'))
-  const outside = join(dir, '..', 'omd-path-outside.txt')
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-path-'))
+  const outside = join(dir, '..', 'dsh-enhance-path-outside.txt')
   assert.equal(isContained(outside, dir), false)
   assert.equal(isContained(join(dir, '..', 'anything'), dir), false)
   // Inside stays inside.
@@ -60,7 +60,7 @@ test('[path] isContainedRobust rejects lexical escapes deterministically', () =>
 // ---- atomic-write ---- //
 
 test('[atomic] atomicWriteFile persists and overwrites atomically', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-aw-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-aw-'))
   const file = join(dir, 'data.json')
   atomicWriteFile(file, '{"v":1}')
   assert.equal(readFileSync(file, 'utf8'), '{"v":1}')
@@ -69,7 +69,7 @@ test('[atomic] atomicWriteFile persists and overwrites atomically', () => {
 })
 
 test('[atomic] readJsonOrNull returns null for missing/bad file, parses good', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-aw-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-aw-'))
   assert.equal(readJsonOrNull(join(dir, 'nope.json')), null)
   const bad = join(dir, 'bad.json')
   writeFileSync(bad, 'not json')
@@ -80,7 +80,7 @@ test('[atomic] readJsonOrNull returns null for missing/bad file, parses good', (
 })
 
 test('[atomic] acquireLock: exclusive, then second fails; release allows retake', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-lock-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-lock-'))
   const lock = join(dir, 'L')
   const first = acquireLock(lock)
   assert.equal(first.ok, true)

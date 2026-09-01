@@ -7,7 +7,7 @@
  * This hook is thin: the decision functions live in the tested delivery-gate
  * module; here we wire them to the dsh event + boulder storage.
  *
- * @module oh-my-dsh/hooks/delivery-gate
+ * @module dsh-enhance/hooks/delivery-gate
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -42,7 +42,7 @@ function recordIfDelivered(agent: Agent): void {
     const work = state.active_work_id ? state.works[state.active_work_id] : undefined
     if (!work) return
 
-    const goal = readGoal(join(cwd, '.omd', 'goals'), session)
+    const goal = readGoal(join(cwd, '.dsh-enhance', 'goals'), session)
     const remaining = goal?.remaining_todos ?? 0
     // Claim detection: use the latest assistant message text as the signal.
     // (Model-facing text is not directly available in this serial hook; treat

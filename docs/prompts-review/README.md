@@ -1,4 +1,4 @@
-# oh-my-dsh M2 提示词审查稿（索引）
+# dsh-enhance M2 提示词审查稿（索引）
 
 > 范围：M2 提示词审查（架构文档第 6 节）。
 > 结构：自 2026-08 起，每个提示词一份独立审查稿（源材料 + 中文稿 + 映射表 + 校验 + 实驱状态），本文件为索引与公共内容（流程、评审结论、桌面对齐）。
@@ -25,7 +25,7 @@
 
 > 角色体系（2026-08-25 确认）：按 [roles.md](../roles.md) 采用 **6 角色体系**——planner / scout / librarian / task(worker) / reviewer / advisor。原 executor/explorer/debugger 已被 scout/task 取代（executor→task、explorer→scout、debugger 并入 task、security 并入 reviewer、新增 librarian），对应审查稿已重命名/合并/新增。
 >
-> **三种工作模式（2026-08-26，设计定稿）**：6 角色是能力原子；用户视角的模式编排见 [modes.md](../modes.md)——OMD 万能（默认，意图驱动按需委派）、Planner 计划实施（固定骨架：scout/librarian 收集→澄清→计划→计划审查→用户确认→并行 task 执行→执行审查）、Advisor 目标回归（goal 驱动：advisor 持续纠偏 + delivery-gate 回归闸 + 压缩续作）。各模式复用下的 persona 审查稿仍以本目录为准。
+> **三种工作模式（2026-08-26，设计定稿）**：6 角色是能力原子；用户视角的模式编排见 [modes.md](../modes.md)——dsh-enhance 万能（默认，意图驱动按需委派）、Planner 计划实施（固定骨架：scout/librarian 收集→澄清→计划→计划审查→用户确认→并行 task 执行→执行审查）、Advisor 目标回归（goal 驱动：advisor 持续纠偏 + delivery-gate 回归闸 + 压缩续作）。各模式复用下的 persona 审查稿仍以本目录为准。
 
 ---
 
@@ -67,7 +67,7 @@
 ## 桌面工作流分析对齐（opencode-workflows-analysis.md，2026-07-09）
 
 > 来源：`D:\Desktop\opencode-workflows-analysis.md`（用户 OpenCode 实际工作流分析，298 行）。
-> 定位：不只参考 ultrawork——作为 oh-my-dsh 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
+> 定位：不只参考 ultrawork——作为 dsh-enhance 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
 
 ### 文件概要
 - 12 种开发模式：元工作流审计、CRUD 骨架、ERP 集成管道、预警推送模板、企业后端、移动端 H5、设计审查管道、浏览器测试、发布工作流、安全感知、多格式文档、知识库管理。
@@ -75,9 +75,9 @@
 - 体系总览：元层（审计→技能化）→ 开发层/产线层（ship→review→deploy→doc）/安全层（careful/guard/freeze）。
 - 核心特征：Delegate-heavy、Skill-first、Pipe-driven、Safety-conscious、Data-driven。
 
-### 对齐到 oh-my-dsh（建议，待用户确认）
+### 对齐到 dsh-enhance（建议，待用户确认）
 
-| 桌面文件内容 | oh-my-dsh 落点 | 状态 |
+| 桌面文件内容 | dsh-enhance 落点 | 状态 |
 |---|---|---|
 | `[search-mode]`：并行 explore/librarian agents + rg/sg 直接工具，挖掘到穷尽 | **mode 提示源材料**：落地为 skill-trigger 的 search 模式中文精简稿 | 已起草（search-analyze.md） |
 | `[analyze-mode]`：先并行收集上下文（explore/librarian/LSP），融合发现再下手；复杂问题找专家 | 同上：analyze 模式中文精简稿；与 ultrawork 稿"一、动手前确认 + 三、技能与委派"同源 | 已起草（search-analyze.md） |
@@ -116,8 +116,8 @@
 
 ## skill / MCP 内置评估（桌面文件，建议待用户确认）
 
-> 桌面文件提及约 20 个 skill 与 5 个 MCP（来自用户 OpenCode 环境，非 oh-my-dsh 现有内容）。
-> 评估标准：跨项目复用性、与 dsh 无关性、与 oh-my-dsh 5.4 skills 池的匹配度。
+> 桌面文件提及约 20 个 skill 与 5 个 MCP（来自用户 OpenCode 环境，非 dsh-enhance 现有内容）。
+> 评估标准：跨项目复用性、与 dsh 无关性、与 dsh-enhance 5.4 skills 池的匹配度。
 
 | 来源 | 名称 | 评估 | 建议 |
 |---|---|---|---|

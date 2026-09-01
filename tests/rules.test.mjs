@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { discoverRules } from '../lib/hooks/rules-injector.js'
 
 test('[rules] discovers AGENTS.md', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-rules-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-rules-'))
   writeFileSync(join(dir, 'AGENTS.md'), 'Follow the repo.')
   const out = discoverRules(dir)
   assert.ok(out.includes('AGENTS.md'))
@@ -14,9 +14,9 @@ test('[rules] discovers AGENTS.md', () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('[rules] discovers .omd/rules/*.md sorted', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-rules-'))
-  const rulesDir = join(dir, '.omd', 'rules')
+test('[rules] discovers .dsh-enhance/rules/*.md sorted', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-rules-'))
+  const rulesDir = join(dir, '.dsh-enhance', 'rules')
   mkdirSync(rulesDir, { recursive: true })
   writeFileSync(join(rulesDir, 'b.md'), 'Beta')
   writeFileSync(join(rulesDir, 'a.md'), 'Alpha')
@@ -27,15 +27,15 @@ test('[rules] discovers .omd/rules/*.md sorted', () => {
 })
 
 test('[rules] returns undefined when no rules found and caches it', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-rules-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-rules-'))
   assert.equal(discoverRules(dir), undefined)
   assert.equal(discoverRules(dir), undefined)
   rmSync(dir, { recursive: true, force: true })
 })
 
-test('[rules] combines AGENTS + .omd/rules', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omd-rules-'))
-  const rulesDir = join(dir, '.omd', 'rules')
+test('[rules] combines AGENTS + .dsh-enhance/rules', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-rules-'))
+  const rulesDir = join(dir, '.dsh-enhance', 'rules')
   mkdirSync(rulesDir, { recursive: true })
   writeFileSync(join(dir, 'AGENTS.md'), 'Root')
   writeFileSync(join(rulesDir, 'deep.md'), 'Deep')

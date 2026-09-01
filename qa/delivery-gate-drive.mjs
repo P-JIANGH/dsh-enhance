@@ -1,7 +1,7 @@
 // delivery-gate 交付门卫 —— 真实会话触发驱动（替换原占位）
 //
 // 目的：在真实 dsh 会话中验证 delivery-gate hook 的"完成声明拦截"。
-// 方式：在隔离沙箱 cwd 预置 boulder.json（active_work 存在）+ .omd/goals/<session>.json
+// 方式：在隔离沙箱 cwd 预置 boulder.json（active_work 存在）+ .dsh-enhance/goals/<session>.json
 // （goal.status=done + remaining_todos=0），再用 dsh headless 在沙箱跑一个真实单轮会话，
 // 触发 agent/turn-stopping → delivery-gate hook 运行 → 命中完成条件 → 向 boulder.completion_log
 // 写入结构化交付记录并释放写令牌。随后断言 completion_log 出现且 active_work 被清除。
@@ -11,15 +11,15 @@
 // turn-stopping → delivery-gate hook 读 boulder/goal 存储 → 拦截并落 completion_log。
 //
 // 运行：node qa/delivery-gate-drive.mjs
-//   （需 DEEPSEEK_API_KEY；profile 用 omd）
+//   （需 DEEPSEEK_API_KEY；profile 用 dsh-enhance）
 import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 
 const ROOT = process.cwd()
-const PROFILE = process.env.OMD_PROFILE ?? 'omd'
-const evidenceDir = join(ROOT, '.omd', 'evidence')
+const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
+const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 function resolveDsh() {
   if (process.env.DSH_BIN) return [process.env.DSH_BIN, []]
@@ -49,14 +49,14 @@ function readText(p) {
 function main() {
   mkdirSync(evidenceDir, { recursive: true })
   const sandbox = mkdtempSync(join(tmpdir(), 'delivery-gate-'))
-  const goalsDir = join(sandbox, '.omd', 'goals')
+  const goalsDir = join(sandbox, '.dsh-enhance', 'goals')
   mkdirSync(goalsDir, { recursive: true })
 
   // One real dsh turn in the sandbox cwd: the agent calls the boulder/goal
   // tools to establish an ACTIVE WORK + a DONE goal (remaining_todos=0), then
   // finishes — firing agent/turn-stopping, which runs the delivery-gate hook.
   const res = runDsh(sandbox, [
-    'This is an acceptance test of the oh-my-dsh delivery gate.',
+    'This is an acceptance test of the dsh-enhance delivery gate.',
     'Do EXACTLY this sequence, no more:',
     '1) Call boulder_start with work_id="dg-work-1" and plan_name="delivery gate e2e".',
     '2) Call goal_create with objective="Acceptance goal" and acceptance=["dg"]',

@@ -1,7 +1,7 @@
 {
-  "name": "oh-my-dsh",
+  "name": "@dsh-enhance/dsh-enhance",
   "version": "0.1.0",
-  "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness: packaged skills, work-rule prompt guidance, a session-start orientation hook, and a doctor tool — install and go",
+  "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness (dsh-enhance): packaged skills, work-rule prompt guidance, a session-start orientation hook, and a doctor tool — install and go",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -52,6 +52,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/you/oh-my-dsh"
+    "url": "https://github.com/dsh-enhance/dsh-enhance"
   }
 }

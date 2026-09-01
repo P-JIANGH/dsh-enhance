@@ -2,7 +2,7 @@
  * Path primitives shared by guards and work tracking: canonicalization with
  * Windows-aware comparison, and containment checks against a session/workspace
  * root. Pure functions (sync fs access only for realpath fallback, injected).
- * @module oh-my-dsh/shared/path
+ * @module dsh-enhance/shared/path
  */
 
 import path from 'node:path'

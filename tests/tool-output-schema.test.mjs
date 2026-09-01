@@ -39,7 +39,7 @@ function fakeExec(cwd, extra = {}) {
 
 /** Scratch repo root so boulder writes never land in the checkout. */
 function tempCwd() {
-  return mkdtempSync(join(tmpdir(), 'omd-schema-'))
+  return mkdtempSync(join(tmpdir(), 'dsh-enhance-schema-'))
 }
 
 test('[tool-output-schema] boulder/goal tools declare valid object-root schemas', () => {
@@ -67,7 +67,7 @@ test('[tool-output-schema] worktree tools declare valid object-root schemas', ()
 test('[tool-output-schema] boulder_status output covers a real read shape', async () => {
   const { defs } = capture(registerBoulderTools)
   const def = defs.find(d => d.name === 'boulder_status')
-  const value = await def.execute({}, fakeExec(join(tmpdir(), 'omd-status-cwd')))
+  const value = await def.execute({}, fakeExec(join(tmpdir(), 'dsh-enhance-status-cwd')))
   const violations = validateJsonSchemaValue(def.output.schema, value)
   assert.deepEqual(violations, [], `boulder_status value validates: ${JSON.stringify(violations)}`)
 })

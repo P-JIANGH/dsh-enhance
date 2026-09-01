@@ -6,7 +6,7 @@
  * Defaults are conservative but the hooks are behind `config.guards` so a
  * deployment that fully trusts dsh's fs/observation policy can leave them off.
  *
- * @module oh-my-dsh/tools/guards
+ * @module dsh-enhance/tools/guards
  */
 
 import { isContained } from '../shared/path.js'
@@ -47,8 +47,8 @@ export function guardWriteExisting(
   if (p === undefined) return undefined // not a file write we recognize
   if (readSet.has(p)) return undefined
   // Paths inside the root but not tracked: reject unless it's a new file.
-  if (!isContained(p, root)) return 'path-traversal: outside workspace root'
-  return `write-exists: path not read in this session (${p}) — read it first`
+  if (!isContained(p, root)) return '路径越界：写目标在工作区根目录之外，已拒绝'
+  return `写入被拒绝：路径未在本会话读过（${p}）。请先用 read 读取再写，或在 force 下新建文件`
 }
 
 /**
@@ -62,7 +62,7 @@ export function guardPathTraversal(args: unknown, root: string): string | undefi
   const p = filePathOf(args)
   if (p === undefined) return undefined
   if (isContained(p, root)) return undefined
-  return `path-traversal: ${p} is outside workspace root`
+  return `路径越界：${p} 在会话工作区根目录之外，已拒绝写入`
 }
 
 /**
@@ -93,5 +93,5 @@ export function bashReadPaths(command: string): string[] {
  */
 export function truncateText(text: string, cap: number): string {
   if (text.length <= cap) return text
-  return text.slice(0, cap) + '…[truncated: output exceeds cap]'
+  return text.slice(0, cap) + '…[输出超出上限，已截断]'
 }

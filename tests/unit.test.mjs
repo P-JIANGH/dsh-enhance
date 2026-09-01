@@ -26,7 +26,7 @@ test('provider lists the three packaged skills', async () => {
   assert.deepEqual(names, ['code-review', 'git-workflow', 'tdd'])
   for (const candidate of candidates) {
     assert.equal(candidate.source, 'bundled')
-    assert.equal(candidate.provider, 'oh-my-dsh')
+    assert.equal(candidate.provider, 'dsh-enhance')
     assert.ok(candidate.description.length > 0)
   }
 })
@@ -50,10 +50,12 @@ test('DEFAULT_WORK_RULES carries the key working-discipline constraints', () => 
   // shipped work-rules prose. This is a regression guard, not a behavior assertion.
   for (const phrase of [
     'AGENTS.md',
-    'Search before asking',
-    'Make small, reviewable steps',
-    'Report failures honestly',
-    'Keep changes minimal and symmetric',
+    '先搜索后提问',
+    '小步可审查',
+    '诚实报告',
+    '最小化改动',
+    '事实永远在文件',
+    '不臆想',
   ]) {
     assert.ok(DEFAULT_WORK_RULES.includes(phrase), `DEFAULT_WORK_RULES should mention: ${phrase}`)
   }

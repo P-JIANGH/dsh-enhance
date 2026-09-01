@@ -1,9 +1,9 @@
 /**
- * Packaged-skill provider for oh-my-dsh: exposes the `skills/` SKILL.md bundles
+ * Packaged-skill provider for dsh-enhance: exposes the `skills/` SKILL.md bundles
  * shipped inside this package as read-only candidates. A dedicated provider is
  * the documented way deployments supply packaged skills, so the skills work in
  * any profile without a filesystem root pointing at the package.
- * @module oh-my-dsh/skills-provider
+ * @module dsh-enhance/skills-provider
  */
 
 import { readdir, readFile } from 'node:fs/promises'
@@ -80,7 +80,7 @@ function skillDir(name: string): string {
  */
 export function createSkillsProvider(_control: SkillProviderControl): SkillProvider {
   return {
-    name: 'oh-my-dsh',
+    name: 'dsh-enhance',
     async list() {
       const entries = await readdir(SKILLS_ROOT, { withFileTypes: true })
       const candidates: SkillCandidate[] = []
@@ -100,7 +100,7 @@ export function createSkillsProvider(_control: SkillProviderControl): SkillProvi
           description: parsed.description,
           invocation: parsed.invocation,
           source: SOURCE,
-          provider: 'oh-my-dsh',
+          provider: 'dsh-enhance',
           rank: BUNDLED_RANK,
           path: skillPath,
           locator: entry.name,

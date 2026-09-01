@@ -6,7 +6,7 @@
  * Authored as raw {@link ToolDefinition}s so `output.schema` covers the lossless
  * values actually returned (the harness rejects tools whose declared schema
  * does not cover the canonical output).
- * @module oh-my-dsh/tools/worktree-tools
+ * @module dsh-enhance/tools/worktree-tools
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -66,7 +66,7 @@ export function registerWorktreeTools(ctx: Context, enabled: boolean): () => voi
 
   const create: ToolDefinition = {
     name: 'worktree_create',
-    description: 'Create a detached git worktree for a boulder work and register its path on the work.',
+    description: '为一项 boulder 工作创建独立的 git worktree，并注册其路径到该项工作。',
     parameters: {
       type: 'object',
       properties: {
@@ -90,7 +90,7 @@ export function registerWorktreeTools(ctx: Context, enabled: boolean): () => voi
 
   const list: ToolDefinition = {
     name: 'worktree_list',
-    description: 'List git worktrees in the session repository.',
+    description: '列出当前仓库中的 git worktree。',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: objectOutput({ worktrees: { type: 'array', items: WORKTREE_ENTRY_SCHEMA } }, ['worktrees']),
     async execute(_args, exec) {
@@ -104,7 +104,7 @@ export function registerWorktreeTools(ctx: Context, enabled: boolean): () => voi
 
   const cleanup: ToolDefinition = {
     name: 'worktree_cleanup',
-    description: 'Remove a work\u2019s git worktree and clear its boulder worktree_path.',
+    description: '移除一项工作的 git worktree，并清除 boulder 中记录的 worktree_path。',
     parameters: {
       type: 'object',
       properties: { work_id: { type: 'string' } },
@@ -117,7 +117,7 @@ export function registerWorktreeTools(ctx: Context, enabled: boolean): () => voi
       const { root } = storeOf(exec)
       const workId = String(a.work_id)
       const registered = getWorktreePath(root, workId)
-      if (!registered) return { ok: false, error: 'no registered worktree for this work' }
+      if (!registered) return { ok: false, error: '没有为该工作注册 worktree，请先用 worktree_create 创建' }
       const mgr = createWorktreeManager(root, git)
       await mgr.cleanup(root, workId, registered)
       return { ok: true, work_id: workId }

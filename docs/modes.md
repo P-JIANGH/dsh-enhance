@@ -1,25 +1,25 @@
-# oh-my-dsh 三种工作模式/预设（modes）
+# dsh-enhance 三种工作模式/预设（modes）
 
-> 状态：**设计定稿（设计评审稿，2026-08-26）**。本文把 oh-my-dsh 的智能体能力整理为三种可选的**工作模式（mode / preset）**——OMD 万能、Planner 计划实施、Advisor 目标回归。三者共享同一套底层能力基底（一个 tool plane + 4 个专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal 工作追踪），差异只在**编排层**：谁主导、按什么流程推进、如何处理"完成"。
+> 状态：**设计定稿（设计评审稿，2026-08-26）**。本文把 dsh-enhance 的智能体能力整理为三种可选的**工作模式（mode / preset）**——dsh-enhance 万能、Planner 计划实施、Advisor 目标回归。三者共享同一套底层能力基底（一个 tool plane + 4 个专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal 工作追踪），差异只在**编排层**：谁主导、按什么流程推进、如何处理"完成"。
 > 关联文档：[roles.md](roles.md)（6 角色来源）、[architecture.md](architecture.md)（能力实现）、prompts-review/（各 persona/模式提示词稿）。
-> 本文是**设计说明**；触发词/预设落点/QA 的验收口径由下文给出，落地以 M1 已产出的 `presets/omd/` 与各 persona 为准。
+> 本文是**设计说明**；触发词/预设落点/QA 的验收口径由下文给出，落地以 M1 已产出的 `presets/dsh-enhance/` 与各 persona 为准。
 
 ---
 
 ## 1. 核心主张：一个基底 + 三种编排
 
-oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + 三种编排 persona**来表达。这样三种模式可以：
+dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + 三种编排 persona**来表达。这样三种模式可以：
 
 - **共享同一份已验证的 tool plane**（shell/fs/search/jobs/skills/goals/plan/compaction/delegation/ask-user/todo/web），不需要每个模式重造工具行；
 - **共享同一份 subagent 专职清单**（scout / librarian / reviewer / task，各自 toolFilter 已收敛），三个模式都可用；
 - **共享同一套运行时纪律**（work-rules 注入、guards + delivery-gate、boulder/goal 追踪、advisor 伴随审查、worktree/写令牌并发纪律）；
 - 唯一改变的是**当前会话装配哪份 orchestrator persona**，决定"主模型如何编排它的子 agent 与流程"。
 
-> 结论：三种模式是**同一插件、同一预设基底**上的三种 persona 装配，而非三套独立代码。这也解释了为什么现有 `presets/omd/` 已经承担了"万能模式"角色——它天然就是基底 + 主编排。
+> 结论：三种模式是**同一插件、同一预设基底**上的三种 persona 装配，而非三套独立代码。这也解释了为什么现有 `presets/dsh-enhance/` 已经承担了"万能模式"角色——它天然就是基底 + 主编排。
 
 | 模式 | 主模型身价 | 编排风格 | 产出 | 何时选 |
 |---|---|---|---|---|
-| **OMD 万能**（默认） | 直接实施者 | 意图驱动，按需委派 | 完成的任务 | 一般任务、直接动手 |
+| **dsh-enhance 万能**（默认） | 直接实施者 | 意图驱动，按需委派 | 完成的任务 | 一般任务、直接动手 |
 | **Planner 计划实施** | 计划者 + 调度者 | 固定骨架工作流，顺序推进 | 计划 + 已确认的交付 | 复杂/多步/需要先规划确认 |
 | **Advisor 目标回归** | 目标执行者 | goal 驱动，持续纠偏 + 结束回归闸 | 达成目标的交付 | 目标导向、长任务、要持续对齐 |
 
@@ -38,7 +38,7 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
    - 通用 `subagent` / `subagent_fork`（fork 用于并行背景写者）也在 delegation 组内可用。
 3. **运行时刻律**：
    - work-rules 系统段 + orient 开场注入；
-   - guards（write-existing / path-traversal / bash-read）+ rules-injector（AGENTS.md / `.omd/rules/`）；
+   - guards（write-existing / path-traversal / bash-read）+ rules-injector（AGENTS.md / `.dsh-enhance/rules/`）；
    - **delivery-gate**（完成声明拦截 → 双层回归审查 → 未过压缩上下文重注入契约）；
    - boulder/goal 工作追踪 + 写令牌并发纪律 + worktree 隔离；
    - **advisor 伴随审查**（turn-stopping 增量 → `ctx.llm.stream` 独立审查 → nit/concern/blocker 回注）。
@@ -48,9 +48,9 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
 
 ---
 
-## 3. 模式 A：OMD 万能（OMD — orchestrating universal doer）
+## 3. 模式 A：dsh-enhance 万能（dsh-enhance — orchestrating universal doer）
 
-- **预设 / persona 源**：`presets/omd/` ← `prompts/agents/oh-my-dsh.persona.md`（M1 已实现，即现有默认 orchestrator）。
+- **预设 / persona 源**：`presets/dsh-enhance/` ← `prompts/agents/dsh-enhance.persona.md`（M1 已实现，即现有默认 orchestrator）。
 - **定位**：默认模式。直接实施，通用能力强，**根据用户意图**按需调用子 agent（scout / librarian / reviewer），task 自成执行单元（可委派或主模型直接做）。
 - **编排风格**：意图驱动的按需委派。主 persona 先理解意图 → 需要独立核查/侦察/审查时派对应 subagent → 拿结果整合推进。**不强制固定流程**，靠意图判定（skill-trigger 意图路由，architecture 5.4.1）辅助决定"何时委派谁"。
 - **何时选**：一般开发任务、直接动手、探索型问题、不需要严格出场确认的改动。
@@ -58,7 +58,7 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
 ### 3.1 编排流程图
 
 ```
-用户意图 → 主 persona(omd) 理解意图
+用户意图 → 主 persona(dsh-enhance) 理解意图
               │
               ├─ 需要独立侦察/映射仓库 → subagent_scout（只读）
               ├─ 需要核实外部依赖/事实 → subagent_librarian（只读）
@@ -118,7 +118,7 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
 
 - **预设 / persona 源**：`presets/advisor/` ← `prompts/agents/advisor.persona.md`（编排 persona，单源）或 `prompts/modes/advisor.md`（伴随审查稿件，用于运行时刻决策）——设计上把 **advisor 伴随运行时 + goal 工作追踪 + delivery-gate** 组合成一个**目标回归编排**。
 - **定位**：**可设置 goal**；执行过程中 **advisor 持续收集信息/对话/内容，做目的纠正、纠错等回归动作**；结束前 advisor/reviewer 做回归审查；**不通过则压缩上下文后继续，直到达成目标**。
-- **编排风格**：goal 驱动的回归循环。与 OMD/Planner 的最大差别：**存在一个持续对照目标纠偏的影子（advisor）**，且"完成"由"是否达成 goal"判定，而非"自我声明完成"。
+- **编排风格**：goal 驱动的回归循环。与 dsh-enhance/Planner 的最大差别：**存在一个持续对照目标纠偏的影子（advisor）**，且"完成"由"是否达成 goal"判定，而非"自我声明完成"。
 - **何时选**：目标导向、长/复杂任务；需要持续对齐用户真实目的而非只求交付；容易跑偏/反复返工的任务。
 
 ### 5.1 编排流程（goal 驱动的回归环）
@@ -158,7 +158,7 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
 | 结束前回归审查 | **delivery-gate**（5.2.1）派 reviewer 双层核对 + verify 绑定 | 完成声明拦截 → 回归审查 → 未过压缩上下文 |
 | 不通过则压缩继续 | delivery-gate 的"压缩上下文 + 重注入入口契约"阶段转移（5.2.1-4） | 目标回归环的"不过则回到执行"，正是 delivery-gate 状态机 |
 
-> 关键设计点：Advisor 模式**不是**再发明一套循环，而是**把 advisor（持续纠偏）+ goal（验收契约）+ delivery-gate（结束回归闸 + 压缩续作）串成一条回归环**。三者在 oh-my-dsh 中均已实现，Advisor 模式是它们的编排组合——这也是"基于已完成工作"的一种落地方式。
+> 关键设计点：Advisor 模式**不是**再发明一套循环，而是**把 advisor（持续纠偏）+ goal（验收契约）+ delivery-gate（结束回归闸 + 压缩续作）串成一条回归环**。三者在 dsh-enhance 中均已实现，Advisor 模式是它们的编排组合——这也是"基于已完成工作"的一种落地方式。
 
 ### 5.3 逻辑闭环要点
 
@@ -188,12 +188,12 @@ oh-my-dsh 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + �
 
 ## 7. 落地与 QA
 
-- **预设落点**：`presets/omd/`（已实现，= 模式 A）；`presets/planner/` 增强为模式 B 编排 persona；`presets/advisor/` 新增为模式 C 编排 + 装配（advisor 运行时已在 Config 默认开启）。各预设投递到 `~/.dsh/.agent-presets/` 供 web 可选。
+- **预设落点**：`presets/dsh-enhance/`（已实现，= 模式 A）；`presets/planner/` 增强为模式 B 编排 persona；`presets/advisor/` 新增为模式 C 编排 + 装配（advisor 运行时已在 Config 默认开启）。各预设投递到 `~/.dsh/.agent-presets/` 供 web 可选。
 - **触发方式**：会话选择对应 preset（web Agent 面板 / headless `--profile` + preset），或通过 skill-trigger 意图路由（ultrawork/search/analyze 之外按模式名触发）。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；
   - B：固定骨架顺序（实驱断言 S1→S7 阶段次序）+ 确认闸前无写（文件系统断言）+ 并行 task 不踩踏（worktree/令牌）。
   - C：goal→纠偏→回归→压缩续作闭环（实驱构造一个"声明达成但未达标"的目标，断言被拦回灌；advisor 纠偏正向回注若可观测则记录证据）。
-- **状态**：模式 A 已实驱（omd 预设 + subagent_scout 调用证据）；模式 B/C 编排 persona 与 presets 为**后续实现项**，本文为设计蓝本。
+- **状态**：模式 A 已实驱（dsh-enhance 预设 + subagent_scout 调用证据）；模式 B/C 编排 persona 与 presets 为**后续实现项**，本文为设计蓝本。
 
 ---

@@ -2,7 +2,7 @@
  * Advisor singleton prompt. Mirrors `prompts/modes/advisor.md` (the single-source
  * review contract) as a module constant so the advisor sub-agent's runtime never
  * depends on a filesystem layout that changes after packaging.
- * @module oh-my-dsh/features/advisor/prompt
+ * @module dsh-enhance/features/advisor/prompt
  */
 
 /** The advisor companion-review model instructions. Source: prompts/modes/advisor.md. */

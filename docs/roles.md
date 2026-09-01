@@ -1,16 +1,16 @@
-# oh-my-dsh 角色体系设计（roles）
+# dsh-enhance 角色体系设计（roles）
 
 > 状态：**已定稿**（2026-08-25 用户确认采用，见 prompts-review/README.md 评审结论 7）。角色合并/重命名/新增已据此落地：
 > - explorer→scout 重命名、executor→task 重命名、debugger 并入 task、security 并入 reviewer（`mode: security`）、新增 librarian、advisor 纳入首批（伴随监督）。
 > - 对应提示词审查稿见 `docs/prompts-review/`（scout.md / task.md / librarian.md / reviewer.md / advisor.md）。
-> 目标：为 oh-my-dsh 定义一套精干、职责清晰、可组合的 agent 角色。
+> 目标：为 dsh-enhance 定义一套精干、职责清晰、可组合的 agent 角色。
 > 性质：自主设计；借鉴来源均为 MIT（oh-my-pi 角色、lazycodex 组件）；不依赖任何 SUL 项目内容。
 
 ---
 
 ## 1. 为什么需要梳理角色
 
-oh-my-dsh 的 agents 目前是 5 个 persona（planner / reviewer / executor / explorer / debugger）+ 一个待定的 advisor。但这 5 个角色之间职责有重叠（executor 与 explorer、reviewer 与 debugger），也没有覆盖"查证外部库""安全审查"等常见需求。要重命名 + 重写，必须先知道：
+dsh-enhance 的 agents 目前是 5 个 persona（planner / reviewer / executor / explorer / debugger）+ 一个待定的 advisor。但这 5 个角色之间职责有重叠（executor 与 explorer、reviewer 与 debugger），也没有覆盖"查证外部库""安全审查"等常见需求。要重命名 + 重写，必须先知道：
 
 - 每个候选角色**到底做什么**（职责边界）；
 - 哪些角色天然**能合并**（避免职责重复）；
@@ -34,9 +34,9 @@ oh-my-dsh 的 agents 目前是 5 个 persona（planner / reviewer / executor / e
 
 ---
 
-## 3. oh-my-dsh 当前 5 角色 vs 这是怎么来的
+## 3. dsh-enhance 当前 5 角色 vs 这是怎么来的
 
-| oh-my-dsh 现角色 | 来源 | 问题 |
+| dsh-enhance 现角色 | 来源 | 问题 |
 |---|---|---|
 | planner | v1 preset（规划） | 职责清晰，保留 |
 | reviewer | v1 preset（审查） | 与 security-reviewer / advisor 有重叠，需界定 |
@@ -110,7 +110,7 @@ oh-my-dsh 的 agents 目前是 5 个 persona（planner / reviewer / executor / e
 
 > 6 角色是**能力原子**；用户视角的**工作模式**是把它们编排成三种可选 preset（设计稿：[modes.md](modes.md)）。三模式共用同一角色池，只是"谁主导、按什么流程调用谁"不同：
 
-| 角色 | 模式 A：OMD 万能 | 模式 B：Planner 计划实施 | 模式 C：Advisor 目标回归 |
+| 角色 | 模式 A：dsh-enhance 万能 | 模式 B：Planner 计划实施 | 模式 C：Advisor 目标回归 |
 |---|---|---|---|
 | **planner** | （主 persona 承担规划，不单独亮出） | 主模型——编排固定骨架 | （按需参与目标拆解） |
 | **scout**（只读） | 按需委派（盘点/映射仓库） | S1 进场侦察（并行收集） | 按需委派（补上下文） |

@@ -5,7 +5,7 @@
  * steer again when the recorded todo count has actually decreased since the
  * last steer (no progress ⇒ stay silent, so an infinite won\u2019t spin).
  *
- * @module oh-my-dsh/hooks/todo-continuation
+ * @module dsh-enhance/hooks/todo-continuation
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -72,7 +72,7 @@ function tryContinue(agent: Agent): void {
   const { state } = readBoulder(cwd)
   const work = state.active_work_id ? state.works[state.active_work_id] : undefined
 
-  const goal = readGoal(join(cwd, '.omd', 'goals'), session)
+  const goal = readGoal(join(cwd, '.dsh-enhance', 'goals'), session)
   const todos = goal?.remaining_todos ?? 0
 
   const prior = lastSeenTodos.get(key)

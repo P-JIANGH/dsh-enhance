@@ -1,6 +1,6 @@
-# oh-my-dsh bundle patch: one install row.
+# dsh-enhance bundle patch: one install row.
 #
-# Mounts the oh-my-dsh plugin for any profile that includes this bundle. The
+# Mounts the dsh-enhance plugin for any profile that includes this bundle. The
 # plugin contributes packaged skills, the work-rules prompt section, the
 # session-start orientation hook, the doctor tool, work-tracking (boulder/goal)
 # tools, and the advisor companion-review runtime.
@@ -10,5 +10,5 @@
 # again would double-register the `agentPresets` service and crash the loader
 # ("service agentPresets has been registered").
 - insert:
-    - id: oh-my-dsh
-      name: oh-my-dsh
+    - id: dsh-enhance
+      name: dsh-enhance

@@ -92,7 +92,7 @@ test('[delivery-gate] runVerify 通过 exit 0 判 ok、非 0 判 fail', async ()
   const { writeFileSync, chmodSync, mkdtempSync } = await import('node:fs')
   const { join } = await import('node:path')
   const { tmpdir } = await import('node:os')
-  const dir = mkdtempSync(join(tmpdir(), 'omd-verify-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-verify-'))
   // Build tiny executable wrappers that exit 0 / 1.
   const ext = process.platform === 'win32' ? '.cmd' : '.sh'
   const ok = join(dir, `ok${ext}`)

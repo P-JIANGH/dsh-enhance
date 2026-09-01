@@ -44,13 +44,13 @@ test('[worktree naming] slugFrom normalizes and truncates', () => {
 // ---- validation ---- //
 
 test('[worktree validation] rejects escapes and symlink escapes', () => {
-  const base = mkdtempSync(join(tmpdir(), 'omd-wt-'))
+  const base = mkdtempSync(join(tmpdir(), 'dsh-enhance-wt-'))
   assert.throws(() => validateWorktreeSpec('../evil', base), /escapes/)
   assert.throws(() => validateWorktreeSpec('a/../../evil', base), /escapes/)
 })
 
 test('[worktree validation] accepts inside paths (relative & absolute)', () => {
-  const base = mkdtempSync(join(tmpdir(), 'omd-wt-'))
+  const base = mkdtempSync(join(tmpdir(), 'dsh-enhance-wt-'))
   const ok = validateWorktreeSpec('./w1', base)
   assert.equal(ok, join(base, 'w1'))
   const abs = validateWorktreeSpec(join(base, 'w1'), base)

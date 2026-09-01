@@ -4,7 +4,7 @@
  * This parser extracts the severity and suggestion body so the runtime can map
  * `concern`/`blocker` → `agent.steer()` and `nit` → `agent.inject()`, and lets
  * unit tests pin the contract independent of the live loop.
- * @module oh-my-dsh/features/advisor/severity
+ * @module dsh-enhance/features/advisor/severity
  */
 
 /** The three supported advisor severities. */

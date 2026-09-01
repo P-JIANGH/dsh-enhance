@@ -3,7 +3,7 @@
  * cleanup / reuse over the native `git worktree` command, with the injected git
  * runner, safe naming + validation, and boulder linkage.
  *
- * @module oh-my-dsh/features/worktree/manager
+ * @module dsh-enhance/features/worktree/manager
  */
 
 import { join } from 'node:path'

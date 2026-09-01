@@ -60,7 +60,7 @@
 - **blocker**：停止/重新考虑。仅当继续明显会：违背明确 transcript 指令（引用它）；将来必须用户打断（agent 绕圈无解）；根本性不健全；把从没对用户真实需求验过的活当"完成"交差；刚承担的风险验证太薄；通过过度思考/兔子洞白白拖延用户目标。**报警前彻底核查**。
 - 有足够把握后，MAY 给建议方案/修复，而非只警告。
 
-## 对 oh-my-dsh 的移植可行性（已核实 dsh 能力）
+## 对 dsh-enhance 的移植可行性（已核实 dsh 能力）
 
 advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实自 `F:\deepseek-harness\packages\core\agent` 与 `packages\core\tools` 类型定义）：
 

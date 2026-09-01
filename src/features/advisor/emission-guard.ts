@@ -7,7 +7,7 @@
  *    rolling window (avoids advisor churn while the main agent is mid-flight).
  *
  * Pure logic with an injectable clock, so it is directly unit-testable.
- * @module oh-my-dsh/features/advisor/emission-guard
+ * @module dsh-enhance/features/advisor/emission-guard
  */
 
 /** Rolled-back window (ms) over which at most one emission may pass. */

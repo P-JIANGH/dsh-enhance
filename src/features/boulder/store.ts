@@ -7,7 +7,7 @@
  * Merges are at work granularity: session sets are unioned, scalars are
  * writer-wins, and the root active_work_id is the last successful writer.
  *
- * @module oh-my-dsh/features/boulder/store
+ * @module dsh-enhance/features/boulder/store
  */
 
 import { join } from 'node:path'

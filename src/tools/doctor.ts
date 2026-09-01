@@ -1,10 +1,10 @@
 /**
- * `oh_my_dsh_doctor`: a model-facing diagnostic tool that reports the live
- * assembly state of the oh-my-dsh bundle — whether the plugin is loaded, which
+ * `dsh_enhance_doctor`: a model-facing diagnostic tool that reports the live
+ * assembly state of the dsh-enhance bundle — whether the plugin is loaded, which
  * skills the registry currently supplies, which prompt section this bundle
  * contributes, and the effective configuration. Pure reads only; calling it
  * has no side effects.
- * @module oh-my-dsh/doctor
+ * @module dsh-enhance/doctor
  */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -12,7 +12,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 
 /** The doctor tool's canonical output value. */
 export interface DoctorReport {
-  /** Whether the oh-my-dsh plugin row is loaded in this process. */
+  /** Whether the dsh-enhance plugin row is loaded in this process. */
   pluginLoaded: boolean
   /** Skills the registry currently supplies, with their source label. */
   skills: { name: string; source: string }[]
@@ -29,35 +29,66 @@ export interface DoctorReport {
   }
 }
 
-/** Render the report as plain text for the model. */
-function renderReport(report: DoctorReport): string {
+/** Render the report as plain text for the model (中文小节式). 导出供单元测试。 */
+export function renderReport(report: DoctorReport, advisorEnabled: boolean): string {
   const lines = [
-    `# oh-my-dsh doctor`,
-    `pluginLoaded: ${report.pluginLoaded}`,
-    `workRulesSection: ${report.workRulesSection}`,
-    `config: orientOnSessionStart=${report.config.orientOnSessionStart} doctorTool=${report.config.doctorTool} workRulesChars=${report.config.workRulesChars} guards=${report.config.guards} workTracking=${report.config.workTracking} worktree=${report.config.worktree}`,
+    '# dsh-enhance 诊断',
+    `插件已加载：${report.pluginLoaded ? '是' : '否'}`,
+    `工作准则段落：${report.workRulesSection}`,
+    '生效配置：' +
+      `会话开场提示=${report.config.orientOnSessionStart ? '开' : '关'} ` +
+      `doctor 工具=${report.config.doctorTool ? '开' : '关'} ` +
+      `工作准则长度=${report.config.workRulesChars} 字 ` +
+      `守卫=${report.config.guards ? '开' : '关'} ` +
+      `工作追踪=${report.config.workTracking ? '开' : '关'} ` +
+      `worktree=${report.config.worktree ? '开' : '关'} ` +
+      `advisor=${advisorEnabled ? '开' : '关'}`,
   ]
   if (report.skills.length === 0) {
-    lines.push('skills: (none registered)')
+    lines.push('技能：无（检查插件装配是否完整）')
   } else {
-    lines.push('skills:')
-    for (const skill of report.skills) lines.push(`- ${skill.name} (${skill.source})`)
+    lines.push('技能：')
+    for (const skill of report.skills) lines.push(`- ${skill.name}（来源：${skill.source}）`)
+  }
+  const next = suggestNext(report.config, advisorEnabled)
+  if (next.length > 0) {
+    lines.push('下一步建议：')
+    for (const s of next) lines.push(`- ${s}`)
   }
   return lines.join('\n')
+}
+
+/** 可执行下一步建议，由现有 config 开关驱动（不新增配置）。 导出供单元测试。 */
+export function suggestNext(config: DoctorReport['config'], advisorEnabled: boolean): string[] {
+  const out: string[] = []
+  if (!config.guards) out.push('守卫已关闭：开启 guards 以启用写保护与交付门。')
+  if (!config.workTracking) out.push('工作追踪已关闭：开启后可建 goal/boulder 追踪工作进度。')
+  if (!config.worktree) out.push('worktree 已关闭：开启后可为每项工作建立独立工作区。')
+  if (!advisorEnabled) out.push('advisor 已关闭：开启后每轮结束有伴随审查建议。')
+  if (!config.orientOnSessionStart) out.push('会话开场提示已关闭：开启后每次会话有入场引导。')
+  if (out.length === 0) out.push('一切就绪：可输入 ulw 进入深度工作模式，或直接开始任务。')
+  return out
 }
 
 /**
  * Register the doctor tool.
  * @param ctx - context with the `tools` registry.
- * @param config - the effective oh-my-dsh configuration, reported back verbatim.
+ * @param config - the effective dsh-enhance configuration, reported back verbatim.
  * @param enabled - whether to register at all.
+ * @param advisorEnabled - advisor runtime switch (drives the 下一步建议 without
+ *   widening the output schema).
  * @returns the exact disposer that unregisters the tool.
  */
-export function registerDoctorTool(ctx: Context, config: DoctorReport['config'], enabled: boolean): () => void {
+export function registerDoctorTool(
+  ctx: Context,
+  config: DoctorReport['config'],
+  enabled: boolean,
+  advisorEnabled = false,
+): () => void {
   if (!enabled) return () => {}
   const definition: ToolDefinition = {
-    name: 'oh_my_dsh_doctor',
-    description: 'Diagnose the oh-my-dsh enhancement bundle: whether it is loaded, the skills the registry supplies, the work-rules prompt section, and the active configuration. Read-only; call it to verify the bundle is working.',
+    name: 'dsh_enhance_doctor',
+    description: '诊断 dsh-enhance 增强包的装配状态：插件是否加载、注册的技能、工作准则段落与生效配置，并给出可执行的下一步建议。只读；调用它即可确认插件工作正常。',
     parameters: {
       type: 'object',
       properties: {},
@@ -98,7 +129,7 @@ export function registerDoctorTool(ctx: Context, config: DoctorReport['config'],
         required: ['pluginLoaded', 'skills', 'workRulesSection', 'config'],
         additionalProperties: false,
       },
-      render: (_args, value) => [{ type: 'text', text: renderReport(value as unknown as DoctorReport) }],
+      render: (_args, value) => [{ type: 'text', text: renderReport(value as unknown as DoctorReport, advisorEnabled) }],
       presentationMeta: (_args, value) => value,
     },
     async execute() {
@@ -112,14 +143,14 @@ export function registerDoctorTool(ctx: Context, config: DoctorReport['config'],
       const report: DoctorReport = {
         pluginLoaded: true,
         skills,
-        workRulesSection: 'oh-my-dsh/work-rules',
+        workRulesSection: 'dsh-enhance/work-rules',
         config,
       }
       return report
     },
     presentCall: () => ({
       card: 'generic',
-      title: 'Run oh-my-dsh doctor',
+      title: '运行 dsh-enhance 诊断',
       kind: 'other',
     }),
   }

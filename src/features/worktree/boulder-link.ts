@@ -5,7 +5,7 @@
  * candidate (no write token needed per §5.5.1); clearing it returns the work to
  * the serial (token) path when appropriate.
  *
- * @module oh-my-dsh/features/worktree/boulder-link
+ * @module dsh-enhance/features/worktree/boulder-link
  */
 
 import { readBoulder, mutateBoulderState } from '../boulder/store.js'

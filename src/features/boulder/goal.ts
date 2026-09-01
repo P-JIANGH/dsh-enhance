@@ -3,7 +3,7 @@
  * Each session owns `goal_<sessionID>.json` under a base dir; goals are a
  * session's objective/status/tokens and reference boulder works via goal_id.
  *
- * @module oh-my-dsh/features/boulder/goal
+ * @module dsh-enhance/features/boulder/goal
  */
 
 import { join } from 'node:path'

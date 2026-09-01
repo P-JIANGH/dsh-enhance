@@ -8,7 +8,7 @@
  * mirrored here as a module constant so runtime injection never depends on a
  * filesystem layout that changes after packaging.
  *
- * @module oh-my-dsh/features/skill-trigger
+ * @module dsh-enhance/features/skill-trigger
  */
 
 import type { Context } from '@deepseek-ai/cordis'

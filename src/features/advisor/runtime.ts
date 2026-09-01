@@ -18,7 +18,7 @@
  *   session itself.
  * - `nit` → `agent.inject(body)`; `concern`/`blocker` → `agent.steer(body)`.
  *
- * @module oh-my-dsh/features/advisor/runtime
+ * @module dsh-enhance/features/advisor/runtime
  */
 
 import type { Context } from '@deepseek-ai/cordis'

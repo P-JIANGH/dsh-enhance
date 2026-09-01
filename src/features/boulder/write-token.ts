@@ -3,7 +3,7 @@
  * (architecture §5.5.1). A token is claimed/released through the boulder CAS
  * single entry — no concurrent execute session may hold it twice.
  *
- * @module oh-my-dsh/features/boulder/write-token
+ * @module dsh-enhance/features/boulder/write-token
  */
 
 import type { BoulderState } from './store.js'

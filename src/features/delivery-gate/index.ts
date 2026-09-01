@@ -8,7 +8,7 @@
  * is an optional disambiguator (c13): a claim is only treated as an *overall*
  * completion when the session goal's open todos are clear.
  *
- * @module oh-my-dsh/features/delivery-gate
+ * @module dsh-enhance/features/delivery-gate
  */
 
 /** Delivery-gate phases. */
