@@ -4,5 +4,7 @@ lib/
 *.tgz
 .reasonix/
 .omd/
+# dsh real-driver evidence + isolated test home (qa discipline: never commit)
+.dsh-enhance/
 # Reasonix host (workspace/agent runner) local config — not part of the project.
 reasonix.toml

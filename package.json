@@ -40,11 +40,12 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-agent": "latest",
-    "@deepseek-ai/dsh-llm": "latest",
-    "@deepseek-ai/dsh-skill": "latest",
-    "@deepseek-ai/dsh-system-prompt": "latest",
-    "@deepseek-ai/dsh-tools": "latest",
+    "@deepseek-ai/dsh-agent": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-llm": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-skill": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-system-prompt": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-tools": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-util-values": "0.1.2-alpha.4",
     "@deepseek-ai/schemastery": "^3.18.1",
     "@types/node": "^26.2.0",
     "typescript": "^5.9.0"

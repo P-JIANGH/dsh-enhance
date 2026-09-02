@@ -12,7 +12,8 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { JsonValue, JsonSchemaNode, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
+import { type JsonValue } from '@deepseek-ai/dsh-util-values'
+import type { JsonSchemaNode, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { join } from 'node:path'
 import { readBoulder, mutateBoulderState, upsertWork, type BoulderState } from '../features/boulder/store.js'
 import { releaseWriteToken, readWriteToken } from '../features/boulder/write-token.js'
