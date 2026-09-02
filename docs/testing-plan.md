@@ -50,3 +50,18 @@
 
 - 每次实驱记录到隔离沙箱的 `.dsh-enhance/evidence/`（不起真实 `$DSH_HOME`）。
 - 单测对纯逻辑断言；实驱对行为断言；**不写"断言未运行实现的伪测试"**（M3/M4 的纯逻辑均已单测覆盖；真实会话闭环留 `--llm` 实驱）。
+
+## 6. 实驱现状（2026-09，结合上游对齐 dsh/0.1.x）
+
+> 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。
+
+**基线**：本插件 master 已对齐 `@deepseek-ai/*@0.1.2-alpha.4`（commit `36f7e72`：JsonValue 由 `dsh-util-values` 提供，唯一适配点；tsc 全净、13 单测 97 项全绿）。运行用 dsh CLI 为 `0.1.0-rc.6`。
+
+| 层 | 结果 | 证据 |
+|---|---|---|
+| 单测/构建 | 通过 | `node --test` 13 文件 97 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
+| CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose；工具 description（doctor/boulder/worktree）源码全中文（单测断言 + grep） |
+| CLI `--llm` | **阻塞/未确认** | `dsh 0.1.0-rc.6` 的 headless 会话（`--profile … '<task>'`）在无关 LLM 的探针下也不自行退出（>25s 无输出），qa 用同步 `spawnSync` 等其退故卡死——非插件缺陷；**留待 dsh 升级到 0.1.1-rc.2+ 后用其 headless stderr/退出修复重验** |
+| 浏览器 UI（`dsh web`） | 部分 | web 在隔离 `$DSH_HOME/.agent-presets` 下正常加载，persona menu **可见 dsh-enhance/Planner/Reviewer/Scout/Librarian/Task 六预设**（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 orient/doctor 卡片**无法自动触发**——webbridge 的 fill/insertText 与本 UI 的受控 `textarea` 不兼容（非插件缺陷），故会话注入呈现**标 unverified** |
+
+**遗留/建议**：上 `--llm` 与 web 会话注入验证须（a）把 host dsh 升级到含 headless 退出/进度修复的版本（0.1.1-rc.2 或更高），（b）改进或规避 webbridge 输入注入，再补实驱；二者在本机当前基线都无法自动完成故如实标注，不当作已通过。
