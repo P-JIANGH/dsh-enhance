@@ -94,9 +94,20 @@ export async function runReviewCall(
  * @returns the exact disposer.
  */
 export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): () => void {
-  if (!options.enabled || !ctx.llm) return () => {}
+  const llm = ctx.llm
+  if (!options.enabled || !llm) return () => {}
   const prompt = options.prompt ?? ADVISOR_SYSTEM_PROMPT
   const guard = createEmissionGuard(Date.now, options.windowMs)
+
+  /**
+   * Set by the disposer. Reviews are fired from an `agent/turn-stopping` listener
+   * and then run asynchronously, so one can still be in flight (or be triggered)
+   * after the plugin scope went inactive — resolving `ctx.llm` lazily at that
+   * point threw `cannot get required service ... in inactive context` in real
+   * sessions. Capturing the service at registration plus this flag removes both
+   * the inactive-context access and any post-disposal side effect.
+   */
+  let disposed = false
 
   /** Which provider/model the advisor should route on (inherit main, or override). */
   function routeFor(main: Agent): { provider: string; model: string } {
@@ -161,6 +172,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   })
 
   async function kickReview(main: Agent): Promise<void> {
+    if (disposed) return
     try {
       const increment = extractIncrement(main)
       if (!increment) { trace('skip: empty increment for', main.id); return }
@@ -175,7 +187,8 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
         })],
         system: prompt,
       }
-      const raw = await runReviewCall(ctx.llm, request)
+      const raw = await runReviewCall(llm, request)
+      if (disposed) return
       trace('review for', main.id, 'route=', provider, model, 'incrementChars=', increment.length,
         'tookMs=', Date.now() - start, 'answerLen=', raw?.length ?? 0, 'raw=', JSON.stringify(raw))
       if (raw === null) return
@@ -190,6 +203,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   }
 
   return () => {
+    disposed = true
     offMain?.()
     cursors.clear()
   }
