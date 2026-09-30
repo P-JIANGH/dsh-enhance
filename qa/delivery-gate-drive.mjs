@@ -16,21 +16,24 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { preflight } from './dsh-launch.mjs'
+import { preflight, resolveQaTarget } from './dsh-launch.mjs'
 import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 const ROOT = process.cwd()
-const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
+// 目标解析：显式 env 优先，否则默认落到仓库内的隔离 QA home（真实 $DSH_HOME 不会被碰）。
+const TARGET = resolveQaTarget()
+const PROFILE = TARGET.profile
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 // 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
-const { cmd: D_CMD, prefix: D_PREFIX, env: D_ENV } = preflight(PROFILE)
+const { cmd: D_CMD, prefix: D_PREFIX, env: D_ENV } = preflight(PROFILE, { dshHome: TARGET.home })
+console.log(`[qa] 目标：profile=${PROFILE} · DSH_HOME=${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`)
 
 function runDsh(cwd, task) {
   const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], {
     encoding: 'utf8',
     cwd,
-    env: { ...process.env, ...(D_ENV ?? {}) },
+    env: { ...process.env, ...(D_ENV ?? {}), ...TARGET.env },
   })
   return { stdout: res.stdout, stderr: res.stderr, status: res.status, error: res.error }
 }

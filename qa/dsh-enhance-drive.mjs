@@ -7,17 +7,20 @@
 //   node qa/dsh-enhance-drive.mjs --dump    # 零成本：仅确认 bundle 合入 compose config
 //   node qa/dsh-enhance-drive.mjs --llm     # 真实 headless（需 DEEPSEEK_API_KEY，消耗 token）
 //
-// 隔离纪律（架构 8.2/8.3）：脚本默认记录证据到 <cwd>/.dsh-enhance/evidence/，
-// 并在输出中标注本次所用的 profile 与 $DSH_HOME，便于审计未污染真实环境。
-// 依赖了一个已 link 到本仓库的 profile（package.json: "dsh-enhance": "link:<repo>"）。
+// 隔离纪律（架构 8.2/8.3）：脚本默认记录证据到 <cwd>/.dsh-enhance/evidence/。
+// 目标**默认隔离优先**：只要仓库内的 `.dsh-enhance/desktop-test-home` 存在，就只碰它
+// （profile `qa`）；要指向别处就显式给 `DSH_HOME`（+ 可选 `DSH_ENHANCE_PROFILE`）。
+// 证据里标注本次实际使用的 profile 与 home，便于审计未污染真实环境。
 
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { preflight } from './dsh-launch.mjs'
+import { preflight, resolveQaTarget } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
-const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
+// 目标解析：显式 env 优先，否则默认落到仓库内的隔离 QA home（真实 $DSH_HOME 不会被碰）。
+const TARGET = resolveQaTarget()
+const PROFILE = TARGET.profile
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 /**
@@ -37,13 +40,13 @@ const SOFT_MARKERS = ['bundled', 'dsh-enhance']
 
 const args = process.argv.slice(2)
 const needsApp = args.includes('--llm')
-const { cmd: DSH_CMD, prefix: DSH_PREFIX, env: DSH_ENV } = preflight(PROFILE, { requireApp: needsApp })
+const { cmd: DSH_CMD, prefix: DSH_PREFIX, env: DSH_ENV } = preflight(PROFILE, { requireApp: needsApp, dshHome: TARGET.home })
 
 function runDsh (cmdArgs) {
   const res = spawnSync(DSH_CMD, [...DSH_PREFIX, ...cmdArgs], {
     encoding: 'utf8',
     cwd: ROOT,
-    env: { ...process.env, ...(DSH_ENV ?? {}) },
+    env: { ...process.env, ...(DSH_ENV ?? {}), ...TARGET.env },
   })
   if (res.error) {
     console.error(`dsh 启动失败：${res.error.message}`)
@@ -75,7 +78,7 @@ if (args.includes('--llm')) {
   writeEvidence(`llm-${fileSafe}`, [
     `# dsh-enhance LLM 实驱（--llm）`,
     `time: ${new Date().toISOString()}`,
-    `profile: ${PROFILE} · DSH_HOME: ${process.env.DSH_HOME || '(default)'}`,
+    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
     `dsh exit: ${status}`,
     `实质信号命中（至少 1 条即证明插件已装配并运行）：${substantive.join(', ') || '(无)'}`,
     `辅助信号：${soft.join(', ') || '(无)'}`,
@@ -95,7 +98,7 @@ if (args.includes('--llm')) {
   writeEvidence(`dump-${fileSafe}`, [
     `# dsh-enhance bundle 合入检查（--dump）`,
     `time: ${new Date().toISOString()}`,
-    `profile: ${PROFILE} · DSH_HOME: ${process.env.DSH_HOME || '(default)'}`,
+    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
     `dsh exit: ${status}`,
     `bundle 层出现：${layer}`,
     '',
@@ -103,6 +106,19 @@ if (args.includes('--llm')) {
     out.split('\n').filter(l => /dsh-enhance|cordis\.patch/.test(l)).join('\n'),
     '',
   ].join('\n') + '\n')
-  console.log(layer && status === 0 ? 'OK：dsh-enhance bundle 已合入 compose。' : 'WARN：未发现 dsh-enhance 层。')
+  if (layer && status === 0) {
+    console.log('OK：dsh-enhance bundle 已合入 compose。')
+  } else {
+    // 缺层时给可执行的排查方向：历史上这里只报"未发现层"，而真实原因是它跑在一个
+    // 不含本插件的真实 profile 上——报错本身把人引向了错误结论。
+    console.error([
+      'FAIL：该 profile 的 compose 里没有 dsh-enhance 层。',
+      `  实际使用：profile=${PROFILE} · DSH_HOME=${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
+      '  排查顺序：',
+      "    1) 该 profile 的 dsh.profile.bundles 是否含 '@dsh-enhance/dsh-enhance'；",
+      '    2) 该 profile 的 node_modules 里是否有它（link/junction 指向本仓库）；',
+      "    3) 换目标：$env:DSH_HOME='<隔离 home>' ; $env:DSH_ENHANCE_PROFILE='qa'",
+    ].join('\n'))
+  }
   process.exitCode = layer && status === 0 ? 0 : 1
 }

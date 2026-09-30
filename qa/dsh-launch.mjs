@@ -7,6 +7,9 @@
  * - 原实现不检查 profile 是否挂了 app bundle；只挂 dsh-base 的 profile 会让
  *   `dsh --profile X "<task>"` 装配完插件树后没有 app 执行任务 —— 表现为"无输出且不退出"，
  *   很容易被误判成 dsh 版本缺陷。
+ * - 目标默认值曾落在真实 `~/.dsh`：不带环境变量直接跑实驱会在真实环境里找一个不含
+ *   本插件的 profile，然后报"未发现 dsh-enhance 层"——把人引向完全错误的方向（实际发生过）。
+ *   现在 {@link resolveQaTarget} 隔离优先：仓库内隔离 home 存在就只碰它。
  *
  * @module qa/dsh-launch
  */
@@ -15,6 +18,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 /** dsh 的包内入口相对路径（相对 npm 前缀）。 */
 const BIN_REL = ['node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js']
@@ -26,6 +30,30 @@ export const DESKTOP_SHIM_REL = ['resources', 'runtime', 'cli', 'bin', 'dsh.cmd'
 export const DESKTOP_HOST_CLI_REL = [
   'resources', 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'cli.js',
 ]
+
+/** 隔离 QA home（仓库内、`.gitignore` 覆盖）：实驱默认只碰它。 */
+export const QA_HOME = fileURLToPath(new URL('../.dsh-enhance/desktop-test-home/', import.meta.url))
+
+/** 隔离 QA home 里挂本插件的 profile 名。 */
+export const QA_PROFILE = 'qa'
+
+/**
+ * 解析实驱要用的 `$DSH_HOME` 与 profile：**隔离优先**。
+ *
+ * 显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先；否则若仓库内的隔离 QA home 存在就用它
+ * （配 `QA_PROFILE`），不存在才退回真实 `~/.dsh` —— 目的是实驱不可能意外污染真实环境。
+ *
+ * @param options - `qaHome` / `env` 覆盖（单测用）。
+ * @returns `{ home, profile, env, isolated, explicitHome }`；`env` 是要注入子进程的环境变量。
+ */
+export function resolveQaTarget(options = {}) {
+  const env = options.env ?? process.env
+  const qaHome = options.qaHome ?? QA_HOME
+  const explicitHome = typeof env.DSH_HOME === 'string' && env.DSH_HOME.length > 0
+  const home = explicitHome ? env.DSH_HOME : existsSync(qaHome) ? qaHome : join(homedir(), '.dsh')
+  const profile = env.DSH_ENHANCE_PROFILE || (home === qaHome ? QA_PROFILE : 'dsh-enhance')
+  return { home, profile, env: { DSH_HOME: home }, isolated: home === qaHome, explicitHome }
+}
 
 /**
  * 桌面版应用根目录探测：`DSH_BIN` 指向桌面 shim 时，反推应用根。
@@ -222,14 +250,14 @@ export function failFast(message, code = 2) {
  * 运行前自检：启动器可用（+ 可选地要求 profile 可跑 headless）。
  * `--dump-config` 这类不启动 app 的用法应传 `requireApp: false`。
  * @param profile - profile 名。
- * @param options - `requireApp` 默认 true。
+ * @param options - `requireApp` 默认 true；`dshHome` 覆盖自检用的 home（默认环境变量或 `~/.dsh`）。
  * @returns 解析出的启动器信息。
  */
-export function preflight(profile, { requireApp = true } = {}) {
+export function preflight(profile, { requireApp = true, dshHome } = {}) {
   const dsh = resolveDsh()
   if (dsh.missing) failFast(dshMissingHint())
   if (requireApp) {
-    const prof = checkProfileApp(profile)
+    const prof = checkProfileApp(profile, dshHome)
     if (!prof.ok) failFast(prof.reason)
   }
   return dsh

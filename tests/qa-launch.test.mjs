@@ -6,10 +6,19 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
-import { checkProfileApp, resolveDsh, dshMissingHint, desktopRootOf, desktopLaunchFrom } from '../qa/dsh-launch.mjs'
+import { tmpdir, homedir } from 'node:os'
+import {
+  checkProfileApp,
+  resolveDsh,
+  dshMissingHint,
+  desktopRootOf,
+  desktopLaunchFrom,
+  resolveQaTarget,
+  QA_HOME,
+  QA_PROFILE,
+} from '../qa/dsh-launch.mjs'
 
 /** 造一个临时 DSH_HOME，带一个指定 bundles 的 profile。 */
 function fakeHome(bundles) {
@@ -169,4 +178,47 @@ test('[qa-launch] DSH_BIN 指向桌面 shim 时自动转成 exe+cli.js（不 spa
     assert.equal(r.cmd, join(root, 'MyApp.exe'))
     assert.notEqual(r.cmd, shim, '不得直接把 .cmd 当可执行文件 spawn')
   } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+// ── 实驱目标解析：隔离优先 ──────────────────────────────────────────────────
+//
+// 背景：不带环境变量直接跑实驱时，目标曾落在**真实** `~/.dsh`，于是实现在一个不含
+// 本插件的 profile 上找 bundle 层，报出"未发现 dsh-enhance 层"——把"跑错环境"误诊成
+// "插件缺陷"。现在默认隔离优先，且解析结果会写进证据。
+
+test('[qa-launch] resolveQaTarget：隔离 home 存在时默认只碰它，profile 用 qa', () => {
+  const iso = mkdtempSync(join(tmpdir(), 'dsh-qa-iso-'))
+  try {
+    const r = resolveQaTarget({ qaHome: iso, env: {} })
+    assert.equal(r.home, iso)
+    assert.equal(r.profile, 'qa')
+    assert.equal(r.isolated, true)
+    assert.equal(r.explicitHome, false)
+    assert.deepEqual(r.env, { DSH_HOME: iso }, '要注入子进程的环境变量')
+  } finally { rmSync(iso, { recursive: true, force: true }) }
+})
+
+test('[qa-launch] resolveQaTarget：显式 DSH_HOME / DSH_ENHANCE_PROFILE 优先', () => {
+  const r = resolveQaTarget({
+    qaHome: join(tmpdir(), 'dsh-qa-not-used'),
+    env: { DSH_HOME: 'D:\\some-home', DSH_ENHANCE_PROFILE: 'custom' },
+  })
+  assert.equal(r.home, 'D:\\some-home')
+  assert.equal(r.profile, 'custom')
+  assert.equal(r.isolated, false)
+  assert.equal(r.explicitHome, true)
+})
+
+test('[qa-launch] resolveQaTarget：隔离 home 不存在时退回真实 home 与 dsh-enhance', () => {
+  const r = resolveQaTarget({ qaHome: join(tmpdir(), 'dsh-qa-definitely-missing-xyz'), env: {} })
+  assert.equal(r.home, join(homedir(), '.dsh'))
+  assert.equal(r.profile, 'dsh-enhance')
+  assert.equal(r.isolated, false)
+})
+
+test('[qa-launch] QA_HOME 指向仓库内的隔离 home，QA_PROFILE 为 qa', () => {
+  assert.match(QA_HOME.replace(/\\/g, '/'), /\/\.dsh-enhance\/desktop-test-home\/?$/)
+  assert.equal(QA_PROFILE, 'qa')
+  // 隔离 home 属运行痕迹（.gitignore），存在与否都不该让单测挂；这里只钉常量契约。
+  assert.equal(typeof existsSync(QA_HOME), 'boolean')
 })
