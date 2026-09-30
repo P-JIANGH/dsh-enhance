@@ -133,6 +133,7 @@ node scripts/install-presets.mjs   # 幂等装进 $DSH_HOME/.agent-presets（要
 
 - `AGENTS.md` — 如何在本仓库工作。
 - `docs/architecture.md` — 架构与 M1–M8 里程碑计划。
+- `docs/value-assessment.md` — **存在价值评估**：逐面与上游原生能力对照，结论是把它定位为「政策包 + 验收脚手架」，长期应做减法而不是扩张。
 - `docs/roles.md` — 6 角色智能体集。
 - `docs/modes.md` — 三种工作模式（dsh-enhance 万能 / Planner 计划实施 / Advisor 目标回归）及它们如何编排这些角色。
 - `docs/prompts-review/` — 逐提示词审查稿：persona/review 源 + 约束映射 + 规模校验 + 实驱状态。
@@ -148,7 +149,7 @@ node scripts/install-presets.mjs   # 幂等装进 $DSH_HOME/.agent-presets（要
 - **M5 ✅ worktree**：WorktreeManager（create/list/find/cleanup/reuse）、命名 + 路径校验、boulder 联动、worktree_create/list/cleanup 工具。
 - **M6 skill-trigger**：`ulw` / ultrawork 入口契约注入。
 - **M7 LSP / comment-check**：计划中。
-- **M8 团队模式**：roadmap，稳定后推进。
+- **M8 团队模式**：**不建议自研**——上游已有 Agent Teams（成员 / 共享任务板 / 邮箱，见 `docs/value-assessment.md` §3）。
 
 ## 许可证
 
