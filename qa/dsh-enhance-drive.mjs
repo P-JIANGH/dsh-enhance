@@ -21,11 +21,18 @@ const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 /**
- * 同步信号。doctor 报告自 M2 起为中文渲染（「插件已加载：是」），英文 key=value
- * 已不再出现；这里同时接受中英文，避免标记集随文案中文化而失效。
- * 判定要求：至少命中一条「实质」信号（证明插件真的装配），再叠加软信号计数。
+ * 同步信号。用**正则**而不是字面串：headless 只打印模型的最终文本，模型复述
+ * doctor 输出时会改写标点（实测遇到「插件已加载=是」），字面匹配会造成假失败。
+ * 其中 `[advisor]` 是本插件运行时自己写进 stderr 的确定性痕迹——它命中即证明
+ * 插件运行时真的在本会话里跑起来了，不依赖模型如何措辞。
  */
-const SUBSTANTIVE_MARKERS = ['插件已加载：是', 'pluginLoaded: true', 'dsh-enhance/work-rules']
+const SUBSTANTIVE_MARKERS = [
+  { label: 'advisor 运行时 trace', re: /\[advisor\]/ },
+  { label: 'doctor 已加载（中文）', re: /插件已加载\s*[：:=＝]\s*是/ },
+  { label: 'doctor 已加载（英文）', re: /pluginLoaded\s*[:=]\s*true/i },
+  { label: 'work-rules 段', re: /dsh-enhance\/work-rules/ },
+  { label: 'doctor 工具', re: /dsh_enhance_doctor/ },
+]
 const SOFT_MARKERS = ['bundled', 'dsh-enhance']
 
 const args = process.argv.slice(2)
@@ -58,7 +65,7 @@ if (args.includes('--llm')) {
   }
   const { stdout, stderr, status } = runDsh(['--profile', PROFILE, task])
   const out = stdout + stderr
-  const substantive = SUBSTANTIVE_MARKERS.filter(m => out.includes(m))
+  const substantive = SUBSTANTIVE_MARKERS.filter(m => m.re.test(out)).map(m => m.label)
   const soft = SOFT_MARKERS.filter(m => out.includes(m))
   const passed = status === 0 && substantive.length > 0
   writeEvidence(`llm-${fileSafe}`, [
@@ -66,7 +73,7 @@ if (args.includes('--llm')) {
     `time: ${new Date().toISOString()}`,
     `profile: ${PROFILE} · DSH_HOME: ${process.env.DSH_HOME || '(default)'}`,
     `dsh exit: ${status}`,
-    `实质信号命中（至少 1 条即证明插件已装配）：${substantive.join(', ') || '(无)'}`,
+    `实质信号命中（至少 1 条即证明插件已装配并运行）：${substantive.join(', ') || '(无)'}`,
     `辅助信号：${soft.join(', ') || '(无)'}`,
     `结论：${passed ? 'PASS' : 'FAIL'}`,
     '',

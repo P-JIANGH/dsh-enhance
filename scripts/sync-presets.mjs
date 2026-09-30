@@ -48,8 +48,12 @@ const ROLES = {
   },
 }
 
-/** YAML block-scalar indent (6 spaces: 2 for `.persona`, 4 for `config.text`). */
-const SCALAR_INDENT = '      '
+/**
+ * YAML block-scalar indent (6 spaces: 2 for `.persona`, 4 for `config.text`).
+ * Exported so `tests/presets-pin.test.mjs` de-indents with the same constant
+ * instead of hard-coding a second copy of the magic number.
+ */
+export const SCALAR_INDENT = '      '
 
 /** Render the `text: |-` scalar from a persona source (each line +6 indent). */
 function renderPersonaScalar(persona) {

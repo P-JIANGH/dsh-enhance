@@ -6,6 +6,20 @@
  * Defaults are conservative but the hooks are behind `config.guards` so a
  * deployment that fully trusts dsh's fs/observation policy can leave them off.
  *
+ * **Which of these are actually wired (and why the rest are not):**
+ * - wired: `guardPathTraversal` (on `write`, via `guard-register`), plus the
+ *   read-set bookkeeping used by `bashReadPaths`.
+ * - `guardWriteExisting` is deliberately **not** enforced at runtime: dsh's own
+ *   `fs-observation-policy` already owns read-before-write, and a second policy
+ *   would conflict with it. It stays exported (and unit-tested) as the documented
+ *   decision function a deployment can opt into.
+ * - `truncateText` is deliberately **not** wired as a result transformer: dsh's
+ *   native `tool-result-pruner` / spill policy already caps tool output, and the
+ *   shipped presets mount the pruner (thresholdChars 8192). Re-truncating on top
+ *   would double-count the budget.
+ * - `bashReadPaths` is best-effort: path escapes are the sandbox's job, this only
+ *   feeds the "was this path observed as read" bookkeeping.
+ *
  * @module dsh-enhance/tools/guards
  */
 

@@ -44,10 +44,12 @@ function tempCwd() {
 
 test('[tool-output-schema] boulder/goal tools declare valid object-root schemas', () => {
   const { defs } = capture(registerBoulderTools)
-  assert.deepEqual(defs.map(d => d.name), [
-    'boulder_start', 'boulder_status', 'boulder_complete',
-    'goal_create', 'goal_get', 'goal_update',
-  ])
+  // Set equality, not registration order: adding/reordering rows must not fail the
+  // test, but silently dropping or renaming a tool still must.
+  assert.deepEqual(
+    [...defs.map(d => d.name)].sort(),
+    [...['boulder_start', 'boulder_status', 'boulder_complete', 'goal_create', 'goal_get', 'goal_update']].sort(),
+  )
   for (const def of defs) {
     // Must be a supported object-root JSON Schema (throws otherwise).
     assertObjectJsonSchema(def.output.schema)
@@ -57,7 +59,10 @@ test('[tool-output-schema] boulder/goal tools declare valid object-root schemas'
 
 test('[tool-output-schema] worktree tools declare valid object-root schemas', () => {
   const { defs } = capture(registerWorktreeTools)
-  assert.deepEqual(defs.map(d => d.name), ['worktree_create', 'worktree_list', 'worktree_cleanup'])
+  assert.deepEqual(
+    [...defs.map(d => d.name)].sort(),
+    [...['worktree_create', 'worktree_list', 'worktree_cleanup']].sort(),
+  )
   for (const def of defs) {
     assertObjectJsonSchema(def.output.schema)
     assert.equal(def.output.schema.additionalProperties, false, `${def.name}: closed object root`)

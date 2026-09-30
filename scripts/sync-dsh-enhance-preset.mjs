@@ -55,8 +55,13 @@ export const SUBAGENTS = [
   { role: 'task', toolName: 'subagent_task', filter: { allow: ['read', 'glob', 'grep', 'write', 'edit', 'todo_write'] } },
 ]
 
-/** YAML block-scalar indent for a string under config.text (6 spaces). */
-const SCALAR_INDENT = '      '
+/**
+ * YAML block-scalar indent for a string under config.text (6 spaces).
+ * Exported for the same reason as in scripts/sync-presets.mjs.
+ */
+export const SCALAR_INDENT = '      '
+/** Indent of a nested persona scalar (10 spaces: delegation list item → config). */
+export const NESTED_SCALAR_INDENT = '          '
 const LIST_INDENT = '          ' // allow/deny list items under toolFilter
 
 /** Render a string as a `|-` scalar with the given indent. */
@@ -71,7 +76,7 @@ function flowArray(items) {
 
 /** Build the tool-subagent composition row for one role. */
 export function subagentRow(role, toolName, filter, personaText) {
-  const personaIndent = '          ' // 10 spaces: under `config:` (8) inside the delegation list item
+  const personaIndent = NESTED_SCALAR_INDENT // 10 spaces: under `config:` (8) inside the delegation list item
   return [
     `    # dsh-enhance-scoped subagent: ${role}`,
     `    - id: dsh-enhance-subagent-${role}`,

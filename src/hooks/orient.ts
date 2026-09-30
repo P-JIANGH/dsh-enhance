@@ -10,6 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { SOURCE as BUNDLED_SOURCE } from '../features/skills-provider.js'
 
 /** Orientation-hook configuration. */
 export interface OrientationOptions {
@@ -36,7 +37,12 @@ export function registerSessionStartHook(ctx: Context, options: OrientationOptio
 async function orientAgent(ctx: Context, agent: Agent, extra?: string): Promise<void> {
   let skills: string[] = []
   try {
-    skills = (await ctx.skills.list({})).map(summary => summary.name)
+    // `ctx.skills.list({})` returns every provider's skills (user roots included), so
+    // filter to this bundle's own source before calling them "打包技能" — claiming
+    // someone else's skills as ours overstates what this plugin contributes.
+    skills = (await ctx.skills.list({}))
+      .filter(summary => summary.source === BUNDLED_SOURCE)
+      .map(summary => summary.name)
   } catch {
     // A failed discovery must not block orientation; the message is still useful
     // without the skill names, so the swallow is bounded to this one list call.

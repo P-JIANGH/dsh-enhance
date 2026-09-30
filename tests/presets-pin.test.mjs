@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { render as renderPresets, generate as generatePresets } from '../scripts/sync-presets.mjs'
+import { render as renderPresets, generate as generatePresets, SCALAR_INDENT } from '../scripts/sync-presets.mjs'
 import { render as renderDshEnhance, generate as generateDshEnhance } from '../scripts/sync-dsh-enhance-preset.mjs'
 import { MAIN as DSH_ENHANCE_MAIN, SUBAGENTS as DSH_ENHANCE_SUBAGENTS } from '../scripts/sync-dsh-enhance-preset.mjs'
 
@@ -48,12 +48,13 @@ test('every persona source is referenced by its generated preset', async () => {
     for (const srcRole of roles) {
       const source = await readFile(path.join('prompts', 'agents', `${srcRole}.persona.md`), 'utf8')
       const plain = source.replace(/\n$/, '')
-      // The generated file embeds the persona text (indented 6 spaces); compare
-      // against the de-indented 6-space lines so whitespace is exact.
+      // The generated file embeds the persona text (indented by the generator's
+      // SCALAR_INDENT); de-indent with the same constant so the two sides cannot
+      // drift apart on a magic number.
       const embedded = body
         .split('\n')
-        .filter(l => l.startsWith('      '))
-        .map(l => l.slice(6))
+        .filter(l => l.startsWith(SCALAR_INDENT))
+        .map(l => l.slice(SCALAR_INDENT.length))
         .join('\n')
       assert.ok(embedded.includes(plain), `persona text for '${srcRole}' not found in generated ${path.relative(process.cwd(), agentFile)}`)
     }
