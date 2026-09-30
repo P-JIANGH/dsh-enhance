@@ -140,10 +140,10 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   }
 
   /** Incremental transcript for one main agent since the last review. */
-  function extractIncrement(main: Agent): string {
+  function extractIncrement(main: Agent, id: string): string {
     const msgs = main.session.deriveMessages()
-    const from = cursors.get(main.id) ?? 0
-    cursors.set(main.id, msgs.length)
+    const from = cursors.get(id) ?? 0
+    cursors.set(id, msgs.length)
     // Keep only user/assistant turns, walking newest-first, and stop once we
     // have a bounded, useful review window. Tool results and system churn are
     // excluded so the advisor sees the actual conversation, not housekeeping.
@@ -160,20 +160,35 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
     return parts.join('\n')
   }
 
-  /** Deliver one parsed emission back to the owning main agent. */
-  function deliver(main: Agent, emission: AdvisorEmission): void {
+  /**
+   * Deliver one parsed emission back to the owning main agent.
+   *
+   * Best-effort by design: the review is computed asynchronously, so by the time
+   * it is ready the session may already be tearing down — `agent.inject/steer`
+   * then throws `cannot get required service "agents" in inactive context`.
+   * Real drives pinned the failure to this exact stage, so a gone agent is a
+   * dropped suggestion (reported as a skip), never a FAILED review.
+   *
+   * @returns true when the message was handed to the agent.
+   */
+  function deliver(main: Agent, emission: AdvisorEmission): boolean {
     const payload = createUserMessage({
       content: [{ type: 'text', text: `[advisor·${emission.severity}] ${emission.body}` }],
       source: { kind: 'user' },
     })
-    if (emission.severity === 'nit') main.inject(payload)
-    else main.steer(payload)
+    try {
+      if (emission.severity === 'nit') main.inject(payload)
+      else main.steer(payload)
+      return true
+    } catch {
+      return false
+    }
   }
 
   /** Build the review prompt handed to the advisor for one transcript increment. */
-  function reviewPrompt(main: Agent, increment: string): string {
+  function reviewPrompt(mainId: string, increment: string): string {
     return [
-      'You are the companion reviewer attached to main-agent session "' + main.session.id + '".',
+      'You are the companion reviewer attached to main-agent session "' + mainId + '".',
       'Review the transcript increment below (user instruction plus the main agent\u2019s work).',
       'Follow your standing instructions: surface only a concrete technical risk, at most',
       'one suggestion per review, and reply with the ADVISOR: <severity> envelope.',
@@ -186,7 +201,8 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   // observed here; the advisor runs as a direct streaming call, never as a
   // sub-agent whose own stop could loop back into this listener.
   const offMain = ctx.on('agent/turn-stopping', ({ agent }: { agent: Agent }) => {
-    void kickReview(agent).catch((err) => trace('review async FAILED for', agent.id, String((err as Error)?.message ?? err)))
+    const id = safeAgentId(agent)
+    void kickReview(agent, id).catch((err) => trace('review async FAILED for', id, String((err as Error)?.message ?? err)))
   })
 
   // Cursors are per-agent; drop them when the agent goes away so a long-lived
@@ -198,41 +214,52 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
     gone.add(agent.id)
   })
 
-  async function kickReview(main: Agent): Promise<void> {
-    if (isGone(main.id)) return
+  async function kickReview(main: Agent, id: string): Promise<void> {
+    if (isGone(id)) return
+    // `stage` makes a failure self-describing: real sessions hit
+    // `cannot get required service "agents" in inactive context` on the turn
+    // boundary that races shutdown, and the stage pinpoints which access did it.
+    let stage = 'extract'
     try {
       // Reading a disposed agent's transcript throws; that is a skip, not a failure.
       let increment: string
       try {
-        increment = extractIncrement(main)
+        increment = extractIncrement(main, id)
       } catch (err) {
-        trace('skip: transcript unavailable for', main.id, String((err as Error)?.message ?? err))
+        trace('skip: transcript unavailable for', id, String((err as Error)?.message ?? err))
         return
       }
-      if (!increment) { trace('skip: empty increment for', main.id); return }
+      if (!increment) { trace('skip: empty increment for', id); return }
+      stage = 'route'
       const { provider, model } = routeFor(main)
       const start = Date.now()
       const request: GenerateOptions = {
         provider,
         model,
         messages: [createUserMessage({
-          content: [{ type: 'text', text: reviewPrompt(main, increment) }],
+          content: [{ type: 'text', text: reviewPrompt(id, increment) }],
           source: { kind: 'user' },
         })],
         system: prompt,
       }
+      stage = 'stream'
       const raw = await runReviewCall(llm, request)
-      if (isGone(main.id)) return
-      trace('review for', main.id, 'route=', provider, model, 'incrementChars=', increment.length,
+      if (isGone(id)) return
+      trace('review for', id, 'route=', provider, model, 'incrementChars=', increment.length,
         'tookMs=', Date.now() - start, 'answerLen=', raw?.length ?? 0, 'raw=', JSON.stringify(raw))
       if (raw === null) return
+      stage = 'parse'
       const emission = parseAdvisorEmission(raw)
-      if (!emission) { trace('advisor produced no emission for', main.id, 'answerLen=', raw.length); return }
-      if (!guard.gate(main.id, emission.body)) { trace('guarded emission', emission.severity, 'for', main.id); return }
-      deliver(main, emission)
-      trace('delivered', emission.severity, 'to', main.id)
+      if (!emission) { trace('advisor produced no emission for', id, 'answerLen=', raw.length); return }
+      if (!guard.gate(id, emission.body)) { trace('guarded emission', emission.severity, 'for', id); return }
+      stage = 'deliver'
+      if (!deliver(main, emission)) {
+        trace('skip: agent no longer accepts messages, dropped', emission.severity, 'for', id)
+        return
+      }
+      trace('delivered', emission.severity, 'to', id)
     } catch (err) {
-      trace('review FAILED for', main.id, String((err as Error)?.message ?? err))
+      trace('review FAILED at stage', stage, 'for', id, String((err as Error)?.message ?? err))
     }
   }
 
@@ -251,4 +278,19 @@ function messageText(m: Message): string {
   if (!body) return ''
   const role = m.role === 'user' ? 'USER: ' : m.role === 'assistant' ? 'ASSISTANT: ' : 'TOOL: '
   return role + body
+}
+
+/**
+ * Agent id that never throws. On a disposed agent some accessors raise
+ * `cannot get required service … in inactive context`, and an exception thrown
+ * *inside* a catch handler would escape the handler entirely — so identity is
+ * resolved once, defensively, and threaded through instead of re-read.
+ */
+function safeAgentId(agent: Agent): string {
+  try {
+    const id = (agent as { id?: unknown } | undefined)?.id
+    return typeof id === 'string' && id.length > 0 ? id : 'unknown'
+  } catch {
+    return 'unknown'
+  }
 }

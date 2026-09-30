@@ -12,12 +12,66 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 
 /** dsh 的包内入口相对路径（相对 npm 前缀）。 */
 const BIN_REL = ['node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js']
+
+/** 桌面版（Electron 应用）自带的 CLI shim，相对应用根目录。 */
+export const DESKTOP_SHIM_REL = ['resources', 'runtime', 'cli', 'bin', 'dsh.cmd']
+
+/** 桌面版 CLI 的真实入口（由应用自带的 Electron 以 node 模式运行）。 */
+export const DESKTOP_HOST_CLI_REL = [
+  'resources', 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib', 'cli.js',
+]
+
+/**
+ * 桌面版应用根目录探测：`DSH_BIN` 指向桌面 shim 时，反推应用根。
+ * 布局：`<root>/resources/runtime/cli/bin/dsh.cmd`。
+ */
+export function desktopRootOf(bin) {
+  if (!bin || !/resources[\\/]runtime[\\/]cli[\\/]bin[\\/]dsh\.cmd$/i.test(bin)) return undefined
+  let root = bin
+  for (let i = 0; i < DESKTOP_SHIM_REL.length; i++) root = dirname(root)
+  return root
+}
+
+/**
+ * 由桌面版应用根目录构造启动命令。
+ *
+ * 桌面版不能像普通 shim 那样直接 spawn：它的 `dsh.cmd` 会再拉一次
+ * `"<App>.exe" --expose-internals <app.asar>/…/dsh-desktop-host/lib/cli.js`，还带
+ * `ELECTRON_RUN_AS_NODE=1`。这里直接复刻那三条事实（exe + --expose-internals + cli.js + env），
+ * 不经过 `.cmd`，避开 Windows 上 spawnSync 拉 `.cmd` 的 EINVAL。
+ *
+ * @param root - 应用根目录（含 `resources/`）。
+ * @returns `{ cmd, prefix, env, kind, shim }`，布局不符时返回 undefined。
+ */
+export function desktopLaunchFrom(root) {
+  if (!root || !existsSync(root)) return undefined
+  const shim = join(root, ...DESKTOP_SHIM_REL)
+  const cliJs = join(root, ...DESKTOP_HOST_CLI_REL)
+  if (!existsSync(shim) || !existsSync(cliJs)) return undefined
+  let exe
+  try {
+    // 应用根下的可执行文件；优先与应用目录同名的那个（避开 elevate.exe 之类助手程序）。
+    const candidates = readdirSync(root).filter(f => f.toLowerCase().endsWith('.exe')).sort()
+    const named = candidates.find(f => basename(root).toLowerCase().startsWith(basename(f, '.exe').toLowerCase()))
+    exe = named ?? candidates[0]
+  } catch {
+    return undefined
+  }
+  if (!exe) return undefined
+  return {
+    kind: 'desktop',
+    shim,
+    cmd: join(root, exe),
+    prefix: ['--expose-internals', cliJs],
+    env: { ELECTRON_RUN_AS_NODE: '1' },
+  }
+}
 
 /** 由 shim 路径推出 bin.js（shim 可能在 <prefix>\ 或 <prefix>\bin\）。 */
 function binFromShim(shim) {
@@ -54,12 +108,18 @@ function scanNvmRoot(root) {
  * 解析如何启动 dsh。优先用当前 node 直接跑 `@deepseek-ai/dsh/lib/bin.js`
  * （无 shell 蹦床，避免 Windows 上 spawnSync 直接拉 `.cmd` 的 EINVAL）。
  *
- * 顺序：`DSH_BIN` → `where/which dsh` → PATH 目录直扫 → nvm（NVM_HOME / PATH 中的 nvm 根）
- * → 与当前 node 同级的全局安装。
+ * 顺序：`DSH_DESKTOP_ROOT` → `DSH_BIN`（桌面 shim 会转成 exe+cli.js）→ `where/which dsh`
+ * → PATH 目录直扫 → nvm（NVM_HOME / PATH 中的 nvm 根）→ 与当前 node 同级的全局安装。
  *
- * @returns `{ cmd, prefix, shim?, missing? }`；`missing: true` 表示一个都没找到。
+ * @returns `{ cmd, prefix, env?, kind?, shim?, missing? }`；`missing: true` 表示一个都没找到。
  */
 export function resolveDsh() {
+  // 桌面版应用根（显式指定，或由 DSH_BIN 指向桌面 shim 反推）。
+  const desktopRoot = process.env.DSH_DESKTOP_ROOT || desktopRootOf(process.env.DSH_BIN)
+  if (desktopRoot) {
+    const desktop = desktopLaunchFrom(desktopRoot)
+    if (desktop) return desktop
+  }
   if (process.env.DSH_BIN) return { cmd: process.env.DSH_BIN, prefix: [] }
 
   const isWin = process.platform === 'win32'
@@ -114,6 +174,7 @@ export function dshMissingHint() {
     '找不到 dsh 可执行入口。请任选其一：',
     '  - 把 dsh 的 shim 目录加进 PATH（本机为 F:\\nvm\\v24.13.0）',
     '  - 或设置 DSH_BIN 指向 dsh 的 lib/bin.js',
+    '  - 或设置 DSH_BIN 指向桌面版 shim（…\\resources\\runtime\\cli\\bin\\dsh.cmd），或直接设 DSH_DESKTOP_ROOT 指向应用根',
     '  - 或设置 NVM_HOME 指向 nvm 根目录',
   ].join('\n')
 }

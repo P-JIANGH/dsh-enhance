@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { preflight } from './dsh-launch.mjs'
+import { boulderFileFor } from '../lib/features/boulder/store.js'
 import { isPidAlive } from '../lib/features/boulder/write-token.js'
 
 const ROOT = process.cwd()
@@ -20,10 +21,14 @@ const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 // 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
-const { cmd: D_CMD, prefix: D_PREFIX } = preflight(PROFILE)
+const { cmd: D_CMD, prefix: D_PREFIX, env: D_ENV } = preflight(PROFILE)
 
 function runDsh(cwd, task) {
-  const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], { encoding: 'utf8', cwd })
+  const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], {
+    encoding: 'utf8',
+    cwd,
+    env: { ...process.env, ...(D_ENV ?? {}) },
+  })
   return { stdout: res.stdout, stderr: res.stderr, status: res.status, error: res.error }
 }
 
@@ -50,9 +55,11 @@ function main() {
   // 2) run the real LLM session scoped to the sandbox cwd
   const res = runDsh(sandbox, task)
 
-  const boulderFile = join(sandbox, 'boulder.json')
+  const boulderFile = boulderFileFor(sandbox)
   const goalsDir = join(sandbox, '.dsh-enhance', 'goals')
   const worked = existsSync(boulderFile) && readText(boulderFile).includes('qa-e2e')
+  // architecture §5.5：状态必须落在 .dsh-enhance/ 下；仓库根出现 boulder.json 就是污染用户的仓库。
+  const rootPolluted = existsSync(join(sandbox, 'boulder.json'))
   let goalFound = false
   if (existsSync(goalsDir)) {
     for (const f of readdirSync(goalsDir)) {
@@ -75,7 +82,7 @@ function main() {
       tokenLive = Boolean(b.exec_holder) && isPidAlive(b.exec_holder_pid)
     } catch { /* ignore */ }
   }
-  const passed = Boolean(worked && goalFound && !escaped && guardExercised && insideOk && !tokenLive)
+  const passed = Boolean(worked && goalFound && !escaped && guardExercised && insideOk && !tokenLive && !rootPolluted)
 
   const tag = `worktracking-${Date.now()}`
   const file = join(evidenceDir, `${tag}.md`)
@@ -90,7 +97,8 @@ function main() {
     `path-traversal write 的确逃逸到父目录 (escape-QAE2E.txt 存在): ${escaped}`,
     `§5.5.1 合法工作区内写成功 (inside-ok.txt 存在): ${insideOk}`,
     `§5.5.1 令牌未被活进程占用（死 pid 可立即接管）: ${!tokenLive}`,
-    `结论: ${passed ? 'PASS（工作追踪落盘 + 守卫真实拦截越界写 + 写令牌纪律成立）' : 'FAIL（见输出与轨迹）'}`,
+    `§5.5 状态落在 .dsh-enhance/ 且仓库根未被污染 (根目录无 boulder.json): ${!rootPolluted}`,
+    `结论: ${passed ? 'PASS（工作追踪落盘 + 守卫真实拦截越界写 + 写令牌纪律成立 + 仓库根干净）' : 'FAIL（见输出与轨迹）'}`,
     '',
     '## 会话输出（前 3000 字符）',
     (res.stdout || res.stderr).slice(0, 3000),
@@ -101,7 +109,7 @@ function main() {
   ].join('\n') + '\n', 'utf8')
 
   console.log(`证据: ${file}`)
-  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped} | 合法写: ${insideOk} | 令牌被活进程占用: ${tokenLive}`)
+  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped} | 合法写: ${insideOk} | 令牌被活进程占用: ${tokenLive} | 仓库根被污染: ${rootPolluted}`)
   console.log(`结论: ${passed ? 'PASS' : 'FAIL'}`)
   if (!passed) process.exitCode = 1
 

@@ -14,12 +14,15 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { registerDeliveryGateHook, resetDeliveryGateState } from '../lib/hooks/delivery-gate.js'
+import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 const SESSION = 'session-hooktest'
 
-/** 造一个隔离工作目录：boulder.json + goal_<session>.json。 */
+/** 造一个隔离工作目录：.dsh-enhance/boulder.json + .dsh-enhance/goals/goal_<session>.json。 */
 function sandbox ({ goalStatus = 'done', remainingTodos = 0, verify } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-gate-hook-'))
+  // 状态目录必须先建：store 自己的原子写会递归建目录，但这里是我们手工预置。
+  mkdirSync(join(dir, '.dsh-enhance'), { recursive: true })
   const work = {
     id: 'w1',
     plan_name: 'hook test',
@@ -28,7 +31,7 @@ function sandbox ({ goalStatus = 'done', remainingTodos = 0, verify } = {}) {
     session_ids: [SESSION],
   }
   if (verify) work.verify = verify
-  writeFileSync(join(dir, 'boulder.json'), JSON.stringify({
+  writeFileSync(boulderFileFor(dir), JSON.stringify({
     revision: 1,
     active_work_id: 'w1',
     exec_holder: SESSION,
@@ -74,7 +77,7 @@ function hookFor () {
 }
 
 function readBoulder (dir) {
-  return JSON.parse(readFileSync(join(dir, 'boulder.json'), 'utf8'))
+  return JSON.parse(readFileSync(boulderFileFor(dir), 'utf8'))
 }
 
 /** 写一个固定退出码的 verify 脚本。 */
@@ -115,7 +118,7 @@ test('[gate-hook] verify 通过 → passed', async () => {
     const script = verifyScript(dir, 0)
     const b0 = readBoulder(dir)
     b0.works.w1.verify = script
-    writeFileSync(join(dir, 'boulder.json'), JSON.stringify(b0, null, 2))
+    writeFileSync(boulderFileFor(dir), JSON.stringify(b0, null, 2))
 
     const handler = hookFor()
     await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
@@ -134,7 +137,7 @@ test('[gate-hook] verify 失败 → failed、不放行、只 steer 一次', asyn
     const script = verifyScript(dir, 1)
     const b0 = readBoulder(dir)
     b0.works.w1.verify = script
-    writeFileSync(join(dir, 'boulder.json'), JSON.stringify(b0, null, 2))
+    writeFileSync(boulderFileFor(dir), JSON.stringify(b0, null, 2))
 
     const handler = hookFor()
     const agent = fakeAgent(dir, CLAIM)
@@ -203,7 +206,7 @@ test('[gate-hook] 没有活跃 work 时完全不动', async () => {
   try {
     const b0 = readBoulder(dir)
     delete b0.active_work_id
-    writeFileSync(join(dir, 'boulder.json'), JSON.stringify(b0, null, 2))
+    writeFileSync(boulderFileFor(dir), JSON.stringify(b0, null, 2))
 
     const handler = hookFor()
     await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
@@ -226,6 +229,6 @@ test('[gate-hook] 目录里没有 boulder.json 时静默不抛', async () => {
   try {
     const handler = hookFor()
     await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
-    assert.equal(existsSync(join(dir, 'boulder.json')), false, '无 work 不应凭空建 boulder.json')
+    assert.equal(existsSync(boulderFileFor(dir)), false, '无 work 不应凭空建 boulder.json')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })

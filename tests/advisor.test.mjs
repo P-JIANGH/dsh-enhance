@@ -211,3 +211,28 @@ test('[advisor-run] transcript 不可读时为 skip，不是 FAILED 噪声', asy
   await new Promise(r => setTimeout(r, 50))
   assert.equal(counter.calls, 0, '读不到 transcript 应跳过审查')
 })
+
+test('[advisor-run] 回注时 agent 已失活 → 丢弃而非 FAILED（实驱定位的真实缺陷）', async () => {
+  const counter = { calls: 0 }
+  const ctx = fakeCtx(concernLlm(counter))
+  registerAdvisorRuntime(ctx, { enabled: true })
+  const agent = fakeAgent('main-dead')
+  // 会话关闭时 agent.steer 会抛 inactive context；此时建议只能丢弃。
+  agent.steer = () => { throw new Error('cannot get required service "agents" in inactive context') }
+
+  const logs = []
+  const origError = console.error
+  console.error = (...args) => { logs.push(args.join(' ')) }
+  try {
+    ctx.handlers.get('agent/turn-stopping')({ agent })
+    await new Promise(r => setTimeout(r, 80))
+  } finally {
+    console.error = origError
+  }
+
+  assert.equal(counter.calls, 1, '建议已经算出来了（这一步是异步的，无法预知会话会关闭）')
+  // 不得报 review FAILED（那会把"送不到"误报成"审查失败"）；应记为丢弃 skip。
+  assert.equal(logs.some(l => l.includes('review FAILED')), false, `不应报 FAILED：\n${logs.join('\n')}`)
+  assert.equal(logs.some(l => l.includes('no longer accepts messages')), true, `应记为丢弃 skip：\n${logs.join('\n')}`)
+})
+

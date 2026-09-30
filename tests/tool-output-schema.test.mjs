@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerBoulderTools } from '../lib/tools/boulder-tools.js'
 import { registerWorktreeTools } from '../lib/tools/worktree-tools.js'
+import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 /** Capture every registered ToolDefinition in registration order. */
 function capture(toolsFn) {
@@ -85,9 +86,11 @@ test('[tool-output-schema] boulder_start output covers a live upsert shape', asy
     const value = await def.execute({ work_id: 'wt-schema-check', plan_name: 'x' }, fakeExec(cwd))
     const violations = validateJsonSchemaValue(def.output.schema, value)
     assert.deepEqual(violations, [], `boulder_start value validates: ${JSON.stringify(violations)}`)
-    // The live write lands in boulder.json at the session repo root.
-    const boulderFile = join(cwd, 'boulder.json')
-    assert.equal(existsSync(boulderFile), true, 'boulder.json should be written')
+    // The live write lands in the repo's .dsh-enhance/ state dir (architecture §5.5),
+    // NOT at the repository root — the root must stay free of untracked store files.
+    const boulderFile = boulderFileFor(cwd)
+    assert.equal(existsSync(join(cwd, 'boulder.json')), false, '仓库根不得再出现 boulder.json')
+    assert.equal(existsSync(boulderFile), true, 'boulder.json should be written under .dsh-enhance/')
     assert.ok(readFileSync(boulderFile, 'utf8').includes('wt-schema-check'), 'work id persisted')
   } finally {
     rmSync(cwd, { recursive: true, force: true })

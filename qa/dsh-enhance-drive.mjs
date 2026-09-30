@@ -37,10 +37,14 @@ const SOFT_MARKERS = ['bundled', 'dsh-enhance']
 
 const args = process.argv.slice(2)
 const needsApp = args.includes('--llm')
-const { cmd: DSH_CMD, prefix: DSH_PREFIX } = preflight(PROFILE, { requireApp: needsApp })
+const { cmd: DSH_CMD, prefix: DSH_PREFIX, env: DSH_ENV } = preflight(PROFILE, { requireApp: needsApp })
 
 function runDsh (cmdArgs) {
-  const res = spawnSync(DSH_CMD, [...DSH_PREFIX, ...cmdArgs], { encoding: 'utf8', cwd: ROOT })
+  const res = spawnSync(DSH_CMD, [...DSH_PREFIX, ...cmdArgs], {
+    encoding: 'utf8',
+    cwd: ROOT,
+    env: { ...process.env, ...(DSH_ENV ?? {}) },
+  })
   if (res.error) {
     console.error(`dsh 启动失败：${res.error.message}`)
     process.exit(2)

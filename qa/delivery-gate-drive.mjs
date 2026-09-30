@@ -17,16 +17,21 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { preflight } from './dsh-launch.mjs'
+import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 const ROOT = process.cwd()
 const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 // 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
-const { cmd: D_CMD, prefix: D_PREFIX } = preflight(PROFILE)
+const { cmd: D_CMD, prefix: D_PREFIX, env: D_ENV } = preflight(PROFILE)
 
 function runDsh(cwd, task) {
-  const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], { encoding: 'utf8', cwd })
+  const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], {
+    encoding: 'utf8',
+    cwd,
+    env: { ...process.env, ...(D_ENV ?? {}) },
+  })
   return { stdout: res.stdout, stderr: res.stderr, status: res.status, error: res.error }
 }
 
@@ -55,7 +60,7 @@ function main() {
   ].join(' '))
 
   // Observe the outcome: did the hook intercept (write completion_log + clear active_work)?
-  const boulderFile = join(sandbox, 'boulder.json')
+  const boulderFile = boulderFileFor(sandbox)
   let completionLogged = false
   let activeCleared = false
   if (existsSync(boulderFile)) {

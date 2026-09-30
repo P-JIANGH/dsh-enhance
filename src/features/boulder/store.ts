@@ -1,10 +1,15 @@
 /**
  * Boulder work-plan storage with conflict-safe writes (architecture §5.5).
  *
- * A single repo-wide `boulder.json` lives at the repository root. All mutation
- * flows through {@link mutateBoulderState}: read latest → deep copy → apply →
- * validate → CAS(revision) → atomic write, retrying on revision conflict (≤3).
- * Merges are at work granularity: session sets are unioned, scalars are
+ * A single repo-wide store lives at `<repo root>/.dsh-enhance/boulder.json`
+ * (architecture §5.5 "存储位置"). Keeping it inside `.dsh-enhance/` matters: that
+ * directory is what `.gitignore` covers, so the store never shows up as an
+ * untracked file in the user's repository — the same reason goals already live
+ * under `.dsh-enhance/goals/`.
+ *
+ * All mutation flows through {@link mutateBoulderState}: read latest → deep copy →
+ * apply → validate → CAS(revision) → atomic write, retrying on revision conflict
+ * (≤3). Merges are at work granularity: session sets are unioned, scalars are
  * writer-wins, and the root active_work_id is the last successful writer.
  *
  * @module dsh-enhance/features/boulder/store
@@ -72,8 +77,16 @@ export interface BoulderState {
 /** Maximum CAS retries before a mutation gives up. */
 export const MAX_CAS_RETRIES = 3
 
-/** The on-disk filename under the repo root. */
+/** Repo-relative directory holding all dsh-enhance state (gitignored by convention). */
+export const STATE_DIR = '.dsh-enhance'
+
+/** The on-disk filename under {@link STATE_DIR}. */
 export const BOULDER_FILE = 'boulder.json'
+
+/** Absolute path of the boulder store for a repository root. */
+export function boulderFileFor(repoRoot: string): string {
+  return join(repoRoot, STATE_DIR, BOULDER_FILE)
+}
 
 /** Initial empty state. */
 export function emptyState(): BoulderState {
@@ -118,11 +131,11 @@ export function isValidState(s: unknown): s is BoulderState {
 
 /**
  * Read the current boulder state from disk (missing/malformed → empty, never throws).
- * @param storeDir - directory holding boulder.json (repo root or injected base).
+ * @param repoRoot - repository root; the file is `<repoRoot>/.dsh-enhance/boulder.json`.
  * @returns current state plus the store file path.
  */
-export function readBoulder(storeDir: string): { state: BoulderState; file: string } {
-  const file = join(storeDir, BOULDER_FILE)
+export function readBoulder(repoRoot: string): { state: BoulderState; file: string } {
+  const file = boulderFileFor(repoRoot)
   const raw = readJsonOrNull<unknown>(file)
   const state = raw && isValidState(raw) ? raw : emptyState()
   return { state, file }
@@ -143,7 +156,7 @@ export function bumpRevision(s: BoulderState): void {
  * applies `mutateFn`, validates, then writes back atomically under a matching
  * revision; on conflict it re-reads and retries (≤ {@link MAX_CAS_RETRIES}).
  *
- * @param storeDir - directory holding boulder.json.
+ * @param repoRoot - repository root; the file is `<repoRoot>/.dsh-enhance/boulder.json`.
  * @param mutateFn - applied to a deep-copied state; must mutate in place.
  * @returns true when the mutation committed, false when it exhausted retries.
  */
