@@ -190,10 +190,18 @@ function toolPlane() {
 }
 
 /**
- * Generate all presets from the persona sources.
- * @returns {Promise<Record<string, string>>} absolute path -> content written.
+ * Render all presets from the persona sources **without touching the disk**.
+ *
+ * Splitting render from write is what makes the byte-pin test meaningful: a test
+ * that calls a writing `generate()` and then reads the file back only compares
+ * the file against what it just wrote, so a hand-edited preset is silently
+ * overwritten instead of being reported (`tests/presets-pin.test.mjs` locks this).
+ *
+ * @returns {Promise<Record<string, string>>} absolute path -> content that should be there.
+ * @param options - `presetsRoot` overrides the output root (tests render into a temp dir
+ *   so they can prove purity without touching the tracked presets).
  */
-export async function generate() {
+export async function render({ presetsRoot: outRoot = presetsRoot } = {}) {
   const written = {}
 
   for (const [role, meta] of Object.entries(ROLES)) {
@@ -224,18 +232,29 @@ export async function generate() {
       '',
       toolPlane(),
     ].join('\n').trimEnd() + '\n'
-    const agentPath = path.join(presetsRoot, role, 'agent.cordis.yml')
-    await mkdir(path.dirname(agentPath), { recursive: true })
-    await writeFile(agentPath, agentBody, 'utf8')
+    const agentPath = path.join(outRoot, role, 'agent.cordis.yml')
 
     const presetBody = `name: ${meta.name}\ndescription: ${meta.description}\n`
-    const presetPath = path.join(presetsRoot, role, 'preset.yml')
-    await writeFile(presetPath, presetBody, 'utf8')
+    const presetPath = path.join(outRoot, role, 'preset.yml')
 
     written[agentPath] = agentBody
     written[presetPath] = presetBody
   }
 
+  return written
+}
+
+/**
+ * Render + write all presets to `presets/<role>/`.
+ * @param options - forwarded to {@link render}.
+ * @returns {Promise<Record<string, string>>} absolute path -> content written.
+ */
+export async function generate(options = {}) {
+  const written = await render(options)
+  for (const [file, content] of Object.entries(written)) {
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, content, 'utf8')
+  }
   return written
 }
 

@@ -220,8 +220,19 @@ function toolPlane(subagentRows) {
   ].join('\n')
 }
 
-/** Build the full main-preset composition file. */
-export async function generate() {
+/**
+ * Build the full main-preset composition file **without touching the disk**.
+ *
+ * Splitting render from write is what makes the byte-pin test meaningful: a test
+ * that calls a writing `generate()` and then reads the file back only compares
+ * the file against what it just wrote, so a hand-edited preset is silently
+ * overwritten instead of being reported (`tests/presets-pin.test.mjs` locks this).
+ *
+ * @returns {Promise<Record<string, string>>} absolute path -> content that should be there.
+ * @param options - `presetsRoot` overrides the output root (tests render into a temp dir
+ *   so they can prove purity without touching the tracked presets).
+ */
+export async function render({ presetsRoot: outRoot = presetsRoot } = {}) {
   const mainPersona = await readFile(path.join(personasRoot, `${MAIN.personaSource}.persona.md`), 'utf8').catch(() => null)
   if (mainPersona === null) throw new Error(`missing main persona source: ${MAIN.personaSource}.persona.md`)
 
@@ -261,15 +272,25 @@ export async function generate() {
   ].join('\n')
 
   const agentBody = body.trimEnd() + '\n'
-  const agentPath = path.join(presetsRoot, MAIN.id, 'agent.cordis.yml')
-  await mkdir(path.dirname(agentPath), { recursive: true })
-  await writeFile(agentPath, agentBody, 'utf8')
-
+  const agentPath = path.join(outRoot, MAIN.id, 'agent.cordis.yml')
   const presetBody = `name: ${MAIN.name}\ndescription: ${MAIN.description}\n`
-  const presetPath = path.join(presetsRoot, MAIN.id, 'preset.yml')
-  await writeFile(presetPath, presetBody, 'utf8')
+  const presetPath = path.join(outRoot, MAIN.id, 'preset.yml')
 
   return { [agentPath]: agentBody, [presetPath]: presetBody }
+}
+
+/**
+ * Render + write the main preset to `presets/dsh-enhance/`.
+ * @param options - forwarded to {@link render}.
+ * @returns {Promise<Record<string, string>>} absolute path -> content written.
+ */
+export async function generate(options = {}) {
+  const written = await render(options)
+  for (const [file, content] of Object.entries(written)) {
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, content, 'utf8')
+  }
+  return written
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
