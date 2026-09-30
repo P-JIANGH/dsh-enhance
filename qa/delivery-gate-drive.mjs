@@ -16,26 +16,14 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { preflight } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
 const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
-function resolveDsh() {
-  if (process.env.DSH_BIN) return [process.env.DSH_BIN, []]
-  const finder = process.platform === 'win32' ? 'where.exe' : 'which'
-  const shimName = process.platform === 'win32' ? 'dsh.cmd' : 'dsh'
-  const info = spawnSync(finder, [shimName], { encoding: 'utf8' })
-  if (!info.error && info.status === 0 && info.stdout) {
-    const shim = info.stdout.split(/\r?\n/).map(s => s.trim()).find(Boolean)
-    if (shim) {
-      const bin = join(shim, '..', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-      if (existsSync(bin)) return [process.execPath, [bin]]
-    }
-  }
-  return [process.platform === 'win32' ? 'dsh.cmd' : 'dsh', []]
-}
-const [D_CMD, D_PREFIX] = resolveDsh()
+// 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
+const { cmd: D_CMD, prefix: D_PREFIX } = preflight(PROFILE)
 
 function runDsh(cwd, task) {
   const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], { encoding: 'utf8', cwd })
@@ -74,7 +62,8 @@ function main() {
     try {
       const b = JSON.parse(readText(boulderFile))
       completionLogged = Array.isArray(b.completion_log) && b.completion_log.length > 0
-      activeCleared = b.active_work_id === undefined
+      // 清除的语义是「active_work_id 键不存在或为 null」——实现若写 null 也要算清除。
+      activeCleared = b.active_work_id === undefined || b.active_work_id === null
     } catch { /* ignore */ }
   }
 

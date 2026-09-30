@@ -11,41 +11,29 @@
 // 并在输出中标注本次所用的 profile 与 $DSH_HOME，便于审计未污染真实环境。
 // 依赖了一个已 link 到本仓库的 profile（package.json: "dsh-enhance": "link:<repo>"）。
 
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { preflight } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
 const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
-const SYNC_MARKERS = ['pluginLoaded: true', 'work-rules', 'bundled', 'dsh-enhance']
-
 /**
- * Resolve how to launch dsh. Prefer running `@deepseek-ai/dsh/lib/bin.js` with
- * the current node (no shell trampoline, no DEP0190 warning) by locating dsh's
- * install dir via the PATH shim (`where`/`which`). Fall back to a raw command.
- * @returns {[string, string[]]}
+ * 同步信号。doctor 报告自 M2 起为中文渲染（「插件已加载：是」），英文 key=value
+ * 已不再出现；这里同时接受中英文，避免标记集随文案中文化而失效。
+ * 判定要求：至少命中一条「实质」信号（证明插件真的装配），再叠加软信号计数。
  */
-function resolveDsh () {
-  if (process.env.DSH_BIN) return [process.env.DSH_BIN, []]
-  const finder = process.platform === 'win32' ? 'where.exe' : 'which'
-  const shimName = process.platform === 'win32' ? 'dsh.cmd' : 'dsh'
-  const info = spawnSync(finder, [shimName], { encoding: 'utf8' })
-  if (!info.error && info.status === 0 && info.stdout) {
-    const shim = info.stdout.split(/\r?\n/).map(s => s.trim()).find(Boolean)
-    if (shim) {
-      const installDir = join(shim, '..', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-      if (existsSync(installDir)) return [process.execPath, [installDir]]
-    }
-  }
-  return [process.platform === 'win32' ? 'dsh.cmd' : 'dsh', []]
-}
+const SUBSTANTIVE_MARKERS = ['插件已加载：是', 'pluginLoaded: true', 'dsh-enhance/work-rules']
+const SOFT_MARKERS = ['bundled', 'dsh-enhance']
 
-const [DSH_CMD, DSH_PREFIX] = resolveDsh()
+const args = process.argv.slice(2)
+const needsApp = args.includes('--llm')
+const { cmd: DSH_CMD, prefix: DSH_PREFIX } = preflight(PROFILE, { requireApp: needsApp })
 
-function runDsh (args) {
-  const res = spawnSync(DSH_CMD, [...DSH_PREFIX, ...args], { encoding: 'utf8', cwd: ROOT })
+function runDsh (cmdArgs) {
+  const res = spawnSync(DSH_CMD, [...DSH_PREFIX, ...cmdArgs], { encoding: 'utf8', cwd: ROOT })
   if (res.error) {
     console.error(`dsh 启动失败：${res.error.message}`)
     process.exit(2)
@@ -60,7 +48,6 @@ function writeEvidence(tag, content) {
   console.log(`证据已记录：${file}`)
 }
 
-const args = process.argv.slice(2)
 const fileSafe = Date.now()
 
 if (args.includes('--llm')) {
@@ -71,20 +58,24 @@ if (args.includes('--llm')) {
   }
   const { stdout, stderr, status } = runDsh(['--profile', PROFILE, task])
   const out = stdout + stderr
-  const hit = SYNC_MARKERS.filter(m => out.includes(m))
+  const substantive = SUBSTANTIVE_MARKERS.filter(m => out.includes(m))
+  const soft = SOFT_MARKERS.filter(m => out.includes(m))
+  const passed = status === 0 && substantive.length > 0
   writeEvidence(`llm-${fileSafe}`, [
     `# dsh-enhance LLM 实驱（--llm）`,
     `time: ${new Date().toISOString()}`,
     `profile: ${PROFILE} · DSH_HOME: ${process.env.DSH_HOME || '(default)'}`,
     `dsh exit: ${status}`,
-    `同步信号命中的：${hit.join(', ') || '(无)'}`,
+    `实质信号命中（至少 1 条即证明插件已装配）：${substantive.join(', ') || '(无)'}`,
+    `辅助信号：${soft.join(', ') || '(无)'}`,
+    `结论：${passed ? 'PASS' : 'FAIL'}`,
     '',
     '## 输出',
     out,
     '',
   ].join('\n') + '\n')
   console.log(out)
-  process.exitCode = hit.length && status === 0 ? 0 : 1
+  process.exitCode = passed ? 0 : 1
 } else {
   // 默认（零成本）：dump-config 确认 dsh-enhance bundle 合入 compose。
   const { stdout, stderr, status } = runDsh(['--profile', PROFILE, '--dump-config'])

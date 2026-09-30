@@ -12,28 +12,14 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdi
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { preflight } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
 const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
 const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
-// Resolve dsh via the node bin entry (no shell trampoline).
-function resolveDsh() {
-  if (process.env.DSH_BIN) return [process.env.DSH_BIN, []]
-  const finder = process.platform === 'win32' ? 'where.exe' : 'which'
-  const shimName = process.platform === 'win32' ? 'dsh.cmd' : 'dsh'
-  const info = spawnSync(finder, [shimName], { encoding: 'utf8' })
-  if (!info.error && info.status === 0 && info.stdout) {
-    const shim = info.stdout.split(/\r?\n/).map(s => s.trim()).find(Boolean)
-    if (shim) {
-      const bin = join(shim, '..', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-      if (existsSync(bin)) return [process.execPath, [bin]]
-    }
-  }
-  return [process.platform === 'win32' ? 'dsh.cmd' : 'dsh', []]
-}
-
-const [D_CMD, D_PREFIX] = resolveDsh()
+// 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
+const { cmd: D_CMD, prefix: D_PREFIX } = preflight(PROFILE)
 
 function runDsh(cwd, task) {
   const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], { encoding: 'utf8', cwd })
@@ -71,6 +57,11 @@ function main() {
     }
   }
   const escaped = existsSync(join(sandbox, '..', 'escape-QAE2E.txt'))
+  // 守卫是否真的被行使过：确认输出里出现守卫自己的拒绝文案。
+  // 只有「模型确实尝试了越界写 + 被拒绝 + 文件没落盘」才算守卫通过；
+  // 模型没尝试越界写时不算通过（否则 escape=false 会白送一个 PASS）。
+  const guardExercised = /路径越界|已拒绝写入/.test(res.stdout || res.stderr || '')
+  const passed = Boolean(worked && goalFound && !escaped && guardExercised)
 
   const tag = `worktracking-${Date.now()}`
   const file = join(evidenceDir, `${tag}.md`)
@@ -81,8 +72,9 @@ function main() {
     `dsh exit: ${res.status}${res.error ? ' (' + res.error.message + ')' : ''}`,
     `boulder_start 落盘 (qa-e2e work): ${worked}`,
     `goal_create 落盘 (QAE2E_MARKER): ${goalFound}`,
+    `path-traversal 守卫被行使（输出含拒绝文案）: ${guardExercised}`,
     `path-traversal write 的确逃逸到父目录 (escape-QAE2E.txt 存在): ${escaped}`,
-    `结论: ${worked && goalFound ? '工作追踪/守卫 e2e 通过（escape 应为 false 若守卫生效，或 true 表示守卫未触发生效）' : 'inconclusive 或部分通过（见输出与轨迹）'}`,
+    `结论: ${passed ? 'PASS（工作追踪落盘 + 守卫真实拦截越界写）' : 'FAIL（见输出与轨迹）'}`,
     '',
     '## 会话输出（前 3000 字符）',
     (res.stdout || res.stderr).slice(0, 3000),
@@ -93,8 +85,9 @@ function main() {
   ].join('\n') + '\n', 'utf8')
 
   console.log(`证据: ${file}`)
-  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | escape 落盘: ${escaped}`)
-  console.log(`结论: ${worked && goalFound ? 'PASS' : 'INCONCLUSIVE/PARTIAL'}`)
+  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped}`)
+  console.log(`结论: ${passed ? 'PASS' : 'FAIL'}`)
+  if (!passed) process.exitCode = 1
 
   // Cleanup sandbox (best-effort) but keep the evidence file in the repo.
   try { rmSync(sandbox, { recursive: true, force: true }) } catch { /* ignore */ }
