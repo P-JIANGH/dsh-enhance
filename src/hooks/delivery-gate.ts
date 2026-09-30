@@ -5,36 +5,38 @@
  * event machine. On every turn-stop boundary it:
  *
  * 1. reads the agent's newest assistant text and classifies it as a completion
- *    claim or ordinary progress (`detectCompletionClaim`, with the goal's open-todo
- *    count as the c13 disambiguator);
+ *    claim or ordinary progress (`detectCompletionClaim`, with the **native**
+ *    session goal's phase as the c13 disambiguator);
  * 2. advances a per-session gate phase (`deliveryGateStep`) so the gate is a real
  *    state machine rather than a one-shot check;
- * 3. when a claim lands and the goal's todos are clear, runs the work's bound
+ * 3. when a claim lands and no native goal is still open, runs the work's bound
  *    `verify` script if any (`runVerify`) and builds a structured report
  *    (`buildReport`) — **no verify bound means `unmeasured`, never a claimed pass**;
  * 4. on a passing/unmeasured delivery records the report, marks the work completed
  *    and releases the session's write token; on a *failed* verify it records the
  *    failure and steers one regression reminder (rate-limited) instead.
  *
- * Open todos stay with `todo-continuation` (architecture: run the todo check
- * first; the delivery gate only judges once todos are clear), so this hook never
- * competes with it for the same turn.
+ * An open goal stays with upstream: `dsh-goal-round-driver` turns an active goal
+ * into further rounds (its prompt demands evidence before completion), so the gate
+ * only judges once no goal is open. This hook used to read dsh-enhance's own
+ * goal/todo store; that store is retired — goals are the native `ctx.goals`
+ * service, so there is exactly one goal API in the session.
  *
  * @module dsh-enhance/hooks/delivery-gate
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-goal'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { join } from 'node:path'
 import { mutateBoulderState, readBoulder, type BoulderWork } from '../features/boulder/store.js'
-import { readGoal } from '../features/boulder/goal.js'
 import { releaseWriteToken } from '../features/boulder/write-token.js'
 import {
   buildReport,
   detectCompletionClaim,
   deliveryGateStep,
   runVerify,
+  type CompletionSignals,
   type GatePhase,
 } from '../features/delivery-gate/index.js'
 import { lastAssistantText } from '../shared/messages.js'
@@ -69,7 +71,7 @@ export function registerDeliveryGateHook(ctx: Context, enabled: boolean): () => 
   if (!enabled) return () => {}
   const offStop = ctx.on('agent/turn-stopping', async ({ agent, turn }: { agent: Agent; turn: number }) => {
     try {
-      await evaluateTurn(agent, turn)
+      await evaluateTurn(ctx, agent, turn)
     } catch {
       // The gate must never break turn stopping.
     }
@@ -89,7 +91,7 @@ function forgetSession(session: string): void {
 }
 
 /** Evaluate one turn-stop boundary for the given agent. */
-async function evaluateTurn(agent: Agent, turn: number): Promise<void> {
+async function evaluateTurn(ctx: Context, agent: Agent, turn: number): Promise<void> {
   const cwd = agent.session.header.cwd
   const session = String(agent.session.header.id ?? 'session')
   if (!cwd) return
@@ -107,22 +109,34 @@ async function evaluateTurn(agent: Agent, turn: number): Promise<void> {
   const work = state.active_work_id ? state.works[state.active_work_id] : undefined
   if (!work) return
 
-  const goal = readGoal(join(cwd, '.dsh-enhance', 'goals'), session)
-  const remainingTodos = goal?.remaining_todos ?? 0
+  const goal = readGoalPhase(ctx, agent)
+  const goalOpen = goal !== undefined && goal !== 'complete'
   const claimText = lastAssistantText(agent.session.deriveMessages())
-  const signals = { text: claimText, calledTools: [] as string[], hasDoneTag: false, remainingTodos }
+  const signals: CompletionSignals = { text: claimText, calledTools: [], hasDoneTag: false, goalOpen }
   const declared = detectCompletionClaim(signals)
 
   const priorPhase = phases.get(session) ?? 'idle'
   phases.set(session, deliveryGateStep({ declared, reviewPassed: false, phase: priorPhase }))
 
   if (!declared) return
-  // Open todos are todo-continuation's job: do not start the gate (architecture §5.2.1).
-  if (remainingTodos > 0) return
-  // A goal that is not done yet is not a delivery either.
-  if (goal && goal.status !== 'done') return
+  // An open goal is not a delivery: continuation belongs to the native round driver.
+  if (goalOpen) return
 
   await reviewAndRecord(agent, cwd, session, work, signals)
+}
+
+/**
+ * Read the native goal phase for one agent.
+ *
+ * A `goals` service that cannot resolve this exact live agent — or a session that
+ * never created a goal — reports no goal instead of failing the turn boundary.
+ */
+function readGoalPhase(ctx: Context, agent: Agent): string | undefined {
+  try {
+    return ctx.goals.get(agent)?.phase
+  } catch {
+    return undefined
+  }
 }
 
 /** Run the bound verify (if any), record the report, and settle the work. */
@@ -131,7 +145,7 @@ async function reviewAndRecord(
   cwd: string,
   session: string,
   work: BoulderWork,
-  signals: { text?: string; remainingTodos?: number },
+  signals: CompletionSignals,
 ): Promise<void> {
   // §5.2.2-1: an executable verify is the observable fact. No binding ⇒ unmeasured.
   let verified: boolean | undefined

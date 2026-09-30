@@ -61,12 +61,16 @@ test('[completion-claim] false-positive：不含完成信号的不触发', () =>
   assert.equal(detectCompletionClaim({ text: '', calledTools: ['read'], hasDoneTag: false }), false)
 })
 
-test('[completion-claim] goal 消歧：进展汇报+未清todo 不误判为完成(c13)', () => {
-  // 原占位中的已知误判场景：文本含"完成了X"但实际是进展汇报。
-  // 真实实现结合 goal 的 remainingTodos>0 消歧 → 应判为 false。
+test('[completion-claim] goal 消歧：原生目标未完成时的进展汇报不误判为完成(c13)', () => {
+  // 文本含"完成了X"但实际是进展汇报：原生 goal 仍 open（phase !== 'complete'）→ false。
   assert.equal(
-    detectCompletionClaim({ text: '我已经完成了第一个文件的修改，接下来继续看第二个', remainingTodos: 3 }),
+    detectCompletionClaim({ text: '我已经完成了第一个文件的修改，接下来继续看第二个', goalOpen: true }),
     false,
+  )
+  // 目标已完成 / 本会话没有目标 → 同一文本按完成声明处理（交给门卫判定）。
+  assert.equal(
+    detectCompletionClaim({ text: '我已经完成了第一个文件的修改，接下来继续看第二个', goalOpen: false }),
+    true,
   )
 })
 

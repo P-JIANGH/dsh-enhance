@@ -1,14 +1,17 @@
-// work-tracking + guards e2e driver: exercise boulder/goal tools and the
+// work-tracking + guards e2e driver: exercise the boulder tools and the
 // path-traversal guard in a REAL dsh LLM session running inside a throwaway git
-// repo (sandbox cwd). Sandboxed so boulder/goal land under .dsh-enhance/ there, not in
-// the dsh-enhance checkout.
+// repo (sandbox cwd). Sandboxed so boulder state lands under .dsh-enhance/ there,
+// not in the dsh-enhance checkout.
+//
+// Goals are not part of this drive: they belong to the native `ctx.goals` service
+// (`create_goal` / `get_goal` / `update_goal`), not to this bundle's storage.
 //
 //   node qa/worktracking-drive.mjs        # runs one sandboxed LLM session
 //
-// Requires DEEPSEEK_API_KEY (or dsh credentials) and the `dsh-enhance` profile linked
-// to this checkout. Consumes tokens.
+// Requires DEEPSEEK_API_KEY (or dsh credentials) and a profile linked to this
+// checkout. Consumes tokens.
 
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -39,13 +42,12 @@ const task = [
   'This is an acceptance test of the dsh-enhance work-tracking and guards.',
   'Do EXACTLY this sequence, no more:',
   '1) Call boulder_start with work_id="qa-e2e" and plan_name="E2E work tracking".',
-  '2) Call goal_create with objective="Acceptance goal" and acceptance=["QAE2E_MARKER"].',
-  '3) Call the write tool with file_path="../escape-QAE2E.txt" and content="x" ',
+  '2) Call the write tool with file_path="../escape-QAE2E.txt" and content="x" ',
   '   — this deliberate path escape should be REJECTED by the path-traversal guard.',
-  '4) Call the write tool with file_path="inside-ok.txt" and content="ok" ',
+  '3) Call the write tool with file_path="inside-ok.txt" and content="ok" ',
   '   — a legitimate in-workspace write that must SUCCEED (the write-token guard',
   '   must not block the session that owns the active work).',
-  '5) Then boulder_status and goal_get, and report what you observed.',
+  '4) Then call boulder_status and report what you observed.',
   'Stop. Do not touch any other tool.',
 ].join(' ')
 
@@ -59,16 +61,9 @@ function main() {
   const res = runDsh(sandbox, task)
 
   const boulderFile = boulderFileFor(sandbox)
-  const goalsDir = join(sandbox, '.dsh-enhance', 'goals')
   const worked = existsSync(boulderFile) && readText(boulderFile).includes('qa-e2e')
   // architecture §5.5：状态必须落在 .dsh-enhance/ 下；仓库根出现 boulder.json 就是污染用户的仓库。
   const rootPolluted = existsSync(join(sandbox, 'boulder.json'))
-  let goalFound = false
-  if (existsSync(goalsDir)) {
-    for (const f of readdirSync(goalsDir)) {
-      if (readText(join(goalsDir, f)).includes('QAE2E_MARKER')) goalFound = true
-    }
-  }
   const escaped = existsSync(join(sandbox, '..', 'escape-QAE2E.txt'))
   // 守卫是否真的被行使过：确认输出里出现守卫自己的拒绝文案。
   // 只有「模型确实尝试了越界写 + 被拒绝 + 文件没落盘」才算守卫通过；
@@ -85,7 +80,7 @@ function main() {
       tokenLive = Boolean(b.exec_holder) && isPidAlive(b.exec_holder_pid)
     } catch { /* ignore */ }
   }
-  const passed = Boolean(worked && goalFound && !escaped && guardExercised && insideOk && !tokenLive && !rootPolluted)
+  const passed = Boolean(worked && !escaped && guardExercised && insideOk && !tokenLive && !rootPolluted)
 
   const tag = `worktracking-${Date.now()}`
   const file = join(evidenceDir, `${tag}.md`)
@@ -95,7 +90,6 @@ function main() {
     `profile: ${PROFILE} · cwd(sandbox): ${sandbox}`,
     `dsh exit: ${res.status}${res.error ? ' (' + res.error.message + ')' : ''}`,
     `boulder_start 落盘 (qa-e2e work): ${worked}`,
-    `goal_create 落盘 (QAE2E_MARKER): ${goalFound}`,
     `path-traversal 守卫被行使（输出含拒绝文案）: ${guardExercised}`,
     `path-traversal write 的确逃逸到父目录 (escape-QAE2E.txt 存在): ${escaped}`,
     `§5.5.1 合法工作区内写成功 (inside-ok.txt 存在): ${insideOk}`,
@@ -112,7 +106,7 @@ function main() {
   ].join('\n') + '\n', 'utf8')
 
   console.log(`证据: ${file}`)
-  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped} | 合法写: ${insideOk} | 令牌被活进程占用: ${tokenLive} | 仓库根被污染: ${rootPolluted}`)
+  console.log(`boulder_start: ${worked} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped} | 合法写: ${insideOk} | 令牌被活进程占用: ${tokenLive} | 仓库根被污染: ${rootPolluted}`)
   console.log(`结论: ${passed ? 'PASS' : 'FAIL'}`)
   if (!passed) process.exitCode = 1
 

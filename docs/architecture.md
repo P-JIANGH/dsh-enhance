@@ -45,7 +45,7 @@ dsh-enhance/
 ├── presets/               # dsh-agent-presets 预设目录（生成物；用 scripts/install-presets.mjs 装进 $DSH_HOME/.agent-presets）
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
 │   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema）/ apply
-│   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、todo-continuation、delivery-gate）
+│   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
 │   ├── features/          # 特性模块（skills-provider、commands、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
 │   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
@@ -111,9 +111,8 @@ dsh-enhance/
 | 机制 | 行为 |
 |---|---|
 | `start-work` | 会话开始发现 boulder 活跃计划 → 注入续作上下文（计划、todo、notepad） |
-| `todo-continuation-enforcer` | turn-stopping 时若 todo 未清、无阻塞，注入"继续"提醒 |
-| `goal-guard` | goal 活跃时，完成前禁止宣称 done（注入校验提示） |
-| `delivery-gate` | **交付门卫**（在 agent 宣称完成/交付时触发回归审查，未过则压缩上下文后重注入入口契约继续工作，直到通过——见 5.2.1） |
+| ~~`todo-continuation-enforcer`~~ | **已退役**：原实现读本插件自建 goal 的 `remaining_todos`；目标是原生 `ctx.goals` 后该计数没有写入者，续作由原生 `dsh-goal-round-driver`（active goal → 连续轮次）承担 |
+| `delivery-gate` | **交付门卫**（在 agent 宣称完成/交付时触发回归审查，未过则压缩上下文后重注入入口契约继续工作，直到通过——见 5.2.1）。**原生 goal 仍 open（`phase !== 'complete'`）时视为进展汇报**，交给原生轮次驱动 |
 
 ### 5.2.1 交付门卫（delivery-gate）状态机
 
@@ -143,10 +142,10 @@ dsh-enhance/
    - 每轮入口契约注入的是同一份精简稿，不叠加整段历史。
 5. **幂等/不双启**：同一轮内不重复注入回归审查；上轮已通过的检查项记录为 `verified`，下轮只核对未过项与新增变更。
 
-**与 goal-guard / todo-continuation-enforcer 的关系**：
-- `todo-continuation-enforcer` 处理"还有 todo 没做"（工作没完）；
+**与原生 goal 续作的关系**：
+- 原生 `dsh-goal-round-driver` 处理"目标还没完成"（工作没完）：active goal → 连续轮次，并要求完成前有证据；
 - `delivery-gate` 处理"声称做完了但证据不符"（交付质量门）；
-- 两者都挂在 turn-stopping，先跑 todo 检查（未清则续作，不启动交付门卫），todo 清空后才进入 delivery-gate 的完成声明判定。
+- 两者都挂在 turn-stopping：原生 goal 仍 open 时本门卫不启动（视作进展汇报），goal complete（或本会话无目标）后才进入完成声明判定。
 
 **提示词来源**：工作前/交付前两篇见 `docs/prompts-review/ultrawork.md` 与 `ultrawork-review.md`。设计意图说明见 `README.md`。
 
@@ -193,7 +192,7 @@ dsh-enhance/
 | `bash` / `read` 守卫工具 | dsh 内置 | 通过 guard 增强，不重写 |
 | `lsp_*` | ~~自建~~ | **已砍**：dsh 原生提供 `ctx.lsp`（含 `tool-lsp`），本插件不再自建 LSP 最小集；详见 [design-delivery-gate-hardening.md](design-delivery-gate-hardening.md) §1.5 |
 | `comment_check` | 自建 | 写后校验 |
-| `goal_create` / `goal_get` / `goal_update` | 自建 | session 级 JSON 存储 |
+| ~~`goal_create` / `goal_get` / `goal_update`~~ | ~~自建~~ | **已退役**：改用原生 `ctx.goals`（`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`）；自建 goal 存储与三个工具已删除（`docs/value-assessment.md` §3） |
 | `boulder_start` / `boulder_status` / `boulder_complete` | 自建 | 见 5.5 防冲突设计 |
 | `worktree_create` / `worktree_list` / `worktree_cleanup` | 新增 | 见 5.6 |
 | `dsh_enhance_doctor` | v1 已有 | 保留 |
@@ -270,7 +269,7 @@ dsh-enhance/
 5. **进程级锁**：`.dsh-enhance/boulder.lock`（`mkdir` 原子创建 + 内容含 pid + 启动时间）。获取失败时按陈旧锁检测（pid 不存在或超时 30s）接管；写完成后释放。锁只在"需要 CAS 冲突仍失败"或"批量迁移"时使用，常规单写走 CAS 即可。
 6. **schema 校验**：写入前 Zod 校验（自建 schema），坏文件读为 null 不崩溃。
 
-**Goal 存储**：session 级 `<baseDir>/<sessionID>.json` + 原子写。goal 与 boulder 的关系：goal = 当前会话的验收契约（objective/status/tokens），boulder = 跨会话的工作计划（plan/todo/worktree），两者独立存储、互相引用（boulder work 可带 `goal_id`）。
+**Goal 存储（已退役）**：本插件曾把 goal 落在 session 级 `<baseDir>/<sessionID>.json`。现在 goal 是**原生** `ctx.goals`（会话日志投影 + CAS 修订 + 原生轮次驱动）。与 boulder 的关系不变：goal = 当前会话的验收契约，boulder = 跨会话的工作计划，两者独立、互相引用（boulder work 可带 `goal_id`）。
 
 ### 5.5.1 并发执行策略（写令牌 + worktree 可选并行）
 
@@ -297,7 +296,7 @@ dsh-enhance/
 
 **判定优先级**：worktree 隔离 > 写令牌串行。一个 work 只要有独立 worktree，就取消令牌约束；没有 worktree 就强制令牌串行。绝不允许"无 worktree 且无令牌"的 execute。
 
-**落地路径**：`boulder-link.ts` 负责登记/释放令牌与 worktree；`start-work` / `todo-continuation-enforcer` 在 execute 开始处检查"令牌 or worktree"是否就绪，未就绪则注入"等待/创建 worktree"提示而非直接执行。
+**落地路径**：`boulder-link.ts` 负责登记/释放令牌与 worktree；`start-work` 钩子在会话开始检查"令牌 or worktree"是否就绪，未就绪则注入"等待/创建 worktree"提示；写令牌本身由 `write-token-guard` 在工具管线强制。
 
 ### 5.6 Worktree 管理器（重点）
 
@@ -380,7 +379,7 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 | **M1 骨架重构** | src/ 按 5.3 布局重组；config 开关组；cordis.patch.yml 更新 | `pnpm typecheck` + 单测 + dsh 实驱加载 |
 | **M2 提示词审查** | 第 6 节全部对象完成中文精简 + 映射表 | 用户评审 + 实驱 |
 | **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 双层回归审查 → 未过压缩上下文重注入入口契约；含 verify 脚本绑定 / 反攻击 / 反锚定 / 轨迹审计，见 5.2.1-5.2.2） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过；改受保护文件伪造通过被 verify 揭穿）。反向契约见 `tests/delivery-gate.test.mjs`，实驱占位见 `qa/delivery-gate-drive.mjs` |
-| **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
+| **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + start-work 续作 + delivery-gate（goal 是原生服务，不再自建） | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
 | **M7 comment-check** | ~~最小 LSP 集~~（dsh 原生 `ctx.lsp` 已覆盖）+ 写后注释校验 | 实驱 |

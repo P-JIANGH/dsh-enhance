@@ -10,11 +10,12 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **175/175** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **166/166** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
 - **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩迁移用途（`LEGACY_PACKAGE_NAMES`/`--prune-renamed`）与历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
+- **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
 
 ---
 
@@ -101,6 +102,17 @@
 - 修复：`qa/dsh-launch.mjs` 新增 `resolveQaTarget()`（**隔离优先**：显式 `DSH_HOME`/`DSH_ENHANCE_PROFILE` 优先，否则用仓库内隔离 home `.dsh-enhance/desktop-test-home` 的 `qa` profile，隔离 home 不存在才退回真实 home）；`preflight()` 接受 `dshHome` 让 app 自检跟随同一目标；三个驱动把它注入子进程环境，并在证据头与启动行标注实际使用的 profile 与 home；缺层时的报错改为可执行排查顺序。
 - 测试：`tests/qa-launch.test.mjs` 新增 4 例（隔离 home 存在 / 显式 env 优先 / 隔离 home 缺失 / 常量契约）。
 
+### ✅ P1-13 与上游重复的能力面（做减法）：goal API、AGENTS.md 注入、todo 续作
+- 证据（live 运行时核对，非印象）：`tools` 里同时存在本插件的 `goal_create/goal_get/goal_update`（写 `.dsh-enhance/goals/`）与原生 `create_goal/get_goal/update_goal`（`goals` 服务 + 会话日志投影）；`dsh-goal-round-driver` 无配置、默认生效，把 active goal 变成连续轮次并要求"完成前有证据"；`dsh-agent-instructions` 已完整加载 `$DSH_HOME/AGENTS.md` + 项目根→cwd 指令链（含覆盖文件与嵌套重发现）并折进 durable history，而本插件的 `rules-injector` 又读了同一份 `AGENTS.md`；本插件的 `todo-continuation` 只读自建 goal 的 `remaining_todos`。
+- 判定：这是**负价值**——两套近邻同名 API 让模型二选一（存储与语义都不同），重复注入 AGENTS.md 白花 token，而 todo 续作在上游轮次驱动之外并无独立信息。
+- 修复（本插件的目标：一个来源、零重复）：
+  1. 删除 `src/features/boulder/goal.ts` 与 `goal_create`/`goal_get`/`goal_update` 三个工具；`delivery-gate` 改读原生 `ctx.goals.get(agent)`，c13 消歧信号从 `remainingTodos` 改为 `goalOpen`（`phase !== 'complete'`）；插件 `inject` 增加 `goals`。
+  2. 删除 `src/hooks/todo-continuation.ts`（其输入随 1 消失，续作归 `dsh-goal-round-driver`）。
+  3. `rules-injector` 只读 `.dsh-enhance/rules/`，不再读 `AGENTS.md`（`tests/rules.test.mjs` 增加两条负向钉）。
+  4. `AGENTS.md` 新增「Non-goals（刻意不做）」一节，把这几条与"不重复原生策略/不做 M8"写成纪律，防止重复面再长回来。
+- 同步：README/architecture（§3 树、§5.2 机制表、工具表、§5.5 goal 存储、M4 里程碑）/modes/testing-plan/两个实驱（改用原生 `create_goal`/`get_goal`/`update_goal`）；`value-assessment.md` §3 的三行重复面标记为已处置。
+- 复验：`pnpm build` 0 · `pnpm test` **166/166**（删 7 例随实现退役的测试、新增 5 例：原生 goal 相位消歧、目标 open/缺失/读不到 agent、AGENTS.md 负向钉）。
+
 ### ✅ P1-1 README 自相矛盾 + 幽灵 `presets/advisor`
 移除 `cp -r presets/advisor` 指引并标注模式 C 未实现；修正"三模式共享同一子代理池"（实际只有主预设挂 4 条作用域子代理行）；明确 advisor 是伴随机制而非可选人设预设。
 
@@ -183,3 +195,4 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-09-30 | P1-11 文档（如何体验 / 安装脚本 / 配置表 / AGENTS） | `9637da5` 之后 | README/AGENTS 与实现逐条对齐 |
 | 2026-09-30 | P2-8 QA 实驱目标隔离优先 + 缺层报错可执行化 | `3793771` | `tests/qa-launch.test.mjs` 15 例（+4）；默认目标 = 隔离 home 实驱 PASS |
 | 2026-09-30 | P1-12 旧包名清零（profile 迁移 / `omd` 删除 / 安装文档校正） | 见下一次提交 | 两 profile `--dump-config` 命中 `# == @dsh-enhance/dsh-enhance`；真实 home 实驱 PASS |
+| 2026-09-30 | P1-13 按评估做减法（goal API / AGENTS.md 注入 / todo 续作） | 见下一次提交 | `pnpm build` 0 + `pnpm test` 166/166；原生 goal 相位消歧与 AGENTS.md 负向钉 |

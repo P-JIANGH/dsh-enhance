@@ -4,8 +4,7 @@
  * A single repo-wide store lives at `<repo root>/.dsh-enhance/boulder.json`
  * (architecture §5.5 "存储位置"). Keeping it inside `.dsh-enhance/` matters: that
  * directory is what `.gitignore` covers, so the store never shows up as an
- * untracked file in the user's repository — the same reason goals already live
- * under `.dsh-enhance/goals/`.
+ * untracked file in the user's repository.
  *
  * All mutation flows through {@link mutateBoulderState}: read latest → deep copy →
  * apply → validate → CAS(revision) → atomic write, retrying on revision conflict

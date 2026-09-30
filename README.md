@@ -14,7 +14,7 @@
 | **doctor 工具** | `dsh_enhance_doctor` 报告实时装配状态（已加载插件、已注册技能、生效配置），并给出可执行的下一步建议 | `doctorTool: false` |
 | **人类指令**（`/doctor`、`/boulder`） | UI `/` 菜单里属于本包的入口：`/doctor` 复用同一份装配诊断，`/boulder` 显示工作追踪状态（令牌持有者、进行中的工作、工作项）。结果只在 UI 渲染——**不进模型历史、不消耗 token** | `commands: false` |
 | **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器、完成声明 delivery-gate | `guards: false` |
-| **工作追踪** | boulder（CAS）+ goal 存储、写令牌、start-work / todo-continuation / delivery-gate 钩子 | `workTracking: false` |
+| **工作追踪** | boulder（CAS）+ 写令牌 + start-work / delivery-gate 钩子。**目标（goal）归原生**：`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`（目标未完成自动续轮） | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
 | **`ulw` / ultrawork 模式** | 输入提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`） | — |
 | **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
@@ -31,7 +31,7 @@
 | **`/` 菜单里的打包技能** `code-review` / `git-workflow` / `tdd` | 在输入框打 `/`；或直接手打 `/tdd`——手打的同名 token 会把技能正文确定性注入该轮 | 插件已挂载 |
 | **`/` 菜单里的本包指令** `/doctor`、`/boulder` | 在输入框打 `/` 选择后回车（未声明入参 → 回车即执行） | `commands: true`（默认） |
 | **预设**：`dsh-enhance`（编排者）+ `planner` / `scout` / `librarian` / `task` / `reviewer` | 新建会话时用会话标题旁的预设菜单选择；或在设置的预设名册区块里管理（复制 / 删除 / 设为默认） | **先跑一次预设安装**（见「安装」） |
-| **模型侧工具** `dsh_enhance_doctor`、`boulder_*`、`goal_*`、`worktree_*` | 让模型使用即可（也可以直接说「跑一下 dsh_enhance_doctor」） | 对应开关（默认全开） |
+| **模型侧工具** `dsh_enhance_doctor`、`boulder_*`、`worktree_*`（目标用原生的 `create_goal`/`get_goal`/`update_goal`） | 让模型使用即可（也可以直接说「跑一下 dsh_enhance_doctor」） | 对应开关（默认全开） |
 
 两个容易误解的点：
 
@@ -108,7 +108,7 @@ pnpm check:presets            # 只判定：缺装或过期则退出码 1
 | `doctorTool` | `true` | 注册 `dsh_enhance_doctor` 工具 |
 | `commands` | `true` | 注册人类指令 `/doctor`、`/boulder` 到 UI 指令表 |
 | `guards` | `true` | 守卫钩子 + rules 注入器 + delivery-gate 的总开关 |
-| `workTracking` | `true` | boulder/goal 存储、写令牌、工作钩子的总开关 |
+| `workTracking` | `true` | boulder 状态、写令牌、start-work / delivery-gate 钩子的总开关（目标是原生服务，不受此开关影响） |
 | `worktree` | `true` | `worktree_create/list/cleanup` 工具（需要 workTracking） |
 | `advisor` | `true` | Advisor 伴随审查运行时 |
 | `advisorModel` | — | advisor 子代理的独立模型；默认继承主 agent 的路由 |
@@ -145,7 +145,7 @@ node scripts/install-presets.mjs   # 幂等装进 $DSH_HOME/.agent-presets（要
 - **M1 ✅ 骨架**：`src/` 按能力目录重组；`prompts/agents/` 单源 + 生成 + 字节锁定；persona 预设落地。
 - **M2 ✅ 提示词审查**：所有提示词经审查并中文化；采用 6 角色体系。
 - **M3 ✅ 守卫 + delivery-gate**：write-existing/path-traversal/bash-read 守卫、rules-injector、delivery-gate 状态机 + verify 绑定 + 防篡改 + 完成报告。
-- **M4 ✅ 工作追踪**：boulder（CAS、work 合并）、goal 存储、写令牌、start-work + todo-continuation + delivery-gate 钩子。
+- **M4 ✅ 工作追踪**：boulder（CAS、work 合并）、写令牌、start-work + delivery-gate 钩子。**goal 存储与 `goal_*` 工具已退役**（原生 `ctx.goals` 覆盖，见 `docs/value-assessment.md` §3）。
 - **M5 ✅ worktree**：WorktreeManager（create/list/find/cleanup/reuse）、命名 + 路径校验、boulder 联动、worktree_create/list/cleanup 工具。
 - **M6 skill-trigger**：`ulw` / ultrawork 入口契约注入。
 - **M7 LSP / comment-check**：计划中。

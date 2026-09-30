@@ -1,5 +1,5 @@
 /**
- * Atomic file persistence + process lock, shared by boulder/goal storage.
+ * Atomic file persistence + process lock, shared by the boulder store.
  * Mirrors architecture §5.5 write protocol: write-tmp-then-rename for atomic
  * replacement, and an mkdir-created lock file with stale detection.
  * @module dsh-enhance/shared/atomic-write

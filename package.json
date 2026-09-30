@@ -44,6 +44,7 @@
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/dsh-agent": "0.1.2-alpha.4",
     "@deepseek-ai/dsh-commands": "0.1.2-alpha.4",
+    "@deepseek-ai/dsh-goal": "0.1.2-alpha.4",
     "@deepseek-ai/dsh-llm": "0.1.2-alpha.4",
     "@deepseek-ai/dsh-skill": "0.1.2-alpha.4",
     "@deepseek-ai/dsh-system-prompt": "0.1.2-alpha.4",

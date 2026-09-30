@@ -124,7 +124,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 ### 5.1 编排流程（goal 驱动的回归环）
 
 ```
-[进入] 设置 goal：goal_create(objective, target/status)=验收契约
+[进入] 设置 goal：create_goal(objective)=验收契约（**原生** ctx.goals）
    ▲        │
    │        ▼
    │  [执行] 主 agent（可复用 task 或主 persona）推进，增量提交
@@ -152,7 +152,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 | 目标回归环环节 | 落地机制（已实现） | 说明 |
 |---|---|---|
-| 设置 goal、验收契约 | `goal_create`/`goal_get`/`goal_update`（m4） | goal = 当前会话验收契约（objective/status） |
+| 设置 goal、验收契约 | 原生 `create_goal`/`get_goal`/`update_goal`（`ctx.goals`；本插件曾自建 `goal_*`，已退役） | goal = 当前会话验收契约（objective/phase） |
 | 持续纠偏（收集/对话/内容） | advisor 伴随运行时（`agent/turn-stopping` 增量 → `ctx.llm.stream` 独立审查） | 审查范围既含技术正确性，也对照 goal 的目的对齐（目标回归） |
 | 回注（nit/concern/blocker） | advisor `nit→inject` / `concern|blocker→steer` + emission guard | 已单测 + 路径核实；**正向回注已实测**（2026-09-30 实驱：`ADVISOR: nit` 被 emission guard 放行并 `delivered`，见 `.dsh-enhance/evidence/dsh-enhance-drive-llm-*.md`） |
 | 结束前回归审查 | **delivery-gate**（5.2.1）派 reviewer 双层核对 + verify 绑定 | 完成声明拦截 → 回归审查 → 未过压缩上下文 |

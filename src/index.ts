@@ -10,6 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-commands'
+import type {} from '@deepseek-ai/dsh-goal'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
@@ -23,7 +24,6 @@ import { registerBoulderTools } from './tools/boulder-tools.js'
 import { registerWorktreeTools } from './tools/worktree-tools.js'
 import { registerRulesInjector } from './hooks/rules-injector.js'
 import { registerStartWorkHook } from './hooks/start-work.js'
-import { registerTodoContinuationHook } from './hooks/todo-continuation.js'
 import { registerDeliveryGateHook } from './hooks/delivery-gate.js'
 import { registerSkillTrigger } from './features/skill-trigger.js'
 import { registerAdvisorRuntime } from './features/advisor/runtime.js'
@@ -35,12 +35,14 @@ export const name = 'dsh-enhance'
 /**
  * Services this plugin waits for before activating.
  *
- * `commands` is the registry behind the UI `/` menu; it belongs to the shipped
- * `dsh-base` bundle like the other five, so requiring it adds no new class of
- * deployment requirement (a bundle-less deployment has no skills or tools
- * either). Without it the human surface simply cannot exist.
+ * `commands` is the registry behind the UI `/` menu and `goals` is the native
+ * same-session goal service; both belong to the shipped `dsh-base` bundle like
+ * the other five, so requiring them adds no new class of deployment requirement
+ * (a bundle-less deployment has no skills or tools either). Without `commands`
+ * the human surface cannot exist; without `goals` the delivery gate would lose
+ * its completion-claim disambiguator.
  */
-export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm', 'commands']
+export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm', 'commands', 'goals']
 
 /** Default work-rules prose: general working discipline, project-agnostic. */
 export const DEFAULT_WORK_RULES = `# 工作准则
@@ -73,9 +75,9 @@ export interface Config {
    */
   guards?: boolean
   /**
-   * Master switch for work tracking (boulder + goal storage, write token,
-   * start-work / todo-continuation / delivery-gate hooks). Architecture §5.5.
-   * Default on.
+   * Master switch for work tracking (boulder storage, write token, start-work /
+   * delivery-gate hooks). Architecture §5.5. Goals are the native `ctx.goals`
+   * service and are unaffected by this switch. Default on.
    */
   workTracking?: boolean
   /**
@@ -131,14 +133,14 @@ export function apply(ctx: Context, config: Config): void {
   registerToolGuards(ctx, guards)
   registerRulesInjector(ctx, guards)
 
-  // M4: boulder/goal tools + continuation hooks.
+  // M4: boulder tools + start-work hook. Goals are native (`ctx.goals`), so this
+  // bundle carries no goal storage and no goal tools of its own.
   registerBoulderTools(ctx, workTracking)
   registerStartWorkHook(ctx, workTracking)
-  registerTodoContinuationHook(ctx, workTracking)
   // §5.5.1: one writer per workspace — enforced at the tool pipeline, not just in
   // the state file. Only fires when an active boulder work has no worktree.
   registerWriteTokenGuard(ctx, workTracking)
-  // M3: delivery gate consumes goal/boulder, so it rides the same switch.
+  // M3: the delivery gate reads boulder + the native goal, so it rides the same switch.
   registerDeliveryGateHook(ctx, workTracking)
 
   // M5: worktree tools (depend on boulder linkage).

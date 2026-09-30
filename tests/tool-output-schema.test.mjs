@@ -1,9 +1,12 @@
-// Verify the model-facing boulder/goal/worktree tools declare a complete,
+// Verify the model-facing boulder/worktree tools declare a complete,
 // lossless output.schema that (a) is a valid object-root JSON Schema in the
 // dsh-tools enforced subset and (b) accepts the canonical value the tool's
 // execute actually returns. This is the guard against the P1 defect where a
 // tool returned a shape its `output.schema` could not hold, which the harness
 // rejects as an invalid output.
+//
+// Goal tools are deliberately absent from this bundle: goals belong to the native
+// `ctx.goals` service (docs/value-assessment.md §3).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validateJsonSchemaValue, assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
@@ -43,13 +46,14 @@ function tempCwd() {
   return mkdtempSync(join(tmpdir(), 'dsh-enhance-schema-'))
 }
 
-test('[tool-output-schema] boulder/goal tools declare valid object-root schemas', () => {
+test('[tool-output-schema] boulder tools declare valid object-root schemas', () => {
   const { defs } = capture(registerBoulderTools)
   // Set equality, not registration order: adding/reordering rows must not fail the
-  // test, but silently dropping or renaming a tool still must.
+  // test, but silently dropping or renaming a tool still must. A goal tool
+  // reappearing here would re-introduce the duplicate goal API.
   assert.deepEqual(
     [...defs.map(d => d.name)].sort(),
-    [...['boulder_start', 'boulder_status', 'boulder_complete', 'goal_create', 'goal_get', 'goal_update']].sort(),
+    [...['boulder_start', 'boulder_status', 'boulder_complete']].sort(),
   )
   for (const def of defs) {
     // Must be a supported object-root JSON Schema (throws otherwise).

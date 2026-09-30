@@ -13,12 +13,11 @@
 | `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ |
 | `tests/presets-pin.test.mjs` | prompts 单一源 → presets 生成的字节 pin 防漂移；含两条"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1 | ✅ |
 | `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ |
-| `tests/boulder.test.mjs` | boulder CAS 合并、goal 原子写、写令牌 | M4 | ✅ |
-| `tests/continue.test.mjs` | todo-continuation 进度守卫（防 steer 死循环） | M4 | ✅ |
+| `tests/boulder.test.mjs` | boulder CAS 合并、写令牌（goal 落盘测试随实现一起退役） | M4 | ✅ |
+| `tests/rules.test.mjs` | rules-injector 只读 `.dsh-enhance/rules/`（AGENTS.md 归原生，含负向断言） | M3 | ✅ |
 | `tests/guards.test.mjs` | 守卫逻辑（write-existing/path-traversal/bash-read/truncator） | M3 | ✅ |
-| `tests/rules.test.mjs` | rules-injector（AGENTS.md / .dsh-enhance/rules/ 发现） | M3 | ✅ |
-| `tests/delivery-gate.test.mjs` | 交付门卫状态机 + 完成声明（含 goal 消歧）+ verify/反拿/报告 | M3 | ✅ |
-| `tests/delivery-gate-hook.test.mjs` | 交付门卫**接线**：无 verify 记 unmeasured、verify 通过与失败、非声明/未清 todo 不介入、按 turn 幂等、销毁清理 | M3 | ✅ |
+| `tests/delivery-gate.test.mjs` | 交付门卫状态机 + 完成声明（含原生 goal 相位消歧）+ verify/反拿/报告 | M3 | ✅ |
+| `tests/delivery-gate-hook.test.mjs` | 交付门卫**接线**：无 verify 记 unmeasured、verify 通过与失败、非声明/原生目标未完成不介入、按 turn 幂等、销毁清理 | M3 | ✅ |
 | `tests/worktree.test.mjs` | git-runner（run/must/GitError）、naming、validation | M5 | ✅ |
 | `tests/worktree-manager.test.mjs` | WorktreeManager（create/find/cleanup/reuse）+ boulder-link 联动 + porcelain 解析 | M5 | ✅ |
 | `tests/write-token.test.mjs` | 写令牌抢占/拒绝/释放/死 pid 与超龄接管 + 写令牌门卫判定（§5.5.1） | M4 | ✅ |

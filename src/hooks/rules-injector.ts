@@ -1,8 +1,13 @@
 /**
- * rules-injector (architecture §5.2-B): at session start, discover the
- * workspace rules (AGENTS.md, .dsh-enhance/rules/*.md) and inject them as a system
- * prompt section. Own finder (cached, distance-sorted) rather than re-using a
- * harness-specific loader.
+ * rules-injector (architecture §5.2-B): at session start, discover this bundle's
+ * own rules (`.dsh-enhance/rules/*.md`) and inject them as one prompt section.
+ *
+ * `AGENTS.md` is deliberately **not** read here: the native
+ * `@deepseek-ai/dsh-agent-instructions` plugin already loads `$DSH_HOME/AGENTS.md`
+ * plus every directory from the project root to the session cwd (including local
+ * overlays), re-discovers nested files after filesystem touches, and folds that
+ * baseline into durable history. Reading it here again duplicated the same content
+ * in the prompt — see `docs/value-assessment.md` §3.
  *
  * @module dsh-enhance/hooks/rules-injector
  */
@@ -20,8 +25,9 @@ const rulesCache = new Map<string, string | null>()
 const CACHE_CAP = 64
 
 /**
- * Discover workspace-level rules for a directory. Prefers AGENTS.md, then
- * `.dsh-enhance/rules/` files (sorted by name), concatenated.
+ * Discover this bundle's own rules for a directory: `.dsh-enhance/rules/*.md`
+ * (sorted by name, concatenated). AGENTS.md belongs to the native instruction
+ * chain and is not read here.
  * @param base - session working directory.
  * @returns combined rules text, or undefined when none found.
  */
@@ -29,10 +35,6 @@ export function discoverRules(base: string): string | undefined {
   const cached = rulesCache.get(base)
   if (cached !== undefined) return cached === null ? undefined : cached
   const parts: string[] = []
-  const agents = join(base, 'AGENTS.md')
-  if (existsSync(agents)) {
-    try { parts.push(`# AGENTS.md\n${readFileSync(agents, 'utf8')}`) } catch { /* ignore */ }
-  }
   const rulesDir = join(base, '.dsh-enhance', 'rules')
   if (existsSync(rulesDir)) {
     let files: string[] = []

@@ -39,12 +39,15 @@
 
 ## 3. 重叠与冲突（这一节是**负价值**）
 
+> **处置状态（2026-09-30）**：前两行已按建议退役（台账 P1-13）。advisor 一行保持原样——上游包在 `app.asar` 内，本次无法读到源码核实范围，不做基于猜测的行为改动。
+
 | 本插件能力 | 上游对应 | 现状 | 建议 |
 |---|---|---|---|
-| `goal_create` / `goal_get` / `goal_update` + `.dsh-enhance/goals/` | `goals` 服务 + `create_goal` / `get_goal` / `update_goal`（会话日志） | **两套近邻同名 API 并存**，模型会二选一，存储与语义都不一致 | 退役，或改成原生 goals 的薄适配层 |
-| `rules-injector`（AGENTS.md 发现） | `dsh-agent-instructions`（完整指令链 + 嵌套重发现） | 重复；本插件仅多一个 `.dsh-enhance/rules/` | 只保留 `.dsh-enhance/rules/` 这一差异，AGENTS.md 交还原生 |
+| ~~`goal_create` / `goal_get` / `goal_update` + `.dsh-enhance/goals/`~~ | `goals` 服务 + `create_goal` / `get_goal` / `update_goal`（会话日志 + 原生轮次驱动） | **已处置**：自建 goal 存储与三个工具已删除；`delivery-gate` 改读原生 `ctx.goals`，c13 消歧从 `remainingTodos` 换成 `goalOpen` | — |
+| ~~`rules-injector`（AGENTS.md 发现）~~ | `dsh-agent-instructions`（完整指令链 + 嵌套重发现） | **已处置**：只保留 `.dsh-enhance/rules/`，AGENTS.md 交还原生（含负向测试钉） | — |
+| ~~`todo-continuation`（自建计数驱动续作）~~ | `dsh-goal-round-driver`（active goal → 连续轮次） | **已处置**：计数随自建 goal 一起消失，续作归原生 | — |
 | `advisor` 伴随审查 | 桌面 profile 的 `dsh-experimental-auto-review` | 可能重复（上游范围未核实） | 先核实再决定"差异化"或"退役" |
-| M8 团队模式（路线图） | 原生 Agent Teams | 直接重复 | 不要再做 |
+| M8 团队模式（路线图） | 原生 Agent Teams | 直接重复 | 不要再做（README 已标注） |
 | output-truncator / write-existing 守卫 | `tool-result-pruner` / `fs-observation-policy` | 已确认被取代（台账 ⛔ 保留为已测纯函数） | 保持不接线，或连实现一起删 |
 | 角色预设、技能、人类指令 | 原生同名机制 | 同一机制上的**内容**，非重复 | 保留（这是"选品"该有的样子） |
 
@@ -52,13 +55,13 @@
 
 - **上游漂移税**：dsh 是 developer preview 且明示破坏性变更；上游每补一块，重复面就从"加分"变成"负债"——**已经发生过两次**（剪枝、先读后写）。
 - **体量比**：`src` 3420 行 / 测试 2253 行 / 文档 1981 行 / 脚本 782 行；其中第 2 节 A 类（不可替代）目测不足 10%。
-- **模型歧义**：`goal_*` 与原生 `*_goal` 同时出现在工具面里，是真实的误用来源。
+- **模型歧义（已消除）**：`goal_*` 与原生 `*_goal` 曾同时出现在工具面，是真实的误用来源；自建 goal API 退役后只剩一套。
 - **最后一公里被低估**：本次实测证明"装完即用"曾是**假的**（没有人类指令、预设从没装过、旧名残留让预设选中即挂载失败）。可见性与接线成本被设计文档系统性低估。
 - **单作者、无外部用户**：没有生态回报，只有个人收益；投入产出比完全取决于作者自己的使用频率。
 
 ## 5. 如果继续投入，建议这么投
 
-1. **做减法**（优先级最高）：退役第 3 节的重复面，并把"我们刻意不做什么"写进 `AGENTS.md`，防止下次又长回来。
+1. **做减法**（优先级最高）—— ✅ 2026-09-30 完成第一轮：goal API/存储、重复的 AGENTS.md 注入、todo 续作驱动已退役（台账 P1-13），"刻意不做什么"已写进 `AGENTS.md` 的 Non-goals 一节。下一轮候选：`advisor`（先核实上游 auto-review 的范围）、output-truncator / write-existing 的实现本身。
 2. **加厚唯一的护城河**：交付门卫的 verify 模板库 / 受保护文件 manifest / 报告落盘；写令牌的进程锁与孤儿回收。这是上游没覆盖、且**用户能感知收益**的地方。
 3. **收紧对外承诺**：只承诺"纪律默认值 + 诊断 + 可验证验收"，不再承诺"更多能力"。
 4. **把 QA 骨架与台账当一等资产**：它证明过自己能抓真 bug，比多写两个 persona 值钱。

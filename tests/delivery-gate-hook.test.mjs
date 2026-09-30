@@ -5,7 +5,7 @@
 // - 无 verify 绑定 → 报告记 unmeasured（绝不假装 passed）；
 // - verify 通过 → passed + work 置 completed + active_work 清空 + 令牌释放；
 // - verify 失败 → failed + work 保持 active + 只 steer 一次（冷却期内不重复）；
-// - 非完成语态 / 仍有未清 todo → 不产生任何记录；
+// - 非完成语态 / 原生目标仍未完成 → 不产生任何记录；
 // - 同一 turn 只判定一次（幂等）。
 
 import { test } from 'node:test'
@@ -18,8 +18,13 @@ import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 const SESSION = 'session-hooktest'
 
-/** 造一个隔离工作目录：.dsh-enhance/boulder.json + .dsh-enhance/goals/goal_<session>.json。 */
-function sandbox ({ goalStatus = 'done', remainingTodos = 0, verify } = {}) {
+/**
+ * 造一个隔离工作目录，只预置**本插件自己的** boulder 状态。
+ *
+ * 目标不再落盘：它是原生 `ctx.goals`，由 {@link hookFor} 注入的假服务提供
+ * （本插件已退役自己的 goal 存储，见 docs/value-assessment.md §3）。
+ */
+function sandbox ({ verify } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-gate-hook-'))
   // 状态目录必须先建：store 自己的原子写会递归建目录，但这里是我们手工预置。
   mkdirSync(join(dir, '.dsh-enhance'), { recursive: true })
@@ -36,16 +41,6 @@ function sandbox ({ goalStatus = 'done', remainingTodos = 0, verify } = {}) {
     active_work_id: 'w1',
     exec_holder: SESSION,
     works: { w1: work },
-  }, null, 2))
-  const goals = join(dir, '.dsh-enhance', 'goals')
-  mkdirSync(goals, { recursive: true })
-  writeFileSync(join(goals, `goal_${SESSION}.json`), JSON.stringify({
-    id: SESSION,
-    objective: 'hook acceptance',
-    status: goalStatus,
-    remaining_todos: remainingTodos,
-    created_at: Date.now(),
-    updated_at: Date.now(),
   }, null, 2))
   return dir
 }
@@ -68,10 +63,22 @@ function fakeAgent (cwd, text) {
   }
 }
 
-/** 假 ctx：捕获 turn-stopping 监听器。 */
-function hookFor () {
+/**
+ * 假 ctx：捕获 turn-stopping 监听器，并提供原生 goals 的最小替身。
+ * @param goalPhase - 原生 goal 相位；undefined = 本会话无目标；'throw' = 服务读不到该 agent。
+ */
+function hookFor (goalPhase = 'complete') {
   const handlers = new Map()
-  const ctx = { on (event, handler) { handlers.set(event, handler); return () => handlers.delete(event) } }
+  const goals = {
+    get () {
+      if (goalPhase === 'throw') throw new Error('not the registry live instance')
+      return goalPhase === undefined ? undefined : { phase: goalPhase }
+    },
+  }
+  const ctx = {
+    on (event, handler) { handlers.set(event, handler); return () => handlers.delete(event) },
+    goals,
+  }
   registerDeliveryGateHook(ctx, true)
   return handlers.get('agent/turn-stopping')
 }
@@ -172,17 +179,42 @@ test('[gate-hook] 非完成语态 → 不判定、不记录', async () => {
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 
-test('[gate-hook] 有未清 todo 的完成声明 → 交给 todo-continuation，门卫不启动', async () => {
+test('[gate-hook] 原生目标仍未完成 → 交给 goal-round-driver，门卫不启动', async () => {
   resetDeliveryGateState()
-  const dir = sandbox({ remainingTodos: 2 })
+  const dir = sandbox()
   try {
-    const handler = hookFor()
+    const handler = hookFor('active')
     await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
 
     const b = readBoulder(dir)
     assert.equal(b.completion_log, undefined)
     assert.equal(b.works.w1.status, 'active')
     assert.equal(b.active_work_id, 'w1')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[gate-hook] 本会话没有目标 → 没有消歧信号，完成声明照常判定', async () => {
+  resetDeliveryGateState()
+  const dir = sandbox()
+  try {
+    const handler = hookFor(undefined)
+    await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
+
+    const b = readBoulder(dir)
+    assert.equal(b.completion_log.length, 1, '无目标不等于有未完成目标')
+    assert.equal(b.completion_log[0].state, 'unmeasured')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[gate-hook] goals 服务读不到该 agent（抛错）→ 视为无目标，不炸 turn 边界', async () => {
+  resetDeliveryGateState()
+  const dir = sandbox()
+  try {
+    const handler = hookFor('throw')
+    await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
+
+    const b = readBoulder(dir)
+    assert.equal(b.completion_log.length, 1)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

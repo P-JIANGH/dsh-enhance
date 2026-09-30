@@ -4,9 +4,10 @@
  * resistance / jnreport helpers (§5.2.2).
  *
  * The state machine and claim heuristics are pure and compatible with the
- * original test contract in `tests/delivery-gate.test.mjs`. Goal/todo context
- * is an optional disambiguator (c13): a claim is only treated as an *overall*
- * completion when the session goal's open todos are clear.
+ * original test contract in `tests/delivery-gate.test.mjs`. Goal context is an
+ * optional disambiguator (c13): while the session's **native** goal is still
+ * open (`phase !== 'complete'`), a bare "finished" tone reads as a progress
+ * report rather than an overall delivery.
  *
  * @module dsh-enhance/features/delivery-gate
  */
@@ -19,8 +20,11 @@ export interface CompletionSignals {
   text?: string
   calledTools?: string[]
   hasDoneTag?: boolean
-  /** Session goal with open todo count (optional disambiguator). */
-  remainingTodos?: number
+  /**
+   * Whether the session's native dsh goal is still open (`phase !== 'complete'`).
+   * Absent/false means no goal or a completed one (optional c13 disambiguator).
+   */
+  goalOpen?: boolean
 }
 
 const COMPLETION_PHRASES = [
@@ -31,21 +35,20 @@ const COMPLETION_TOOLS = ['git_commit', 'finish', 'end_task', 'complete']
 
 /**
  * Detect whether the agent is claiming overall completion.
- * Goal/todo disambiguation (c13): when a goal still has open todos, a bare
+ * Goal disambiguation (c13): while a native goal is still open, a bare
  * "finished" tone is not treated as an overall completion (progress report,
- * not delivery). The heuristic matches the original contract for legacy
- * no-goal inputs.
+ * not delivery). The heuristic matches the original contract for no-goal inputs.
  * @param signals - signals to classify.
  * @returns true when this reads as an overall completion claim.
  */
 export function detectCompletionClaim(signals: CompletionSignals): boolean {
-  const { text = '', calledTools = [], hasDoneTag = false, remainingTodos } = signals ?? {}
+  const { text = '', calledTools = [], hasDoneTag = false, goalOpen } = signals ?? {}
   const hitPhrase = COMPLETION_PHRASES.some(p => text.includes(p))
   const hitTool = calledTools.some(t => COMPLETION_TOOLS.includes(t))
 
-  // A lingering open-todo goal overrides the phrase heuristic: "did X, moving
-  // on" while N remain is a progress report, not delivery.
-  if ((remainingTodos ?? 0) > 0 && hitPhrase && !hitTool && !hasDoneTag) {
+  // An open goal overrides the phrase heuristic: "did X, moving on" while the
+  // goal is still open is a progress report, not delivery.
+  if (goalOpen === true && hitPhrase && !hitTool && !hasDoneTag) {
     return false
   }
   return Boolean(hitPhrase || hitTool || hasDoneTag)

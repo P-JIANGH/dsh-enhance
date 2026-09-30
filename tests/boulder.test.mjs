@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdtempSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -11,9 +11,6 @@ import {
 import {
   claimWriteToken, releaseWriteToken, readWriteToken, stealWriteToken,
 } from '../lib/features/boulder/write-token.js'
-import {
-  readGoal, writeSessionGoal, upsertGoal, goalFile,
-} from '../lib/features/boulder/goal.js'
 
 function tmpStore() {
   return mkdtempSync(join(tmpdir(), 'dsh-enhance-boulder-'))
@@ -102,31 +99,9 @@ test('[boulder] stealWriteToken reassigns a stale holder', () => {
   assert.equal(readWriteToken(readBoulder(dir).state), 'new')
 })
 
-// ---- goal ---- //
-
-test('[goal] upsertGoal persists atomically and reads back', () => {
-  const dir = tmpStore()
-  const g = upsertGoal(dir, 'sess-1', { id: 'sess-1', objective: 'Ship X', status: 'in_progress', acceptance: ['a'], remaining_todos: 2, created_at: 1, updated_at: 1 })
-  assert.ok(g.updated_at > 0)
-  const loaded = readGoal(dir, 'sess-1')
-  assert.ok(loaded)
-  assert.equal(loaded.objective, 'Ship X')
-  assert.equal(loaded.remaining_todos, 2)
-})
-
-test('[goal] malformed goal file reads as null, never crashes', () => {
-  const dir = tmpStore()
-  const file = goalFile(dir, 'sess-2')
-  writeFileSync(file, 'not-json')
-  assert.equal(readGoal(dir, 'sess-2'), null)
-})
-
-test('[goal] writeSessionGoal round-trips through disk', () => {
-  const dir = tmpStore()
-  writeSessionGoal(dir, 'sess-3', { id: 'sess-3', objective: 'Doc', status: 'done', created_at: 1, updated_at: 1 })
-  const raw = JSON.parse(readFileSync(join(dir, 'goal_sess-3.json'), 'utf8'))
-  assert.equal(raw.objective, 'Doc')
-
-  // no-extra-files cleanup
-  rmSync(dir, { recursive: true, force: true })
-})
+// ---- goal：已退役（目标归原生） ---- //
+//
+// 本插件的 goal 存储（`.dsh-enhance/goals/`）与 `goal_create/get/update` 工具已删除：
+// 目标是原生 `ctx.goals` 服务 + `dsh-goal-round-driver`（`create_goal`/`get_goal`/
+// `update_goal`，并在目标未完成时自动续轮）。原先的三条落盘测试随实现一起移除，
+// 决策依据见 docs/value-assessment.md §3。

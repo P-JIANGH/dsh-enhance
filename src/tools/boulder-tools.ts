@@ -1,7 +1,13 @@
 /**
- * Model-facing boulder + goal tools (architecture §5.3/§5.5). Reads/writes are
- * thin wrappers over the shared store so the CAS/atomic guarantees hold. Only
+ * Model-facing boulder tools (architecture §5.3/§5.5). Reads/writes are thin
+ * wrappers over the shared store so the CAS/atomic guarantees hold. Only
  * registered when workTracking is enabled.
+ *
+ * Goals are deliberately **not** here: they belong to the native `ctx.goals`
+ * service (`create_goal` / `get_goal` / `update_goal`, driven by
+ * `dsh-goal-round-driver`). Duplicating that API on this tool plane produced two
+ * near-identical goal vocabularies over two different stores — see
+ * `docs/value-assessment.md` §3.
  *
  * These tools are authored as raw {@link ToolDefinition}s (not `defineTool`) so
  * their `output.schema` can carry the enforced JSON-Schema subset with object
@@ -14,10 +20,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { type JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { JsonSchemaNode, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
-import { join } from 'node:path'
 import { readBoulder, mutateBoulderState, upsertWork, type BoulderState } from '../features/boulder/store.js'
 import { releaseWriteToken, readWriteToken } from '../features/boulder/write-token.js'
-import { readGoal, upsertGoal } from '../features/boulder/goal.js'
 
 /** Output schema for one boulder work record (mirrors {@link BoulderWork}). */
 const WORK_SCHEMA: JsonSchemaNode = {
@@ -35,23 +39,6 @@ const WORK_SCHEMA: JsonSchemaNode = {
     session_origins: { type: 'object' },
   },
   required: ['id', 'status', 'updated_at', 'session_ids'],
-  additionalProperties: false,
-}
-
-/** Output schema for a session goal (mirrors {@link Goal}). */
-const GOAL_SCHEMA: JsonSchemaNode = {
-  type: 'object',
-  properties: {
-    id: { type: 'string' },
-    objective: { type: 'string' },
-    status: { type: 'string', enum: ['open', 'in_progress', 'done', 'abandoned'] },
-    acceptance: { type: 'array', items: { type: 'string' } },
-    remaining_todos: { type: 'integer' },
-    work_id: { type: 'string' },
-    created_at: { type: 'integer' },
-    updated_at: { type: 'integer' },
-  },
-  required: ['id', 'objective', 'status', 'created_at', 'updated_at'],
   additionalProperties: false,
 }
 
@@ -83,14 +70,9 @@ export function repoBaseOf(exec: ToolExecution): string {
   return exec.agent?.session?.header?.cwd ?? process.cwd()
 }
 
-/** Session id for goal scoping (the session header id, or a key fallback). */
+/** Session id for write-token scoping (the session header id, or a key fallback). */
 function sessionKey(exec: ToolExecution): string {
   return String(exec.agent?.session?.header?.id ?? 'session')
-}
-
-/** Goal base dir is per-repo `.dsh-enhance/goals`. */
-function goalsDir(base: string): string {
-  return join(base, '.dsh-enhance', 'goals')
 }
 
 /**
@@ -196,79 +178,6 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
     },
   }
   d.push(ctx.tools.register(complete))
-
-  const goalCreate: ToolDefinition = {
-    name: 'goal_create',
-    description: '创建会话目标（验收契约）。将状态设为 open 并记录可选的验收标准。',
-    parameters: {
-      type: 'object',
-      properties: {
-        objective: { type: 'string' },
-        acceptance: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['objective'],
-      additionalProperties: false,
-    },
-    output: objectOutput({ ok: { type: 'boolean' }, goal: GOAL_SCHEMA }, ['ok', 'goal']),
-    async execute(args, exec) {
-      const a = args as { objective: string; acceptance?: string[] }
-      const base = repoBaseOf(exec)
-      const session = sessionKey(exec)
-      const goal = upsertGoal(goalsDir(base), session, {
-        id: session,
-        objective: String(a.objective),
-        status: 'open',
-        acceptance: Array.isArray(a.acceptance) ? a.acceptance.map(String) : undefined,
-        remaining_todos: 0,
-        created_at: Date.now(),
-        updated_at: Date.now(),
-      })
-      return { ok: true, goal: goal as unknown as JsonValue }
-    },
-  }
-  d.push(ctx.tools.register(goalCreate))
-
-  const goalGet: ToolDefinition = {
-    name: 'goal_get',
-    description: '读取本会话的目标。',
-    parameters: { type: 'object', properties: {}, additionalProperties: false },
-    output: objectOutput({ goal: { oneOf: [GOAL_SCHEMA, { type: 'null' }] } }, ['goal']),
-    async execute(_args, exec) {
-      const base = repoBaseOf(exec)
-      const session = sessionKey(exec)
-      return { goal: readGoal(goalsDir(base), session) as unknown as JsonValue }
-    },
-  }
-  d.push(ctx.tools.register(goalGet))
-
-  const goalUpdate: ToolDefinition = {
-    name: 'goal_update',
-    description: '更新本会话目标的状态与/或剩余待办数。',
-    parameters: {
-      type: 'object',
-      properties: {
-        status: { type: 'string', enum: ['open', 'in_progress', 'done', 'abandoned'] },
-        remaining_todos: { type: 'number' },
-      },
-      additionalProperties: false,
-    },
-    output: objectOutput({ ok: { type: 'boolean' }, goal: GOAL_SCHEMA, error: { type: 'string' } }, ['ok']),
-    async execute(args, exec) {
-      const a = args as { status?: 'open' | 'in_progress' | 'done' | 'abandoned'; remaining_todos?: number }
-      const base = repoBaseOf(exec)
-      const session = sessionKey(exec)
-      const current = readGoal(goalsDir(base), session)
-      if (!current) return { ok: false, error: '尚无目标，请先用 goal_create 创建目标后再更新' }
-      const updated = upsertGoal(goalsDir(base), session, {
-        ...current,
-        status: a.status ?? current.status,
-        remaining_todos: a.remaining_todos ?? current.remaining_todos,
-        updated_at: Date.now(),
-      })
-      return { ok: true, goal: updated as unknown as JsonValue }
-    },
-  }
-  d.push(ctx.tools.register(goalUpdate))
 
   return () => { for (const fn of d) fn() }
 }

@@ -1,18 +1,19 @@
 // delivery-gate 交付门卫 —— 真实会话触发驱动（替换原占位）
 //
 // 目的：在真实 dsh 会话中验证 delivery-gate hook 的"完成声明拦截"。
-// 方式：在隔离沙箱 cwd 预置 boulder.json（active_work 存在）+ .dsh-enhance/goals/<session>.json
-// （goal.status=done + remaining_todos=0），再用 dsh headless 在沙箱跑一个真实单轮会话，
-// 触发 agent/turn-stopping → delivery-gate hook 运行 → 命中完成条件 → 向 boulder.completion_log
-// 写入结构化交付记录并释放写令牌。随后断言 completion_log 出现且 active_work 被清除。
+// 方式：在隔离沙箱 cwd 预置 boulder.json（active_work 存在），再让模型在沙箱里跑一个真实
+// 单轮会话：boulder_start → create_goal（**原生** ctx.goals）→ get_goal + update_goal(complete)
+// → 完成声明。触发 agent/turn-stopping → delivery-gate hook 运行 → 目标已完成且 work 活跃
+// → 向 boulder.completion_log 写入结构化交付记录并释放写令牌。随后断言 completion_log
+// 出现且 active_work 被清除。
 //
 // 说明：hook 的判定函数（deliveryGateStep / detectCompletionClaim / buildReport）已在
 // tests/delivery-gate.test.mjs 单测覆盖；这里验证的是 M3 集成路径：真实 dsh 事件机 →
-// turn-stopping → delivery-gate hook 读 boulder/goal 存储 → 拦截并落 completion_log。
+// turn-stopping → delivery-gate hook 读 boulder + 原生 goal → 拦截并落 completion_log。
 //
 // 运行：node qa/delivery-gate-drive.mjs
-//   （需 DEEPSEEK_API_KEY；profile 用 dsh-enhance）
-import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync, readdirSync } from 'node:fs'
+//   （需 DEEPSEEK_API_KEY；profile 默认走隔离 QA home 的 qa）
+import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -45,19 +46,17 @@ function readText(p) {
 function main() {
   mkdirSync(evidenceDir, { recursive: true })
   const sandbox = mkdtempSync(join(tmpdir(), 'delivery-gate-'))
-  const goalsDir = join(sandbox, '.dsh-enhance', 'goals')
-  mkdirSync(goalsDir, { recursive: true })
 
-  // One real dsh turn in the sandbox cwd: the agent calls the boulder/goal
-  // tools to establish an ACTIVE WORK + a DONE goal (remaining_todos=0), then
+  // One real dsh turn in the sandbox cwd: the agent establishes an ACTIVE WORK plus
+  // a COMPLETED native goal (ctx.goals), then claims completion — firing
+  // agent/turn-stopping, which runs the delivery-gate hook.
   // finishes — firing agent/turn-stopping, which runs the delivery-gate hook.
   const res = runDsh(sandbox, [
     'This is an acceptance test of the dsh-enhance delivery gate.',
     'Do EXACTLY this sequence, no more:',
     '1) Call boulder_start with work_id="dg-work-1" and plan_name="delivery gate e2e".',
-    '2) Call goal_create with objective="Acceptance goal" and acceptance=["dg"]',
-    '   containing the literal text "DG_MARKER".',
-    '3) Call goal_update with status="done" and remaining_todos=0.',
+    '2) Call create_goal with objective="Acceptance goal containing the literal text DG_MARKER".',
+    '3) Call get_goal, then call update_goal with its id, its revision and action="complete".',
     '4) Then say: "全部完成了，可以交付了。" — a completion claim in the final message.',
     'Stop after step 4. Do not call any other tool.',
   ].join(' '))
@@ -82,7 +81,7 @@ function main() {
     `time: ${new Date().toISOString()}`,
     `profile: ${PROFILE} · cwd(sandbox): ${sandbox}`,
     `dsh exit: ${res.status}${res.error ? ' (' + res.error.message + ')' : ''}`,
-    `agent 序列: boulder_start(work=dg-work-1) → goal_create(DG_MARKER) → goal_update(status=done, remaining_todos=0) → 完成声明`,
+    `agent 序列: boulder_start(work=dg-work-1) → create_goal(DG_MARKER) → update_goal(action=complete) → 完成声明`,
     `观测: completion_log 写入: ${completionLogged} · active_work 清除: ${activeCleared}`,
     `结论: ${completionLogged ? 'PASS（delivery-gate 完成声明拦截已触发）' : 'UNSEEN（hook 未命中，见输出）'}`,
     '',
@@ -92,8 +91,8 @@ function main() {
     '## 最终 boulder.json',
     existsSync(boulderFile) ? readText(boulderFile).slice(0, 1500) : '(未生成)',
     '',
-    '## goals 目录',
-    existsSync(goalsDir) ? readdirSync(goalsDir).join(', ') + '\n' + readdirSync(goalsDir).map(f => readText(join(goalsDir, f)).slice(0, 400)).join('\n---\n') : '(无)',
+    '## 目标状态',
+    '目标是**原生** ctx.goals（会话日志投影），不落盘到沙箱；本插件的 goal 存储已退役。',
     '',
   ].join('\n') + '\n', 'utf8')
 

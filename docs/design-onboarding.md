@@ -61,9 +61,9 @@ playbooks/
 
 | playbook | 串联能力 | 适用 |
 |---|---|---|
-| `project-bootstrap` | AGENTS.md 生成 → rules-injector → boulder 建目标 → 配 skill → 首批 commit | 新项目/工作区初始化 |
+| `project-bootstrap` | AGENTS.md 生成（**原生**指令链）→ boulder 建目标 → 配 skill → 首批 commit | 新项目/工作区初始化 |
 | `onboarding` | doctor 查状态 → 选工作模式 → 跑场景 → 理解 delivery-gate | 新装用户 5 分钟上手 |
-| `gate-your-work` | boulder 推进 → todo-continuation → delivery-gate 回归 → 落盘审计 | 正式交付流程 |
+| `gate-your-work` | boulder 推进 → 原生 goal 轮次（`dsh-goal-round-driver`）→ delivery-gate 回归 → 落盘审计 | 正式交付流程 |
 
 ## 5. 测试策略
 

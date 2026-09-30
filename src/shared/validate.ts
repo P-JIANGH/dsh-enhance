@@ -1,5 +1,5 @@
 /**
- * Minimal validation helpers for boulder/goal storage, keeping the package
+ * Minimal validation helpers for boulder state, keeping the package
  * zero-runtime-dependency. These are intentionally small hand-rolled guards,
  * not a general schema engine.
  * @module dsh-enhance/shared/validate
