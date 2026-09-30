@@ -28,6 +28,7 @@ const WORK_SCHEMA: JsonSchemaNode = {
     status: { type: 'string', enum: ['planned', 'active', 'blocked', 'completed'] },
     worktree_path: { oneOf: [{ type: 'string' }, { type: 'null' }] },
     goal_id: { type: 'string' },
+    verify: { type: 'string' },
     updated_at: { type: 'integer' },
     session_ids: { type: 'array', items: { type: 'string' } },
     task_sessions: { type: 'array', items: { type: 'string' } },
@@ -104,20 +105,21 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const start: ToolDefinition = {
     name: 'boulder_start',
-    description: '开始或更新一项受追踪的工作（boulder）。记录计划名、状态、一个新会话或已有会话，以及可选的 goal id。',
+    description: '开始或更新一项受追踪的工作（boulder）。记录计划名、状态、一个新会话或已有会话、可选的 goal id，以及可执行 verify 脚本（交付门卫用它判定是否达标）。',
     parameters: {
       type: 'object',
       properties: {
         work_id: { type: 'string' },
         plan_name: { type: 'string' },
         goal_id: { type: 'string' },
+        verify: { type: 'string' },
       },
       required: ['work_id'],
       additionalProperties: false,
     },
     output: objectOutput({ ok: { type: 'boolean' }, active_work: WORK_SCHEMA }, ['ok', 'active_work']),
     async execute(args, exec) {
-      const a = args as { work_id: string; plan_name?: string; goal_id?: string }
+      const a = args as { work_id: string; plan_name?: string; goal_id?: string; verify?: string }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
       mutateBoulderState(base, (s: BoulderState) => {
@@ -126,6 +128,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
           plan_name: a.plan_name,
           status: 'active',
           goal_id: a.goal_id,
+          verify: a.verify,
           updated_at: Date.now(),
           session_ids: [session],
         })

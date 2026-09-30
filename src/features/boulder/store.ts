@@ -24,10 +24,28 @@ export interface BoulderWork {
   status: WorkStatus
   worktree_path?: string | null
   goal_id?: string
+  /**
+   * Executable verification bound to this work (architecture §5.2.2-1): a script
+   * path run by the delivery gate; exit code 0 means the deliverable meets its
+   * criteria. Absent ⇒ the gate records `unmeasured` instead of claiming a pass.
+   */
+  verify?: string
   updated_at: number
   session_ids: string[]
   task_sessions?: string[]
   session_origins?: Record<string, string>
+}
+
+/** One structured delivery report appended to `completion_log` (§5.2.2-4). */
+export interface CompletionEntry {
+  work_id: string
+  at: number
+  /** `passed` | `failed` | `unmeasured` | `tampered`. */
+  state: string
+  /** Gate phase the report was produced in. */
+  phase?: string
+  /** The claim text that was judged. */
+  claim?: string
 }
 
 /** The whole boulder document. */
@@ -39,7 +57,7 @@ export interface BoulderState {
   works: Record<string, BoulderWork>
   conflict_log?: Array<{ at: number; field: string; kept: unknown }>
   /** Structured delivery reports (trajectory audit, architecture §5.2.2.4). */
-  completion_log?: Array<{ work_id: string; at: number; state: string }>
+  completion_log?: CompletionEntry[]
 }
 
 /** Maximum CAS retries before a mutation gives up. */
@@ -62,6 +80,7 @@ export function validateWork(w: unknown): string | undefined {
   if (w.session_ids !== undefined && !Array.isArray(w.session_ids)) return 'work.session_ids must be an array'
   if (w.worktree_path !== undefined && w.worktree_path !== null && !isNonEmptyString(w.worktree_path)) return 'work.worktree_path must be a string or null'
   if (w.goal_id !== undefined && !isNonEmptyString(w.goal_id)) return 'work.goal_id must be a non-empty string'
+  if (w.verify !== undefined && !isNonEmptyString(w.verify)) return 'work.verify must be a non-empty string'
   return undefined
 }
 

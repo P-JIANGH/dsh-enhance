@@ -25,6 +25,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GenerateOptions, Message, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { messageText as bodyText } from '../../shared/messages.js'
 import { ADVISOR_SYSTEM_PROMPT } from './prompt.js'
 import { createEmissionGuard } from './emission-guard.js'
 import { parseAdvisorEmission, type AdvisorEmission } from './severity.js'
@@ -209,17 +210,10 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   }
 }
 
-/** LLM message content block carrying a `text` field (best-effort extraction). */
-interface TextBlock { type?: string; text?: string }
-
+/** Role-prefixed body of one message (the advisor reads a labelled transcript). */
 function messageText(m: Message): string {
+  const body = bodyText(m)
+  if (!body) return ''
   const role = m.role === 'user' ? 'USER: ' : m.role === 'assistant' ? 'ASSISTANT: ' : 'TOOL: '
-  const body = Array.isArray(m.content)
-    ? m.content
-        .map((block) => (block && typeof block === 'object' && 'text' in (block as object)
-          ? (block as TextBlock).text : ''))
-        .filter(Boolean)
-        .join('\n')
-    : ''
-  return body ? role + body : ''
+  return role + body
 }
