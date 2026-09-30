@@ -188,7 +188,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 7. 落地与 QA
 
-- **预设落点**：`presets/dsh-enhance/`（已实现，= 模式 A）；`presets/planner/` 增强为模式 B 编排 persona；`presets/advisor/` 新增为模式 C 编排 + 装配（advisor 运行时已在 Config 默认开启）。各预设投递到 `~/.dsh/.agent-presets/` 供 web 可选。
+- **预设落点**：`presets/dsh-enhance/`（已实现，= 模式 A）；`presets/planner/` 增强为模式 B 编排 persona（**未实现**——当前 planner.persona.md 仍是单句）；`presets/advisor/` 新增为模式 C 编排 + 装配（**未实现**——`prompts/agents/advisor.persona.md` 与 `presets/advisor/` 都不存在；advisor 运行时本身已由 Config 默认开启）。各预设投递到 `~/.dsh/.agent-presets/` 供 web 可选。
 - **触发方式**：会话选择对应 preset（web Agent 面板 / headless `--profile` + preset），或通过 skill-trigger 意图路由（ultrawork/search/analyze 之外按模式名触发）。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；

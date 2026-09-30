@@ -79,7 +79,8 @@ dsh-enhance/
 
 ### 5.1 配置系统
 
-- 插件行 `config`：`workRules` / `orientOnSessionStart` / `doctorTool`（沿用 v1）+ 新增 `skillsEnabled` / `guards` / `workTracking` / `worktree` 开关组。
+- 插件行 `config`：`workRules` / `orientOnSessionStart` / `doctorTool`（沿用 v1）+ 新增 `guards` / `workTracking` / `worktree` / `advisor` / `advisorModel` 开关组。
+- 打包技能没有开关：`skills-provider` 恒定注册（技能是零运行时成本的静态知识层，见设计原则 2），不做 `skillsEnabled` 配置——早期草案里提过该字段，实现时按"始终开启"定稿。
 - 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
 - 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 dsh-enhance 一行。
 
@@ -190,7 +191,7 @@ dsh-enhance/
 | 工具 | 来源 | 说明 |
 |---|---|---|
 | `bash` / `read` 守卫工具 | dsh 内置 | 通过 guard 增强，不重写 |
-| `lsp_*` | 自建 | dsh 侧先做最小集：diagnostics / goto_definition / references；进程管理用每用户共享守护进程 |
+| `lsp_*` | ~~自建~~ | **已砍**：dsh 原生提供 `ctx.lsp`（含 `tool-lsp`），本插件不再自建 LSP 最小集；详见 [design-delivery-gate-hardening.md](design-delivery-gate-hardening.md) §1.5 |
 | `comment_check` | 自建 | 写后校验 |
 | `goal_create` / `goal_get` / `goal_update` | 自建 | session 级 JSON 存储 |
 | `boulder_start` / `boulder_status` / `boulder_complete` | 自建 | 见 5.5 防冲突设计 |
@@ -343,6 +344,8 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 
 **落地挂载点**：三种模式复用同一份 `agent.cordis.yml` 工具平面（sync-dsh-enhance-preset 产出的 5.4 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "Enabling as a web-visible persona"。
 
+> **当前落地状态（2026-09-30）**：只有**模式 A** 已实现并实驱。模式 B 的固定骨架 persona（`prompts/agents/planner.persona.md` 目前仍是单句）与模式 C 的 `prompts/agents/advisor.persona.md` + `presets/advisor/` **均未实现**，是 [modes.md](modes.md) §7 的后续实现项。文档中 `presets/advisor/` 一律按"计划中"理解。
+
 **统一纪律**：无论哪种模式，完成声明都过 delivery-gate；只读角色可并行、写角色受令牌/worktree 约束（5.5.1）；委派用六要素模板；persona 单源 + presets-pin 锁定（modes.md 第 6 节）。
 
 ## 6. 提示词审查计划（用户指定：中文 + 精简 + 逐个审查）
@@ -380,7 +383,7 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + goal + start-work 续作 + todo-continuation-enforcer | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
 | **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
-| **M7 LSP + comment-checker** | 最小 LSP 集 + 写后校验 | 实驱 |
+| **M7 comment-check** | ~~最小 LSP 集~~（dsh 原生 `ctx.lsp` 已覆盖）+ 写后注释校验 | 实驱 |
 | **M8 Team mode（roadmap）** | 多智能体并行协调：team_* 工具 + 事件处理器，存储布局与成员 eligibility 自建 | 单测 + 多 agent 并行实驱 |
 
 依赖顺序：M2 的提示词审查贯穿始终（agents/模式提示词先定稿，M3-M6 的注入文本才不返工）；M1 → M3/M4 可并行；M5 依赖 M4（boulder worktree_path 字段）；M6 依赖 M2（触发提示词）。M8 属 roadmap，在 M1-M7 全部稳定后启动，其扩展缝（配置门控 + 工具注册表挂载点）已在总体架构预留。

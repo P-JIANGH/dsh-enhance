@@ -10,16 +10,23 @@
 
 | 测试文件 | 覆盖能力 | 里程碑 | 状态 |
 |---|---|---|---|
-| `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ 5 例 |
-| `tests/presets-pin.test.mjs` | prompts 单一源 → presets 生成的字节 pin 防漂移 | M1 | ✅ 2 例 |
-| `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ 9 例 |
-| `tests/boulder.test.mjs` | boulder CAS 合并、goal 原子写、写令牌 | M4 | ✅ 12 例 |
-| `tests/continue.test.mjs` | todo-continuation 进度守卫（防 steer 死循环） | M4 | ✅ 8 例 |
-| `tests/guards.test.mjs` | 守卫逻辑（write-existing/path-traversal/bash-read/truncator） | M3 | ✅ 9 例 |
-| `tests/rules.test.mjs` | rules-injector（AGENTS.md / .dsh-enhance/rules/ 发现） | M3 | ✅ 4 例 |
-| `tests/delivery-gate.test.mjs` | 交付门卫状态机 + 完成声明（含 goal 消歧）+ verify/反拿/报告 | M3 | ✅ 12 例 |
-| `tests/worktree.test.mjs` | git-runner（run/must/GitError）、naming、validation | M5 | ✅ 9 例 |
-| `tests/worktree-manager.test.mjs` | WorktreeManager（create/find/cleanup/reuse）+ boulder-link 联动 + porcelain 解析 | M5 | ✅ 6 例 |
+| `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ |
+| `tests/presets-pin.test.mjs` | prompts 单一源 → presets 生成的字节 pin 防漂移；含两条"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1 | ✅ |
+| `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ |
+| `tests/boulder.test.mjs` | boulder CAS 合并、goal 原子写、写令牌 | M4 | ✅ |
+| `tests/continue.test.mjs` | todo-continuation 进度守卫（防 steer 死循环） | M4 | ✅ |
+| `tests/guards.test.mjs` | 守卫逻辑（write-existing/path-traversal/bash-read/truncator） | M3 | ✅ |
+| `tests/rules.test.mjs` | rules-injector（AGENTS.md / .dsh-enhance/rules/ 发现） | M3 | ✅ |
+| `tests/delivery-gate.test.mjs` | 交付门卫状态机 + 完成声明（含 goal 消歧）+ verify/反拿/报告 | M3 | ✅ |
+| `tests/delivery-gate-hook.test.mjs` | 交付门卫**接线**：无 verify 记 unmeasured、verify 通过与失败、非声明/未清 todo 不介入、按 turn 幂等、销毁清理 | M3 | ✅ |
+| `tests/worktree.test.mjs` | git-runner（run/must/GitError）、naming、validation | M5 | ✅ |
+| `tests/worktree-manager.test.mjs` | WorktreeManager（create/find/cleanup/reuse）+ boulder-link 联动 + porcelain 解析 | M5 | ✅ |
+| `tests/write-token.test.mjs` | 写令牌抢占/拒绝/释放/死 pid 与超龄接管 + 写令牌门卫判定（§5.5.1） | M4 | ✅ |
+| `tests/advisor.test.mjs` | severity 信封、emission guard、`runReviewCall`、注册期捕获 llm + dispose 守卫 | advisor | ✅ |
+| `tests/tool-output-schema.test.mjs` | 工具 `output.schema` 完整性（防 "returned invalid output"） | M3/M4 | ✅ |
+| `tests/doctor.test.mjs` | doctor 中文渲染与下一步建议 | M1 | ✅ |
+| `tests/skill-trigger.test.mjs` | ulw 触发词判定 + `ULTRAWORK_ENTRY` 与 `prompts/modes/ultrawork.md` 逐字一致 | M6 | ✅ |
+| `tests/qa-launch.test.mjs` | QA 启动器解析与 profile app 自检（防"无输出不退出"被误诊） | QA | ✅ |
 
 ## 2. dsh 实驱脚本
 
@@ -59,9 +66,16 @@
 
 | 层 | 结果 | 证据 |
 |---|---|---|
-| 单测/构建 | 通过 | `node --test` 13 文件 97 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
-| CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose；工具 description（doctor/boulder/worktree）源码全中文（单测断言 + grep） |
-| CLI `--llm` | **阻塞/未确认** | `dsh 0.1.0-rc.6` 的 headless 会话（`--profile … '<task>'`）在无关 LLM 的探针下也不自行退出（>25s 无输出），qa 用同步 `spawnSync` 等其退故卡死——非插件缺陷；**留待 dsh 升级到 0.1.1-rc.2+ 后用其 headless stderr/退出修复重验** |
-| 浏览器 UI（`dsh web`） | 部分 | web 在隔离 `$DSH_HOME/.agent-presets` 下正常加载，persona menu **可见 dsh-enhance/Planner/Reviewer/Scout/Librarian/Task 六预设**（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 orient/doctor 卡片**无法自动触发**——webbridge 的 fill/insertText 与本 UI 的受控 `textarea` 不兼容（非插件缺陷），故会话注入呈现**标 unverified** |
+| 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
+| CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
+| CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
+| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 orient/doctor 卡片仍需改进 webbridge 输入注入后复验 |
 
-**遗留/建议**：上 `--llm` 与 web 会话注入验证须（a）把 host dsh 升级到含 headless 退出/进度修复的版本（0.1.1-rc.2 或更高），（b）改进或规避 webbridge 输入注入，再补实驱；二者在本机当前基线都无法自动完成故如实标注，不当作已通过。
+**关于此前记录的「`--llm` 阻塞」——归因已更正（2026-09-30 实测）**：
+
+- 旧结论把阻塞归因为「`dsh 0.1.0-rc.6` 的 headless 会话不自行退出」。**该归因是错的**，实际原因是 QA 使用的隔离 profile（`.dsh-enhance/test-home/profiles/dsh-enhance`）**只挂了 `@deepseek-ai/dsh-base` + 本插件，没有挂任何 app bundle**。这样的 profile 装配完插件树后没有 app 执行任务，表现为"无输出且不退出"。对照组：历史上跑成功的 `~/.dsh/profiles/omd` bundles 里含 `@deepseek-ai/dsh-headless`。
+- 修复：把 `@deepseek-ai/dsh-headless` 加进隔离 profile 的 dependencies 与 `dsh.profile.bundles`（该目录在 `.gitignore` 内，不影响真实 `$DSH_HOME`）。之后同一条命令立即全绿。
+- 防回归：`qa/dsh-launch.mjs` 新增 `checkProfileApp()`，三个实驱脚本在启动前自检 profile 是否挂了 app bundle，缺失时直接给出"请补 `@deepseek-ai/dsh-headless`"的报错，而不是静默超时。
+- 另一个此前未记录的前提：实驱脚本依赖 `where.exe dsh.cmd` 定位 dsh，而本机 dsh 装在 `F:\nvm\v24.13.0\`（不在 PATH）。现已加 PATH 扫描 / nvm（`NVM_HOME`、`NVM_SYMLINK`、PATH 中的 nvm 根）/ node 同级全局 三级回退，并在定位失败时提示 `DSH_BIN`。
+
+**遗留**：浏览器侧会话注入验证仍受 webbridge 与本机 UI 输入控件的兼容性限制，保持标 unverified，不当作已通过。

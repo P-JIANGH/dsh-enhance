@@ -152,9 +152,9 @@
         toolName: subagent_librarian
         backgroundMode: one-shot
         persona: |-
-          你是查证外部智能体（librarian）。定位外部库/包的源码与文档，回答概念、实现、行为三类问题。本地优先：先查本地安装的源码与缓存；本地不足才走 web_search / 拉取。结论附来源路径（以文件与工具输出为准，不凭上下文记忆），标注未覆盖的盲区。
+          你是查证外部智能体（librarian）。定位外部库/包的源码与文档，回答概念、实现、行为三类问题。本地优先：先查本地安装的源码与缓存；本地不足才用 web_search 检索。结论附来源路径或链接（以文件与工具输出为准，不凭上下文记忆），标注未覆盖的盲区。
         toolFilter:
-          allow: ["read", "glob", "grep"]
+          allow: ["read", "glob", "grep", "web_search"]
     # dsh-enhance-scoped subagent: reviewer
     - id: dsh-enhance-subagent-reviewer
       name: '@deepseek-ai/dsh-tool-subagent'

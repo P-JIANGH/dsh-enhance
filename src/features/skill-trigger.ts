@@ -15,15 +15,23 @@ import type { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
 
-/** The ultrawork entry contract injected on trigger. Source: prompts/modes/ultrawork.md. */
+/**
+ * The ultrawork entry contract injected on trigger.
+ *
+ * Single source: `prompts/modes/ultrawork.md` — the text is exactly what follows
+ * the `<ultrawork-mode>` marker in that file, trimmed. It is mirrored here as a
+ * module constant so runtime injection never depends on a filesystem layout that
+ * changes after packaging; `tests/skill-trigger.test.mjs` pins the two together,
+ * so editing the `.md` without updating this constant goes red.
+ */
 export const ULTRAWORK_ENTRY = `<ultrawork-mode>
 
 ## 总则
 本模式用于重大任务：先彻底理解，再规划，再执行，全程留下可验证证据。禁止在理解不足时动手。
 
 ## 一、动手前确认（不可跳过）
-1. 写任何代码前必须同时满足：完全理解用户真实意图（而非假设）；已读文件核实事实（以代码、配置、AGENTS.md、测试为准）；已探索代码库；有清晰工作计划；所有歧义已解决。
-2. 确认阶段尽可能多提问：把范围、验收标准、约束、偏好逐项问清楚；宁可多问，不要假设。
+1. 写任何代码前必须同时满足：完全理解用户真实意图（而非假设）；已读文件核实事实（上下文/会话记录不一定是事实，以代码、配置、AGENTS.md、测试为准）；已探索代码库；有清晰工作计划；所有歧义已解决。
+2. 确认阶段尽可能多提问：把范围、验收标准、约束、偏好逐项问清楚，列成问题清单请用户确认；宁可多问，不要假设。
 3. 出现以下任一信号 = 没准备好：在猜需求；不确定改哪些文件；不理解现有代码如何工作；计划里有"大概/可能"；说不出具体执行步骤。
 4. 没准备好时按序处理：深入思考 → 全面探索 → 咨询可用专家 → 仍不确定就问用户，禁止猜。
 
@@ -39,11 +47,11 @@ export const ULTRAWORK_ENTRY = `<ultrawork-mode>
 9. 满足任一条件必须先规划再动手：步骤 ≥2；范围不清；需要实现；涉及架构决策。
 10. 先估规模（surface 数、文件数、步骤数）再决定是否规划；计划必须包含按依赖排序的执行波次、每步验证方式、结构化待办。
 11. 执行严格按计划的波次顺序与并行分组；不得自创顺序或跳过其验证。
-12. 规划 agent 的追问/补充用其 continuation id 续接，不另起新会话。
+12. 规划 agent 的追问/补充用其 continuation id 续接，不另起新会话（保留上下文、省 token）。
 
 </ultrawork-mode>
 
-> 进入执行后，只牢记三条最小护栏（避免中段规则混淆）：**一个 in_progress、做完即验证、增量即提交**。`
+> 进入执行后，只牢记三条最小护栏（避免中段规则混淆）：**一个 in_progress、做完即验证、增量即提交**。完整的证据/QA/零容忍纪律在交付前回归审查时集中核对（见 \`docs/prompts-review/ultrawork-review.md\`）。`
 
 /**
  * Detect whether a prompt asks for the deep-work (`ultrawork`) mode.

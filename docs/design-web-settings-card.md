@@ -143,7 +143,6 @@ export function apply(clientCtx: ClientContext): void {
 - **修复难度降级措施**：契约测试保定位速度；桥接层保修复范围（改一处）；降级路径保无时间压力；bundle 模板单文件化保 C4/C5 修复集中。
 - **R4-补 卡片"重启生效"提示**：`SettingsDescriptor.applies` 随 wire 下发，但官方卡片是否渲染"重启生效"标记未在源码确认；实现期验证，若未渲染则卡片自绘提示文案。
 
-## 4.7 改名方案：dsh-enhance → dsh-enhance（独立立项）
 ## 4.7 改名方案：oh-my-dsh → dsh-enhance（独立立项）
 
 > 定名：`dsh-enhance`。GitHub org/repo 与 npm `@dsh-enhance/dsh-enhance` 全维度可用。
@@ -171,7 +170,6 @@ export function apply(clientCtx: ClientContext): void {
 **迁移顺序**：① 仓库/包名 → ② 运行时标识（工具名/提示词段/预设目录/存储目录）→ ③ QA 脚本/测试（presets-pin 字节锁定自动跟随新名）→ ④ 文档全量替换 → ⑤ 验证（pnpm test/build/typecheck + 实驱）。
 
 ## 5. 风险清单
-## 5. 风险清单
 
 | # | 风险 | 等级 | 承接 |
 |---|---|---|---|
@@ -192,9 +190,7 @@ export function apply(clientCtx: ClientContext): void {
 
 | 阶段 | 内容 | 验证 |
 |---|---|---|
-| 阶段 | 内容 | 验证 |
-|---|---|---|
-| 0 | **改名 `dsh-enhance` → `dsh-enhance`（§4.7）**：包名/工具名/提示词段/预设目录/存储目录/QA/文档 | `pnpm test` + `pnpm build` + `pnpm typecheck` 全绿，doctor 实驱报新名 |
+| 0 | **改名 `oh-my-dsh` → `dsh-enhance`（§4.7）**：包名/工具名/提示词段/预设目录/存储目录/QA/文档 | `pnpm test` + `pnpm build` + `pnpm typecheck` 全绿，doctor 实驱报新名 |
 | 0b | 构建链验证：tsdown 最小 bundle 模板 + 空 client entry | `dsh web` 加载无报错；若本机 `dsh web` 起不来，退化为 loader 契约静态核对 |
 | 1 | Host 半侧：`settings-bridge.ts`、apply 改造（inject 'settings' + `scope.get()`）、settings 单测；**前置验证 R-N5**（无 provider 时 `scope.get()` 行为） | `pnpm test` 新用例 |
 | 2 | Client 半侧：`bridge.ts`、字段映射纯函数 + 卡片、package.json 接入声明 | 卡片渲染 |

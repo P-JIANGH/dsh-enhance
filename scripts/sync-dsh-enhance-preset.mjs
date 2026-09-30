@@ -48,7 +48,9 @@ export const MAIN = {
  */
 export const SUBAGENTS = [
   { role: 'scout', toolName: 'subagent_scout', filter: { allow: ['read', 'glob', 'grep'] } },
-  { role: 'librarian', toolName: 'subagent_librarian', filter: { allow: ['read', 'glob', 'grep'] } },
+  // librarian 要查外部依赖，必须能搜索网页；tool plane 里 dsh-tool-web 的 fetch 关闭，
+  // 所以只授权 web_search（授权 web_fetch 会指向未挂载的工具，导致委派被拒）。
+  { role: 'librarian', toolName: 'subagent_librarian', filter: { allow: ['read', 'glob', 'grep', 'web_search'] } },
   { role: 'reviewer', toolName: 'subagent_reviewer', filter: { allow: ['read', 'glob', 'grep'] } },
   { role: 'task', toolName: 'subagent_task', filter: { allow: ['read', 'glob', 'grep', 'write', 'edit', 'todo_write'] } },
 ]

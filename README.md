@@ -17,8 +17,8 @@
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
 | **`ulw` / ultrawork 模式** | 输入提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`） | — |
 | **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
-| **工作模式** | 在同一能力基底之上的三种可选预设：**dsh-enhance 万能**（默认编排者，意图驱动按需委派）、**Planner 计划实施**（固定骨架：scout/librarian 收集 → 澄清 → 计划 → 计划审查 → 用户确认 → 并行 task 执行 → 执行审查）、**Advisor 目标回归**（目标驱动：advisor 持续向目标纠偏，delivery-gate 回归循环直到达标） | 选择对应 persona 预设 / 见 `docs/modes.md` |
-| **Agent 预设** | 底层 6 角色：`planner` / `scout` / `librarian` / `task` / `reviewer` 作为 persona 预设，外加 `advisor`（伴随机制）；上面三种**工作模式**对它们进行编排 | 见 `docs/modes.md` |
+| **工作模式** | 在同一能力基底之上的三种可选预设：**dsh-enhance 万能**（默认编排者，意图驱动按需委派）、**Planner 计划实施**（固定骨架：scout/librarian 收集 → 澄清 → 计划 → 计划审查 → 用户确认 → 并行 task 执行 → 执行审查）、**Advisor 目标回归**（目标驱动：advisor 持续向目标纠偏，delivery-gate 回归循环直到达标）。**当前只落地了模式 A**；B/C 的编排 persona 与预设仍是设计稿（见 `docs/modes.md` §7） | 选择对应 persona 预设 / 见 `docs/modes.md` |
+| **Agent 预设** | 底层 6 角色：`planner` / `scout` / `librarian` / `task` / `reviewer` 作为 persona 预设，外加 `advisor`（伴随机制，**不是**可选人设预设）；上面三种**工作模式**对它们进行编排 | 见 `docs/modes.md` |
 
 ## 安装
 
@@ -51,12 +51,13 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 ```sh
 mkdir -p "$HOME/.dsh/.agent-presets"
 cp -r presets/dsh-enhance "$HOME/.dsh/.agent-presets/"   # 工作模式 A：dsh-enhance 万能（默认编排者）
-cp -r presets/planner "$HOME/.dsh/.agent-presets/"   # 工作模式 B：Planner
-cp -r presets/advisor "$HOME/.dsh/.agent-presets/"   # 工作模式 C：Advisor 目标回归
+cp -r presets/planner "$HOME/.dsh/.agent-presets/"   # 工作模式 B 的底层角色预设（骨架编排 persona 尚未落地）
 # 如需，可重复复制 presets/scout、presets/librarian、presets/reviewer、presets/task
 ```
 
-`dsh-enhance` 编排者预设把四个子 persona（`scout` / `librarian` / `reviewer` / `task`）接线为受作用域限制的 `subagent` 工具，各自带 persona 文本与限制其工具面的 `toolFilter`。三种工作模式共享同一工具平面与子代理池，只通过驱动流程的编排人设相区分（见 `docs/modes.md`）。
+> 工作模式 C（Advisor 目标回归）需要 `presets/advisor/` 与 `prompts/agents/advisor.persona.md`，**两者尚未实现**（见 `docs/modes.md` §5/§7）；当前 advisor 运行时是通过插件 Config 默认开启的伴随机制，不需要预设。
+
+`dsh-enhance` 编排者预设把四个子 persona（`scout` / `librarian` / `reviewer` / `task`）接线为受作用域限制的 `subagent` 工具，各自带 persona 文本与限制其工具面的 `toolFilter`。**注意：只有这个主预设挂了 4 条作用域子代理行**；`presets/<role>/` 角色预设只带通用 `subagent` / `subagent_fork`。三种工作模式的设计意图是共享同一份工具平面与子代理池，但模式 B/C 的预设尚未落地（见 `docs/modes.md`）。
 
 ## 配置
 
