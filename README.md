@@ -12,6 +12,7 @@
 | **work-rules 段** | 常驻系统提示词段（`dsh-enhance/work-rules`），内容为通用工作纪律 | `workRules: ''` |
 | **orient 开场钩子** | 每次会话开始注入一条中文消息：点名当前激活的插件包与其技能，并附 1–2 条可执行起点（`dsh_enhance_doctor` / `ulw`） | `orientOnSessionStart: false` |
 | **doctor 工具** | `dsh_enhance_doctor` 报告实时装配状态（已加载插件、已注册技能、生效配置），并给出可执行的下一步建议 | `doctorTool: false` |
+| **人类指令**（`/doctor`、`/boulder`） | UI `/` 菜单里属于本包的入口：`/doctor` 复用同一份装配诊断，`/boulder` 显示工作追踪状态（令牌持有者、进行中的工作、工作项）。结果只在 UI 渲染——**不进模型历史、不消耗 token** | `commands: false` |
 | **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器、完成声明 delivery-gate | `guards: false` |
 | **工作追踪** | boulder（CAS）+ goal 存储、写令牌、start-work / todo-continuation / delivery-gate 钩子 | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
@@ -19,6 +20,23 @@
 | **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
 | **工作模式** | 在同一能力基底之上的三种可选预设：**dsh-enhance 万能**（默认编排者，意图驱动按需委派）、**Planner 计划实施**（固定骨架：scout/librarian 收集 → 澄清 → 计划 → 计划审查 → 用户确认 → 并行 task 执行 → 执行审查）、**Advisor 目标回归**（目标驱动：advisor 持续向目标纠偏，delivery-gate 回归循环直到达标）。**当前只落地了模式 A**；B/C 的编排 persona 与预设仍是设计稿（见 `docs/modes.md` §7） | 选择对应 persona 预设 / 见 `docs/modes.md` |
 | **Agent 预设** | 底层 6 角色：`planner` / `scout` / `librarian` / `task` / `reviewer` 作为 persona 预设，外加 `advisor`（伴随机制，**不是**可选人设预设）；上面三种**工作模式**对它们进行编排 | 见 `docs/modes.md` |
+
+## 如何体验（装完之后你会看到什么）
+
+插件是 **profile 级 bundle**：profile 启动时挂载，**所有会话共享**，因此不需要选预设也已经生效（`dsh_enhance_doctor` 会报「插件已加载：是」）。能力分三层落地，先分清哪一层在哪儿看得见：
+
+| 你看到的 | 怎么触发 | 需要什么 |
+|---|---|---|
+| **会话开场消息**（点名打包技能与起点） | 新开一个会话就自动出现 | `orientOnSessionStart: true`（默认） |
+| **`/` 菜单里的打包技能** `code-review` / `git-workflow` / `tdd` | 在输入框打 `/`；或直接手打 `/tdd`——手打的同名 token 会把技能正文确定性注入该轮 | 插件已挂载 |
+| **`/` 菜单里的本包指令** `/doctor`、`/boulder` | 在输入框打 `/` 选择后回车（未声明入参 → 回车即执行） | `commands: true`（默认） |
+| **预设**：`dsh-enhance`（编排者）+ `planner` / `scout` / `librarian` / `task` / `reviewer` | 新建会话时用会话标题旁的预设菜单选择；或在设置的预设名册区块里管理（复制 / 删除 / 设为默认） | **先跑一次预设安装**（见「安装」） |
+| **模型侧工具** `dsh_enhance_doctor`、`boulder_*`、`goal_*`、`worktree_*` | 让模型使用即可（也可以直接说「跑一下 dsh_enhance_doctor」） | 对应开关（默认全开） |
+
+两个容易误解的点：
+
+- **预设是「会话创建时固定」的**：上游明确拒绝给已存在的会话换预设（会话历史是在前一个预设的工具面下产生的）。要试 `dsh-enhance` 工作模式，请**新建会话**再选；改「默认预设」也只对之后新建的会话生效。
+- **`ulw` 不是指令**，而是提示词触发器：消息里出现整词 `ulw` / `ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`）。
 
 ## 安装
 
@@ -46,14 +64,23 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 
 ### 在 web 中作为可见 persona 启用
 
-若要在 `dsh web` 中可选到 **工作模式预设 / 编排者**（以及可选地底层角色预设），把预设目录复制到 `dsh-agent-presets` 扫描的 harness-home 预设根下：
+预套装在 `dsh-agent-presets` 扫描的**用户预设根**（`$DSH_HOME/.agent-presets`，`$DSH_HOME` 默认 `~/.dsh`）里，插件自身不会替你写家目录——用脚本一次装好：
 
 ```sh
-mkdir -p "$HOME/.dsh/.agent-presets"
-cp -r presets/dsh-enhance "$HOME/.dsh/.agent-presets/"   # 工作模式 A：dsh-enhance 万能（默认编排者）
-cp -r presets/planner "$HOME/.dsh/.agent-presets/"   # 工作模式 B 的底层角色预设（骨架编排 persona 尚未落地）
-# 如需，可重复复制 presets/scout、presets/librarian、presets/reviewer、presets/task
+pnpm install:presets          # 等价于 node scripts/install-presets.mjs
+pnpm check:presets            # 只判定：缺装或过期则退出码 1
 ```
+
+脚本是**幂等**的：内容一致就跳过；要覆盖或清理的目录先整份备份到目标根**同级**的 `agent-presets-backup-<时间戳>/`（同级而非内部，避免备份被预设扫描当成名册条目）。
+
+| 选项 | 作用 |
+|---|---|
+| `--dry-run` | 只打印计划，不写任何文件 |
+| `--target <dir>` | 覆盖目标预设根 |
+| `--prune-renamed` | 备份后清理 composition 仍指向**旧包名** `oh-my-dsh` 的残留（改名前的副本不可解析，选中即挂载失败） |
+
+> 手动等价操作：`cp -r presets/dsh-enhance "$HOME/.dsh/.agent-presets/"`（其余 `presets/<role>/` 同理）。
+> **解析规则**：用户预设里的**裸包名**按 harness 自身基准解析（上游 `PresetTree.import()` 有意如此，注释写明"用户家目录下 Node 的 node_modules 上行查找到不了 harness 的依赖"），所以预设目录下**不需要** `node_modules`；只有相对路径才随预设目录走。
 
 > 工作模式 C（Advisor 目标回归）需要 `presets/advisor/` 与 `prompts/agents/advisor.persona.md`，**两者尚未实现**（见 `docs/modes.md` §5/§7）；当前 advisor 运行时是通过插件 Config 默认开启的伴随机制，不需要预设。
 
@@ -79,6 +106,7 @@ cp -r presets/planner "$HOME/.dsh/.agent-presets/"   # 工作模式 B 的底层�
 | `workRules` | 内置纪律文案 | 提示词段文本；空字符串则移除该段 |
 | `orientOnSessionStart` | `true` | 会话开始时注入一次性开场消息 |
 | `doctorTool` | `true` | 注册 `dsh_enhance_doctor` 工具 |
+| `commands` | `true` | 注册人类指令 `/doctor`、`/boulder` 到 UI 指令表 |
 | `guards` | `true` | 守卫钩子 + rules 注入器 + delivery-gate 的总开关 |
 | `workTracking` | `true` | boulder/goal 存储、写令牌、工作钩子的总开关 |
 | `worktree` | `true` | `worktree_create/list/cleanup` 工具（需要 workTracking） |
@@ -94,6 +122,7 @@ pnpm typecheck
 pnpm test           # node --test
 pnpm sync:presets   # 从 prompts/agents/<role>.persona.md 重新生成 presets/<role>/
 node scripts/sync-dsh-enhance-preset.mjs   # 重新生成 presets/dsh-enhance/（编排者 + 子代理行）
+node scripts/install-presets.mjs   # 幂等装进 $DSH_HOME/.agent-presets（要覆盖的目录先备份）
 ```
 
 包是 ESM，零运行时依赖：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除），`@deepseek-ai/cordis` 由 harness 作为 peer 提供。
