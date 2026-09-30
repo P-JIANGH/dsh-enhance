@@ -64,6 +64,9 @@ test('[orient] 没有任何本插件技能时不出现"打包技能"列举行', 
   // 仍然要有开场信息与可执行起点
   assert.match(text, /dsh-enhance 已在本会话生效/)
   assert.match(text, /ulw/)
+  // 人可见入口必须在开场消息里被点名：实机上用户只看到 ulw，不知道还有 /doctor、/boulder。
+  assert.match(text, /\/doctor/)
+  assert.match(text, /\/boulder/)
 })
 
 test('[orient] 技能发现失败不影响开场（降级为无技能行）', async () => {

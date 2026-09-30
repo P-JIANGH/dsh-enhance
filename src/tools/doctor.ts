@@ -36,11 +36,49 @@ export interface DoctorReport {
     guards: boolean
     workTracking: boolean
     worktree: boolean
+    commands: boolean
   }
 }
 
-/** Render the report as plain text for the model (中文小节式). 导出供单元测试。 */
-export function renderReport(report: DoctorReport, advisorEnabled: boolean): string {
+/**
+ * Read the live report (pure reads; a failed skill discovery degrades to an
+ * empty list instead of failing the whole report).
+ * @param ctx - context with the `skills` registry.
+ * @param config - the effective configuration, echoed back verbatim.
+ * @returns the assembled report value.
+ */
+export async function collectDoctorReport(ctx: Context, config: DoctorReport['config']): Promise<DoctorReport> {
+  let skills: SkillEntry[] = []
+  try {
+    skills = (await ctx.skills.list({})).map(summary => ({
+      name: summary.name,
+      source: summary.source,
+      provider: summary.provider,
+    }))
+  } catch {
+    // A failed discovery is itself a diagnosis: report the empty list rather
+    // than failing the whole call, so the model sees a degraded registry.
+  }
+  return {
+    pluginLoaded: true,
+    skills,
+    workRulesSection: 'dsh-enhance/work-rules',
+    config,
+  }
+}
+
+/**
+ * Render the report as plain text for the model (中文小节式). 导出供单元测试。
+ * @param report - the assembled report.
+ * @param advisorEnabled - advisor runtime state (not part of the echo config).
+ * @param humanCommands - command names this bundle registers, without the slash;
+ *   empty when the human-command surface is off or the caller has none.
+ */
+export function renderReport(
+  report: DoctorReport,
+  advisorEnabled: boolean,
+  humanCommands: readonly string[] = [],
+): string {
   const lines = [
     '# dsh-enhance 诊断',
     `插件已加载：${report.pluginLoaded ? '是' : '否'}`,
@@ -52,8 +90,14 @@ export function renderReport(report: DoctorReport, advisorEnabled: boolean): str
       `守卫=${report.config.guards ? '开' : '关'} ` +
       `工作追踪=${report.config.workTracking ? '开' : '关'} ` +
       `worktree=${report.config.worktree ? '开' : '关'} ` +
+      `人类指令=${report.config.commands ? '开' : '关'} ` +
       `advisor=${advisorEnabled ? '开' : '关'}`,
   ]
+  // The human-command surface is the one entry point the user sees without the
+  // model, so the diagnosis names it whenever it is live.
+  if (report.config.commands && humanCommands.length > 0) {
+    lines.push(`人类指令（${humanCommands.length}）：${humanCommands.map(n => `/${n}`).join('、')}（在输入框打 / 可见）`)
+  }
   if (report.skills.length === 0) {
     lines.push('技能：无（检查插件装配是否完整）')
   } else {
@@ -83,9 +127,10 @@ export function suggestNext(config: DoctorReport['config'], advisorEnabled: bool
   if (!config.guards) out.push('守卫已关闭：开启 guards 以启用写保护与交付门。')
   if (!config.workTracking) out.push('工作追踪已关闭：开启后可建 goal/boulder 追踪工作进度。')
   if (!config.worktree) out.push('worktree 已关闭：开启后可为每项工作建立独立工作区。')
+  if (!config.commands) out.push('人类指令已关闭：开启后可在输入框打 / 直接调用 /doctor、/boulder。')
   if (!advisorEnabled) out.push('advisor 已关闭：开启后每轮结束有伴随审查建议。')
   if (!config.orientOnSessionStart) out.push('会话开场提示已关闭：开启后每次会话有入场引导。')
-  if (out.length === 0) out.push('一切就绪：可输入 ulw 进入深度工作模式，或直接开始任务。')
+  if (out.length === 0) out.push('一切就绪：可用 /doctor 看装配、/boulder 看工作追踪，或输入 ulw 进入深度工作模式。')
   return out
 }
 
@@ -96,6 +141,8 @@ export function suggestNext(config: DoctorReport['config'], advisorEnabled: bool
  * @param enabled - whether to register at all.
  * @param advisorEnabled - advisor runtime switch (drives the 下一步建议 without
  *   widening the output schema).
+ * @param humanCommands - command names this bundle registers (rendered in the
+ *   report; empty when the surface is off).
  * @returns the exact disposer that unregisters the tool.
  */
 export function registerDoctorTool(
@@ -103,6 +150,7 @@ export function registerDoctorTool(
   config: DoctorReport['config'],
   enabled: boolean,
   advisorEnabled = false,
+  humanCommands: readonly string[] = [],
 ): () => void {
   if (!enabled) return () => {}
   const definition: ToolDefinition = {
@@ -141,36 +189,23 @@ export function registerDoctorTool(
               guards: { type: 'boolean' },
               workTracking: { type: 'boolean' },
               worktree: { type: 'boolean' },
+              commands: { type: 'boolean' },
             },
-            required: ['workRulesChars', 'orientOnSessionStart', 'doctorTool', 'guards', 'workTracking', 'worktree'],
+            required: ['workRulesChars', 'orientOnSessionStart', 'doctorTool', 'guards', 'workTracking', 'worktree', 'commands'],
             additionalProperties: false,
           },
         },
         required: ['pluginLoaded', 'skills', 'workRulesSection', 'config'],
         additionalProperties: false,
       },
-      render: (_args, value) => [{ type: 'text', text: renderReport(value as unknown as DoctorReport, advisorEnabled) }],
+      render: (_args, value) => [{
+        type: 'text',
+        text: renderReport(value as unknown as DoctorReport, advisorEnabled, humanCommands),
+      }],
       presentationMeta: (_args, value) => value,
     },
     async execute() {
-      let skills: SkillEntry[] = []
-      try {
-        skills = (await ctx.skills.list({})).map(summary => ({
-          name: summary.name,
-          source: summary.source,
-          provider: summary.provider,
-        }))
-      } catch {
-        // A failed discovery is itself a diagnosis: report the empty list rather
-        // than failing the whole call, so the model sees a degraded registry.
-      }
-      const report: DoctorReport = {
-        pluginLoaded: true,
-        skills,
-        workRulesSection: 'dsh-enhance/work-rules',
-        config,
-      }
-      return report
+      return collectDoctorReport(ctx, config)
     },
     presentCall: () => ({
       card: 'generic',
@@ -180,4 +215,3 @@ export function registerDoctorTool(
   }
   return ctx.tools.register(definition)
 }
-

@@ -1,13 +1,15 @@
 /**
  * dsh-enhance: an oh-my-zsh-style enhancement bundle for DeepSeek Harness.
  * One installable plugin that contributes packaged skills, a persistent
- * work-rules prompt section, a session-start orientation hook, and a doctor
- * tool. Everything is configurable through the plugin row's `config`.
+ * work-rules prompt section, a session-start orientation hook, human commands,
+ * and a doctor tool. Everything is configurable through the plugin row's
+ * `config`.
  * @module dsh-enhance
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
@@ -25,12 +27,20 @@ import { registerTodoContinuationHook } from './hooks/todo-continuation.js'
 import { registerDeliveryGateHook } from './hooks/delivery-gate.js'
 import { registerSkillTrigger } from './features/skill-trigger.js'
 import { registerAdvisorRuntime } from './features/advisor/runtime.js'
+import { registerHumanCommands, COMMAND_NAMES } from './features/commands.js'
 
 /** Cordis plugin name. */
 export const name = 'dsh-enhance'
 
-/** Services this plugin waits for before activating. */
-export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm']
+/**
+ * Services this plugin waits for before activating.
+ *
+ * `commands` is the registry behind the UI `/` menu; it belongs to the shipped
+ * `dsh-base` bundle like the other five, so requiring it adds no new class of
+ * deployment requirement (a bundle-less deployment has no skills or tools
+ * either). Without it the human surface simply cannot exist.
+ */
+export const inject = ['skills', 'systemPrompt', 'tools', 'agents', 'llm', 'commands']
 
 /** Default work-rules prose: general working discipline, project-agnostic. */
 export const DEFAULT_WORK_RULES = `# 工作准则
@@ -50,6 +60,12 @@ export interface Config {
   orientOnSessionStart?: boolean
   /** Register the model-facing dsh_enhance_doctor diagnostic tool. */
   doctorTool?: boolean
+  /**
+   * Register the human-command surface (`/doctor`, `/boulder`) into the UI
+   * command registry. Results render in the UI only — no model tokens, no
+   * session-log payload. Default on.
+   */
+  commands?: boolean
   /**
    * Master switch for the security/quality guard hooks (write-existing,
    * path-traversal, bash-file-read, output truncator, rules injector) and the
@@ -83,6 +99,7 @@ export const Config: z<Config> = z.object({
   workRules: z.string().default(DEFAULT_WORK_RULES),
   orientOnSessionStart: z.boolean().default(true),
   doctorTool: z.boolean().default(true),
+  commands: z.boolean().default(true),
   guards: z.boolean().default(true),
   workTracking: z.boolean().default(true),
   worktree: z.boolean().default(true),
@@ -92,13 +109,14 @@ export const Config: z<Config> = z.object({
 
 /**
  * Apply the dsh-enhance bundle to one context.
- * @param ctx - context with the `skills`, `systemPrompt`, and `tools` services.
+ * @param ctx - context with the `skills`, `systemPrompt`, `tools` and `commands` services.
  * @param config - validated plugin configuration.
  */
 export function apply(ctx: Context, config: Config): void {
   const workRules = config.workRules ?? ''
   const orientOnSessionStart = config.orientOnSessionStart ?? true
   const doctorTool = config.doctorTool ?? true
+  const commands = config.commands ?? true
   const guards = config.guards ?? true
   const workTracking = config.workTracking ?? true
   const worktree = config.worktree ?? true
@@ -132,6 +150,22 @@ export function apply(ctx: Context, config: Config): void {
   // §advisor: companion-review runtime (the 6th agent / advisor mode).
   registerAdvisorRuntime(ctx, { enabled: advisor, model: advisorModel })
 
+  // The human surface: the only entry point that needs no model turn at all.
+  registerHumanCommands(ctx, {
+    enabled: commands,
+    workTracking,
+    doctorConfig: {
+      workRulesChars: workRules.length,
+      orientOnSessionStart,
+      doctorTool,
+      guards,
+      workTracking,
+      worktree,
+      commands,
+    },
+    advisorEnabled: advisor,
+  })
+
   registerDoctorTool(ctx, {
     workRulesChars: workRules.length,
     orientOnSessionStart,
@@ -139,5 +173,6 @@ export function apply(ctx: Context, config: Config): void {
     guards,
     workTracking,
     worktree,
-  }, doctorTool, advisor)
+    commands,
+  }, doctorTool, advisor, COMMAND_NAMES)
 }

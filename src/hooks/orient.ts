@@ -51,7 +51,7 @@ async function orientAgent(ctx: Context, agent: Agent, extra?: string): Promise<
   }
   const parts = [
     'dsh-enhance 已在本会话生效：本系统提示包含工作准则段落；通过 skill 工具提供打包技能；并提供 dsh_enhance_doctor 诊断工具。',
-    '从何开始：调 `dsh_enhance_doctor` 查看装配与可开启项；输入 `ulw` 进入深度工作模式。',
+    '从何开始：在输入框打 `/` 可见本插件的人类指令 `/doctor`（装配诊断）与 `/boulder`（工作追踪），模型侧可调 `dsh_enhance_doctor` 工具；输入 `ulw` 进入深度工作模式。',
   ]
   if (skills.length > 0) {
     parts.splice(1, 0, `本会话可用的打包技能：${skills.join('、')}。`)

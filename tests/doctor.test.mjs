@@ -11,6 +11,7 @@ function fullConfig() {
     guards: true,
     workTracking: true,
     worktree: true,
+    commands: true,
   }
 }
 
@@ -112,4 +113,36 @@ test('[doctor] suggestNext 关闭项给出可执行的开启建议', () => {
 test('[doctor] suggestNext 关闭 orientOnSessionStart 时提示开启', () => {
   const next = suggestNext({ ...fullConfig(), orientOnSessionStart: false }, true)
   assert.ok(next.some(s => s.includes('会话开场提示已关闭')))
+})
+
+test('[doctor] renderReport 点名人类指令（人可见入口），未提供名单时不臆造', () => {
+  const report = {
+    pluginLoaded: true,
+    skills: [{ name: 'code-review', source: 'bundled', provider: 'dsh-enhance' }],
+    workRulesSection: 'dsh-enhance/work-rules',
+    config: fullConfig(),
+  }
+  const named = renderReport(report, true, ['doctor', 'boulder'])
+  assert.ok(named.includes('人类指令=开'), '回显应含人类指令开关')
+  assert.ok(named.includes('人类指令（2）：/doctor、/boulder'), '应点名两条人类指令')
+  // 名单由调用方给出（commands.ts 的 COMMAND_NAMES）；没有名单就不该凭开关脑补出清单。
+  const unnamed = renderReport(report, true)
+  assert.equal(unnamed.includes('人类指令（'), false, '未提供名单时不得列出指令')
+})
+
+test('[doctor] suggestNext 关闭人类指令时提示开启', () => {
+  const next = suggestNext({ ...fullConfig(), commands: false }, true)
+  assert.ok(next.some(s => s.includes('人类指令已关闭')), '应给出可执行的开启建议')
+})
+
+test('[doctor] renderReport 关闭人类指令时不列清单（开关与名单一致）', () => {
+  const report = {
+    pluginLoaded: true,
+    skills: [],
+    workRulesSection: 'dsh-enhance/work-rules',
+    config: fullConfig(),
+  }
+  const text = renderReport({ ...report, config: { ...fullConfig(), commands: false } }, true, ['doctor', 'boulder'])
+  assert.ok(text.includes('人类指令=关'))
+  assert.equal(text.includes('人类指令（'), false)
 })
