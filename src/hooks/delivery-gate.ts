@@ -67,13 +67,25 @@ export function resetDeliveryGateState(): void {
  */
 export function registerDeliveryGateHook(ctx: Context, enabled: boolean): () => void {
   if (!enabled) return () => {}
-  return ctx.on('agent/turn-stopping', async ({ agent, turn }: { agent: Agent; turn: number }) => {
+  const offStop = ctx.on('agent/turn-stopping', async ({ agent, turn }: { agent: Agent; turn: number }) => {
     try {
       await evaluateTurn(agent, turn)
     } catch {
       // The gate must never break turn stopping.
     }
   })
+  // Per-session memory must not outlive the session.
+  const offDisposed = ctx.on('agent/disposed', ({ agent }: { agent: Agent }) => {
+    forgetSession(String(agent?.session?.header?.id ?? 'session'))
+  })
+  return () => { offStop?.(); offDisposed?.() }
+}
+
+/** Drop all gate memory for one session. */
+function forgetSession(session: string): void {
+  phases.delete(session)
+  evaluated.delete(session)
+  regressedAt.delete(session)
 }
 
 /** Evaluate one turn-stop boundary for the given agent. */

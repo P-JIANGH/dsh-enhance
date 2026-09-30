@@ -16,6 +16,7 @@ import { registerSessionStartHook } from './hooks/orient.js'
 import { registerWorkRules } from './hooks/work-rules.js'
 import { registerSkillsProvider } from './features/skills-provider.js'
 import { registerToolGuards } from './tools/guard-register.js'
+import { registerWriteTokenGuard } from './tools/write-token-guard.js'
 import { registerBoulderTools } from './tools/boulder-tools.js'
 import { registerWorktreeTools } from './tools/worktree-tools.js'
 import { registerRulesInjector } from './hooks/rules-injector.js'
@@ -116,6 +117,9 @@ export function apply(ctx: Context, config: Config): void {
   registerBoulderTools(ctx, workTracking)
   registerStartWorkHook(ctx, workTracking)
   registerTodoContinuationHook(ctx, workTracking)
+  // §5.5.1: one writer per workspace — enforced at the tool pipeline, not just in
+  // the state file. Only fires when an active boulder work has no worktree.
+  registerWriteTokenGuard(ctx, workTracking)
   // M3: delivery gate consumes goal/boulder, so it rides the same switch.
   registerDeliveryGateHook(ctx, workTracking)
 

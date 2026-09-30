@@ -172,6 +172,12 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
     void kickReview(agent).catch((err) => trace('review async FAILED for', agent.id, String((err as Error)?.message ?? err)))
   })
 
+  // Cursors are per-agent; drop them when the agent goes away so a long-lived
+  // host does not accumulate one entry per session forever.
+  const offDisposed = ctx.on('agent/disposed', ({ agent }: { agent: Agent }) => {
+    if (typeof agent?.id === 'string') cursors.delete(agent.id)
+  })
+
   async function kickReview(main: Agent): Promise<void> {
     if (disposed) return
     try {
@@ -206,6 +212,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   return () => {
     disposed = true
     offMain?.()
+    offDisposed?.()
     cursors.clear()
   }
 }

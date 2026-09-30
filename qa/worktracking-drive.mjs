@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { preflight } from './dsh-launch.mjs'
+import { isPidAlive } from '../lib/features/boulder/write-token.js'
 
 const ROOT = process.cwd()
 const PROFILE = process.env.DSH_ENHANCE_PROFILE ?? 'dsh-enhance'
@@ -30,11 +31,13 @@ const task = [
   'This is an acceptance test of the dsh-enhance work-tracking and guards.',
   'Do EXACTLY this sequence, no more:',
   '1) Call boulder_start with work_id="qa-e2e" and plan_name="E2E work tracking".',
-  '2) Call goal_create with objective="Acceptance goal" and acceptance=["a"] ',
-  '   containing the literal text "QAE2E_MARKER".',
+  '2) Call goal_create with objective="Acceptance goal" and acceptance=["QAE2E_MARKER"].',
   '3) Call the write tool with file_path="../escape-QAE2E.txt" and content="x" ',
   '   — this deliberate path escape should be REJECTED by the path-traversal guard.',
-  '4) Then boulder_status and goal_get, and report what you observed.',
+  '4) Call the write tool with file_path="inside-ok.txt" and content="ok" ',
+  '   — a legitimate in-workspace write that must SUCCEED (the write-token guard',
+  '   must not block the session that owns the active work).',
+  '5) Then boulder_status and goal_get, and report what you observed.',
   'Stop. Do not touch any other tool.',
 ].join(' ')
 
@@ -61,7 +64,18 @@ function main() {
   // 只有「模型确实尝试了越界写 + 被拒绝 + 文件没落盘」才算守卫通过；
   // 模型没尝试越界写时不算通过（否则 escape=false 会白送一个 PASS）。
   const guardExercised = /路径越界|已拒绝写入/.test(res.stdout || res.stderr || '')
-  const passed = Boolean(worked && goalFound && !escaped && guardExercised)
+  // §5.5.1 端到端：合法的工作区内写必须成功（写令牌门卫不能误伤持有者）……
+  const insideOk = existsSync(join(sandbox, 'inside-ok.txt'))
+  // ……而令牌不得被死进程一直占着：headless 退出不触发 agent/disposed，所以
+  // 断言的是「记录的持有者 pid 已死 ⇒ 任何新会话可立即接管」，而不是「字段消失」。
+  let tokenLive = false
+  if (existsSync(boulderFile)) {
+    try {
+      const b = JSON.parse(readText(boulderFile))
+      tokenLive = Boolean(b.exec_holder) && isPidAlive(b.exec_holder_pid)
+    } catch { /* ignore */ }
+  }
+  const passed = Boolean(worked && goalFound && !escaped && guardExercised && insideOk && !tokenLive)
 
   const tag = `worktracking-${Date.now()}`
   const file = join(evidenceDir, `${tag}.md`)
@@ -74,7 +88,9 @@ function main() {
     `goal_create 落盘 (QAE2E_MARKER): ${goalFound}`,
     `path-traversal 守卫被行使（输出含拒绝文案）: ${guardExercised}`,
     `path-traversal write 的确逃逸到父目录 (escape-QAE2E.txt 存在): ${escaped}`,
-    `结论: ${passed ? 'PASS（工作追踪落盘 + 守卫真实拦截越界写）' : 'FAIL（见输出与轨迹）'}`,
+    `§5.5.1 合法工作区内写成功 (inside-ok.txt 存在): ${insideOk}`,
+    `§5.5.1 令牌未被活进程占用（死 pid 可立即接管）: ${!tokenLive}`,
+    `结论: ${passed ? 'PASS（工作追踪落盘 + 守卫真实拦截越界写 + 写令牌纪律成立）' : 'FAIL（见输出与轨迹）'}`,
     '',
     '## 会话输出（前 3000 字符）',
     (res.stdout || res.stderr).slice(0, 3000),
@@ -85,7 +101,7 @@ function main() {
   ].join('\n') + '\n', 'utf8')
 
   console.log(`证据: ${file}`)
-  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped}`)
+  console.log(`boulder_start: ${worked} | goal_create: ${goalFound} | 守卫被行使: ${guardExercised} | escape 落盘: ${escaped} | 合法写: ${insideOk} | 令牌被活进程占用: ${tokenLive}`)
   console.log(`结论: ${passed ? 'PASS' : 'FAIL'}`)
   if (!passed) process.exitCode = 1
 

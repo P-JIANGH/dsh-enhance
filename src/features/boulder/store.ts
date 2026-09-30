@@ -54,6 +54,15 @@ export interface BoulderState {
   active_work_id?: string
   /** Write token: the session id currently holding exclusive execute right. */
   exec_holder?: string
+  /** When the current holder claimed the token (drives stale-holder takeover). */
+  exec_holder_at?: number
+  /**
+   * OS pid of the claiming process. A token whose pid is gone is treated as stale
+   * immediately — otherwise an abruptly killed session would keep the repo's
+   * execute right for the whole staleness window (observed in real drives:
+   * `agent/disposed` does not fire on an abrupt headless exit).
+   */
+  exec_holder_pid?: number
   works: Record<string, BoulderWork>
   conflict_log?: Array<{ at: number; field: string; kept: unknown }>
   /** Structured delivery reports (trajectory audit, architecture §5.2.2.4). */
@@ -90,6 +99,8 @@ export function validateState(s: unknown): string | undefined {
   if (!isNonNegInt(s.revision)) return 'state.revision must be a non-negative int'
   if (s.active_work_id !== undefined && !isNonEmptyString(s.active_work_id)) return 'state.active_work_id must be a non-empty string'
   if (s.exec_holder !== undefined && !isNonEmptyString(s.exec_holder)) return 'state.exec_holder must be a non-empty string'
+  if (s.exec_holder_at !== undefined && !isNonNegInt(s.exec_holder_at)) return 'state.exec_holder_at must be a non-negative int'
+  if (s.exec_holder_pid !== undefined && !isNonNegInt(s.exec_holder_pid)) return 'state.exec_holder_pid must be a non-negative int'
   if (!isPlainObject(s.works)) return 'state.works must be an object'
   for (const [k, v] of Object.entries(s.works as Record<string, unknown>)) {
     const err = validateWork(v)
@@ -204,6 +215,9 @@ export function mergeStates(a: BoulderState, b: BoulderState): BoulderState {
   merged.active_work_id = a.active_work_id ?? b.active_work_id
   // exec_holder (write token): keep the newest non-empty holder.
   merged.exec_holder = b.exec_holder ?? a.exec_holder
+  const tokenFromB = merged.exec_holder === b.exec_holder
+  merged.exec_holder_at = tokenFromB ? b.exec_holder_at : a.exec_holder_at
+  merged.exec_holder_pid = tokenFromB ? b.exec_holder_pid : a.exec_holder_pid
   merged.conflict_log = [...(a.conflict_log ?? []), ...(b.conflict_log ?? [])]
   merged.completion_log = [...(a.completion_log ?? []), ...(b.completion_log ?? [])]
   if (a.active_work_id !== undefined && b.active_work_id !== undefined && a.active_work_id !== b.active_work_id) {
