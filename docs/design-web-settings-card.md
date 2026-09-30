@@ -143,7 +143,7 @@ export function apply(clientCtx: ClientContext): void {
 - **修复难度降级措施**：契约测试保定位速度；桥接层保修复范围（改一处）；降级路径保无时间压力；bundle 模板单文件化保 C4/C5 修复集中。
 - **R4-补 卡片"重启生效"提示**：`SettingsDescriptor.applies` 随 wire 下发，但官方卡片是否渲染"重启生效"标记未在源码确认；实现期验证，若未渲染则卡片自绘提示文案。
 
-## 4.7 改名方案：oh-my-dsh → dsh-enhance（独立立项）
+## 4.7 改名方案：oh-my-dsh → dsh-enhance（✅ 已执行，2026-09-30）
 
 > 定名：`dsh-enhance`。GitHub org/repo 与 npm `@dsh-enhance/dsh-enhance` 全维度可用。
 
@@ -166,6 +166,8 @@ export function apply(clientCtx: ClientContext): void {
 | 文档/测试 | 107 处 `oh-my-dsh`/`oh_my_dsh` | 全量替换 |
 
 **改名 = 破坏性变更**；v0.1 无外部用户，是零成本唯一窗口。作为阶段 0 前置（先改名再推 UI 半侧，避免两套名并存）。
+
+**执行结果（2026-09-30）**：仓库内旧名已清零（仅保留迁移用途的 `LEGACY_PACKAGE_NAMES` 与文档中的历史记录）；环境侧 `~/.dsh/profiles/web` 的旧 junction 已改为 scoped 名，旧 profile `omd` 迁移为 `dsh-enhance` 后删除（配置备份在 `~/.dsh/profile-backups/`）；`~/.dsh/.agent-presets` 里的旧名残留已备份清理。**注意**：checkout 目录仍叫 `F:\oh-my-dsh`（改名会牵动所有 profile 的 `link:` 指向），包名与项目名才是 `dsh-enhance`。
 
 **迁移顺序**：① 仓库/包名 → ② 运行时标识（工具名/提示词段/预设目录/存储目录）→ ③ QA 脚本/测试（presets-pin 字节锁定自动跟随新名）→ ④ 文档全量替换 → ⑤ 验证（pnpm test/build/typecheck + 实驱）。
 
@@ -190,17 +192,17 @@ export function apply(clientCtx: ClientContext): void {
 
 | 阶段 | 内容 | 验证 |
 |---|---|---|
-| 0 | **改名 `oh-my-dsh` → `dsh-enhance`（§4.7）**：包名/工具名/提示词段/预设目录/存储目录/QA/文档 | `pnpm test` + `pnpm build` + `pnpm typecheck` 全绿，doctor 实驱报新名 |
+| 0 | **改名 `oh-my-dsh` → `dsh-enhance`（§4.7）**：包名/工具名/提示词段/预设目录/存储目录/QA/文档 | ✅ 已完成：`pnpm test` + `pnpm build` + `pnpm typecheck` 全绿，doctor 实驱报新名 |
 | 0b | 构建链验证：tsdown 最小 bundle 模板 + 空 client entry | `dsh web` 加载无报错；若本机 `dsh web` 起不来，退化为 loader 契约静态核对 |
 | 1 | Host 半侧：`settings-bridge.ts`、apply 改造（inject 'settings' + `scope.get()`）、settings 单测；**前置验证 R-N5**（无 provider 时 `scope.get()` 行为） | `pnpm test` 新用例 |
 | 2 | Client 半侧：`bridge.ts`、字段映射纯函数 + 卡片、package.json 接入声明 | 卡片渲染 |
 | 3 | 契约测试 + dsh web 实驱 QA（改配置 → settings.yaml → 重启生效） | 实驱证据（`.dsh-enhance/evidence/`） |
 | 4 | `docs/upstream-migration.md` + README 安装段更新 | 文档评审 |
-| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通 |
+| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设装机**那一半已由 `scripts/install-presets.mjs` 落地，见 README） |
 
 ## 7. 验证策略
 
 - **单测**：settings 三层解析（defaults+entry+user）、字段映射纯函数、桥接层回退逻辑。
 - **契约测试**：R2 断言清单（每个接触点运行时存在性）。
 - **实驱 QA**：隔离 `$DSH_HOME` 起 dsh web——卡片出现 → 编辑保存 → `settings.yaml` 落盘 → 重启 → `doctor` 报新值生效；模拟 loader 失败断言 host 照常。
-- **脚本**：临时 profile 全流程（link: 安装 → 预设复制 → dump-config 验证）。
+- **脚本**：临时 profile 全流程（link: 安装 → 预设装机 `scripts/install-presets.mjs` → dump-config 验证）。

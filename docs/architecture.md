@@ -40,19 +40,19 @@ dsh-enhance 是 DeepSeek Harness 的"电池全包"增强插件（oh-my-zsh 风�
 ```
 dsh-enhance/
 ├── docs/                  # 设计 + 用户文档
+├── prompts/               # 提示词单源（agents/<role>.persona.md、modes/*.md）
 ├── skills/                # 打包 SKILL.md（静态知识层）
-├── presets/               # dsh-agent-presets 预设目录（可选安装）
+├── presets/               # dsh-agent-presets 预设目录（生成物；用 scripts/install-presets.mjs 装进 $DSH_HOME/.agent-presets）
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
-│   ├── index.ts           # 插件入口：name / inject / Config / apply
-│   ├── config/            # schemastery schema（插件行 config）
-│   ├── hooks/             # 生命周期钩子（每个能力一个目录）
-│   ├── tools/             # 工具注册（ToolRegistry）
-│   ├── agents/            # 智能体定义（AgentFactory 工厂）
-│   ├── features/          # 特性模块（skill 触发路由、worktree manager…）
-│   ├── shared/            # 跨模块工具（路径规范化、git 运行器、日志）
-│   └── cli/               # 未来的 CLI 子命令（doctor、boulder…）
-├── tests/                 # node --test 单测 + dsh 实驱 QA 脚本
-├── cordis.patch.yml       # 插件注入补丁
+│   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema）/ apply
+│   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、todo-continuation、delivery-gate）
+│   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
+│   ├── features/          # 特性模块（skills-provider、commands、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
+│   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
+├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
+├── scripts/               # 预设生成（sync-presets / sync-dsh-enhance-preset）与装机（install-presets）
+├── tests/                 # node --test 单测
+└── cordis.patch.yml       # 插件注入补丁
 └── package.json
 ```
 
@@ -392,13 +392,12 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 
 按 dsh 实驱落地：
 
-1. **单测**：`node --test`（现有 `tests/unit.test.mjs` 扩展）。纯逻辑（boulder 冲突合并、worktree 解析、路径校验）必须有单测，尤其**并发写冲突单测**（两个 mutate 交错 → 合并结果正确）。
-2. **dsh 实驱**：隔离 `$DSH_HOME`，`dsh --profile <sandbox>` 真实加载插件，逐项断言：
-   - 守卫：写未读文件 → 拒绝；
-   - 续作：turn-stopping 后 todo 未清 → 注入继续；
-   - boulder：两个会话交错写 → 无丢失更新；
-   - worktree：会话在 worktree 内续作 → 上下文正确。
-3. **证据**：每次实驱记录到 `.dsh-enhance/evidence/`，证明隔离（真实 `$DSH_HOME` 未动）。
+1. **单测**：`node --test`（20 个测试文件 / 175 例）。纯逻辑（boulder 冲突合并、写令牌接管、worktree 解析、路径校验、守卫判定、交付门卫状态机、人类指令注册、预设装机）均有单测；并发写冲突为构造式交错（真进程间竞争见 §9 已知限制）。
+2. **dsh 实驱**：`qa/` 下三个驱动（`dsh-enhance-drive` / `worktracking-drive` / `delivery-gate-drive`）**默认落在仓库内隔离 home** `.dsh-enhance/desktop-test-home`（profile `qa`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先），真实加载插件后逐项断言：
+   - 激活：`--dump` 确认 `# == @dsh-enhance/dsh-enhance` 层合入（零 token）；`--llm` 真实会话命中实质标记（含插件自己写进 stderr 的确定性痕迹）；
+   - 守卫 + 工作追踪：越界写被拒、合法写放行、令牌持有者可读、退出后无活进程占用令牌；
+   - 交付门卫：假完成声明 → `completion_log` 落盘且 `active_work` 清空。
+3. **证据**：每次实驱记录到 `.dsh-enhance/evidence/`（含本次实际使用的 profile 与 `$DSH_HOME`），证明隔离（真实 `$DSH_HOME` 未动）。
 4. **提示词验证**：每个 agent/模式一次实驱触发，输出行为核对。
 
 ## 9. 风险与开放问题

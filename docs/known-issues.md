@@ -10,10 +10,11 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **171/171** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **175/175** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
+- **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩迁移用途（`LEGACY_PACKAGE_NAMES`/`--prune-renamed`）与历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
 
 ---
 
@@ -86,6 +87,19 @@
 - 修复 2（装机）：新增 `scripts/install-presets.mjs`（幂等、逐字节比对、覆盖/清理前整份备份到目标根**同级**的 `agent-presets-backup-<时间戳>/`，支持 `--dry-run`/`--check`/`--target`/`--prune-renamed`），并接入 `pnpm install:presets` / `pnpm check:presets`。**预演模式在第一次真写之前抓到真 bug**：同名预设同时进了「更新」与「残留清理」两个清单 → 会先装后删；已修（只有不在本包名册里的 id 才算残留）并加回归钉。
 - 解析依据（读上游代码，不是猜测）：`dsh-agent-presets` 的 `PresetTree.import()` 对**裸包名**强制用 harness 自身 base 解析，注释原话是"本地预设位于用户家目录，Node 的上行 `node_modules` 查找永远到不了 harness 的依赖，于是每个 `@deepseek-ai/dsh-*` 行都会 import 失败"——所以预设目录下**不需要** `node_modules`，相对路径才随预设目录走。
 - 复验：`pnpm test` 171/171；对真实家目录执行安装 → 6 个预设就位且 `--check` 通过，`omd` 残留已备份清理（`~/.dsh/agent-presets-backup-2026-09-30-044128` 含 6 份旧副本）。
+
+### ✅ P1-12 旧包名 `oh-my-dsh` 残留：两个 profile 已装不上插件，安装文档照着做必失败
+- 证据（环境侧）：`~/.dsh/profiles/web` 与 `~/.dsh/profiles/omd` 的 `dependencies` 与 `dsh.profile.bundles` 都写 `oh-my-dsh`（各自的 `node_modules/oh-my-dsh` 只是指向本仓库的 junction），而仓库自带的 `cordis.patch.yml` 已改用 `@dsh-enhance/dsh-enhance`（P1-9）→ 这两个 profile 的 loader **解析不到** scoped 名，插件等于没装；旧 profile 名 `omd` 本身也是旧品牌。
+- 证据（文档侧）：`docs/installing-plugins.md` 通篇仍是裸包名（`dsh plugin … add dsh-enhance`、plugin 行 `name: dsh-enhance`）与不存在的 checkout 路径 `F:/dsh-enhance`；配置表缺 `commands`；还声称"dsh-enhance 自带的 `presets` 行默认 disabled"——而 `cordis.patch.yml` 里根本没有 `presets` 行。照此文档执行必然失败或落空。
+- 修复（环境，均已备份）：`web` 迁移为 scoped dep + bundle + junction + lockfile；旧 profile `omd` 迁移为 `dsh-enhance`（dsh-base + dsh-headless + 插件）后删除；配置备份 `~/.dsh/profile-backups/2026-09-30-181418/`。**保留** `LEGACY_PACKAGE_NAMES` 与 `--prune-renamed`：预设残留位于用户 `$DSH_HOME`（无法靠提交修复），它是唯一的清理入口。
+- 修复（文档）：安装文档全面校正（包名 / checkout 路径 / patch 行 `name` 必须完整 / 配置表补 `commands` / 新增「预设不在插件里，要单独装」一节 / 删掉不存在的 `presets` 行说法）；`testing-plan` 的测试清单与实驱表补齐；`architecture` §3 目录树与 §8 验证策略改为与实现一致；`design-web-settings-card` §4.7 标注已执行。
+- 复验：`dsh --profile web --dump-config` 与 `dsh --profile dsh-enhance --dump-config` 均出现 `# == @dsh-enhance/dsh-enhance`；显式指向真实 home + `dsh-enhance` profile 的 `--dump` 实驱 PASS。
+- 边界：checkout 目录仍叫 `F:\oh-my-dsh`（改目录名会牵动所有 profile 的 `link:` 指向），包名与项目名才是 `dsh-enhance`。
+
+### ✅ P2-8 QA 实驱目标默认落在真实 `~/.dsh`：把"跑错环境"误诊成"插件缺陷"
+- 证据（本会话实测）：不带环境变量执行 `node qa/dsh-enhance-drive.mjs --dump`，目标落在真实 home 的 `dsh-enhance` profile（当时只有 `dsh-base`），输出 `WARN：未发现 dsh-enhance 层`、exit 1——看上去像插件没装上，实际是实驱跑错了环境。
+- 修复：`qa/dsh-launch.mjs` 新增 `resolveQaTarget()`（**隔离优先**：显式 `DSH_HOME`/`DSH_ENHANCE_PROFILE` 优先，否则用仓库内隔离 home `.dsh-enhance/desktop-test-home` 的 `qa` profile，隔离 home 不存在才退回真实 home）；`preflight()` 接受 `dshHome` 让 app 自检跟随同一目标；三个驱动把它注入子进程环境，并在证据头与启动行标注实际使用的 profile 与 home；缺层时的报错改为可执行排查顺序。
+- 测试：`tests/qa-launch.test.mjs` 新增 4 例（隔离 home 存在 / 显式 env 优先 / 隔离 home 缺失 / 常量契约）。
 
 ### ✅ P1-1 README 自相矛盾 + 幽灵 `presets/advisor`
 移除 `cp -r presets/advisor` 指引并标注模式 C 未实现；修正"三模式共享同一子代理池"（实际只有主预设挂 4 条作用域子代理行）；明确 advisor 是伴随机制而非可选人设预设。
@@ -167,3 +181,5 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-09-30 | P1-11 人可见指令面（`/doctor`、`/boulder`） | `29d3299` | `tests/commands.test.mjs` 9 例 + doctor/orient 回归钉；171/171 |
 | 2026-09-30 | P1-11 预设装机脚本 + 真实家目录安装 | `9637da5` | `tests/install-presets.test.mjs` 10 例；预演抓出「先装后删」bug；`--check` 通过 |
 | 2026-09-30 | P1-11 文档（如何体验 / 安装脚本 / 配置表 / AGENTS） | `9637da5` 之后 | README/AGENTS 与实现逐条对齐 |
+| 2026-09-30 | P2-8 QA 实驱目标隔离优先 + 缺层报错可执行化 | `3793771` | `tests/qa-launch.test.mjs` 15 例（+4）；默认目标 = 隔离 home 实驱 PASS |
+| 2026-09-30 | P1-12 旧包名清零（profile 迁移 / `omd` 删除 / 安装文档校正） | 见下一次提交 | 两 profile `--dump-config` 命中 `# == @dsh-enhance/dsh-enhance`；真实 home 实驱 PASS |

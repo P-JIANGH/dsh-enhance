@@ -4,7 +4,7 @@
 > 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
 > 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
 >
-> **本机约定**：本项目统一用 `dsh-enhance` 指称 `dsh-enhance`（含用作 profile 名示例）。文档里的 `dsh-enhance` 命令可直接复制执行；如果你要装在别的 profile 名下，把 `dsh-enhance` 换成你的 profile 名即可。
+> **命名**：包名 `@dsh-enhance/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可。本仓库的 checkout 目录沿用旧名 `F:\oh-my-dsh`，包名已是新名。
 
 ## 1. 理解背景：profile、bundle 与 patch 层
 
@@ -53,13 +53,13 @@ dsh plugin --profile <name> <pnpm 参数...>
 该 profile 目录不存在时，`dsh plugin` 会自动初始化（无内置模板时以 `@deepseek-ai/dsh-base` 为第一层）、写入 `package.json`、`cordis.patch.yml` 和 `pnpm-workspace.yaml`：
 
 ```sh
-dsh plugin --profile dsh-enhance add dsh-enhance
+dsh plugin --profile dsh-enhance add @dsh-enhance/dsh-enhance
 ```
 
 ### 3.2 安装来源一：npm registry（已发布）
 
 ```sh
-dsh plugin --profile dsh-enhance add dsh-enhance
+dsh plugin --profile dsh-enhance add @dsh-enhance/dsh-enhance
 ```
 
 ### 3.3 安装来源二：本地 checkout / 本地路径
@@ -67,10 +67,10 @@ dsh plugin --profile dsh-enhance add dsh-enhance
 `dsh plugin` 会把相对/`file:`/`link:` 形式的路径规格**锚定到你在哪里调用它的目录**（避免在 profile 目录里被误解析），所以从插件仓库直接装：
 
 ```sh
-# 在 dsh-enhance 所在目录之外调用，用相对或绝对路径均可
-dsh plugin --profile dsh-enhance add ../../path/to/dsh-enhance
-dsh plugin --profile dsh-enhance add file:./dsh-enhance
-dsh plugin --profile dsh-enhance add link:./dsh-enhance
+# 在插件仓库之外调用，相对或绝对路径均可（<checkout> = 本仓库目录，如 F:/oh-my-dsh）
+dsh plugin --profile dsh-enhance add <checkout>
+dsh plugin --profile dsh-enhance add file:<checkout>
+dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
 > 提示：`add .` 若在插件仓库目录直接调用会被重写成该目录的绝对路径，`dsh plugin` 的 `anchorPathSpec` 会保证它指向你的调用目录而不是 profile 目录。
@@ -81,24 +81,25 @@ dsh plugin --profile dsh-enhance add link:./dsh-enhance
 
 ```sh
 # 相对于你调用 dsh plugin 的目录（或给绝对路径）。
-# 本项目作者在本机使用名为 dsh-enhance 的 profile（约等于 `dsh-enhance` 的简称）。
-dsh plugin --profile dsh-enhance add link:F:/dsh-enhance
+# 本项目作者本机：profile 名 dsh-enhance，checkout 在 F:/oh-my-dsh
+# （目录名沿用旧名，包名是 @dsh-enhance/dsh-enhance）。
+dsh plugin --profile dsh-enhance add link:F:/oh-my-dsh
 ```
 
 安装成功后 profile 的 `package.json` `dependencies` 里会出现：
 
 ```json
-"dsh-enhance": "link:F:/dsh-enhance"
+"@dsh-enhance/dsh-enhance": "link:F:/oh-my-dsh"
 ```
 
-而 `node_modules/dsh-enhance` 是一个指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: F:\dsh-enhance`）。
+而 `node_modules/@dsh-enhance/dsh-enhance` 是指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: F:\oh-my-dsh`）。
 
 **⚠️ 关键点：链接安装 ≠ 源码即时生效。** dsh 的 loader 解析的是包的 `main` / `exports` 入口，dsh-enhance 指向 `lib/index.js`（**构建产物**）。因此：
 
 1. pnpm 的 `link:` 依赖**不会自动运行** `prepare` 构建脚本（`prepare` 只在从 registry 或 git 源安装时触发，本地链接不发构建）。
 2. 每次修改 `src/` 后，必须在**插件仓库**里手动重新构建：
    ```sh
-   cd F:/dsh-enhance
+   cd F:/oh-my-dsh
    pnpm build        # 产出到 lib/（main 指向 lib/index.js）
    ```
 3. 然后重启你正在跑的 `dsh --profile dsh-enhance ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
@@ -122,6 +123,17 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ### 3.5 安装第三方插件为普通依赖（非 bundle）
 
 如果装的包**没有** `dsh.bundle` 声明（只是个普通库），它会被当普通依赖装进 profile，**不进** layer 栈，并打印一条提示性 warning（这不影响它被其他 bundle 引用）。
+
+### 3.6 预设不在插件里，要单独装
+
+`dsh plugin add` 只装插件本身。预设是**文件系统发现**的（`$DSH_HOME/.agent-presets`），插件不会替你写家目录 —— 所以装完在预设菜单里看不到「工作模式」是正常的：
+
+```sh
+pnpm install:presets     # 或 node scripts/install-presets.mjs
+pnpm check:presets       # 只判定：缺装或过期则退出码 1
+```
+
+脚本幂等，覆盖/清理前先整份备份；`--prune-renamed` 用来清理仍指向旧包名 `oh-my-dsh` 的残留。用户预设里的**裸包名**按 harness 自身基准解析（上游 `PresetTree.import()` 有意如此），所以预设目录下**不需要** `node_modules`。详见 README「在 web 中作为可见 persona 启用」。
 
 ## 4. 验证是否生效
 
@@ -148,7 +160,7 @@ dsh --profile dsh-enhance ...
 ```yaml
 # $DSH_HOME/profiles/dsh-enhance/cordis.patch.yml
 - id: dsh-enhance
-  name: dsh-enhance
+  name: '@dsh-enhance/dsh-enhance'
   config:
     workRules: |
       # My team's rules
@@ -166,6 +178,9 @@ dsh --profile dsh-enhance ...
 | `workRules` | 内置纪律文案 | 系统提示词 sections 正文；设空字符串即移除该 section |
 | `orientOnSessionStart` | `true` | 会话开始时注入一条一次性 orientation 消息 |
 | `doctorTool` | `true` | 注册 `dsh_enhance_doctor` 工具 |
+| `commands` | `true` | 注册人类指令 `/doctor`、`/boulder` 到 UI 指令表（零 token、不进模型历史） |
+
+> 完整字段（`guards` / `workTracking` / `worktree` / `advisor` / `advisorModel`）见 README 的配置表。
 
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
@@ -177,9 +192,9 @@ dsh --profile dsh-enhance --patch ./extra.yml ...
 
 - **从 profile 卸载插件**（移除依赖并自动从 `bundles` 列表剔除）：
   ```sh
-  dsh plugin --profile dsh-enhance remove dsh-enhance
+  dsh plugin --profile dsh-enhance remove @dsh-enhance/dsh-enhance
   ```
-- **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`（dsh-enhance 自带的 `presets` 行默认就是 disabled 的示例）。例如在业务上禁用 dsh-enhance 主行：
+- **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`。例如临时禁用 dsh-enhance 主行：
   ```yaml
   - id: dsh-enhance
     disabled: true
@@ -202,6 +217,6 @@ dsh --profile dsh-enhance --patch ./extra.yml ...
    ```json
    "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
    ```
-2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: dsh-enhance` 一行）。
+2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: '@dsh-enhance/dsh-enhance'` 一行）。**`name` 必须是 loader 能解析的完整包名**：它以模块说明符的身份从 profile 目录解析，裸名只有在 profile 恰好装了同名依赖时才成立（这正是初版 `name: dsh-enhance` 装完仍报 `ERR_MODULE_NOT_FOUND` 的原因）。
 
 这样"万物皆插件"的插件就齐了：加一个依赖声明、一个补丁文件，就能用 `dsh plugin --profile <name> add <pkg>` 完成安装。
