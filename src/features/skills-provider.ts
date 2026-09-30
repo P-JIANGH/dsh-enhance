@@ -20,8 +20,18 @@ import type {
 /** Rank of packaged candidates: bundled skills rank below every user root. */
 export const BUNDLED_RANK = 600
 
-/** Prompt-visible source label carried by packaged candidates. */
+/**
+ * Prompt-visible source label carried by packaged candidates.
+ *
+ * NOT an ownership signal: every provider that ships skills on disk labels them
+ * `bundled`, so a profile can show several unrelated `bundled` skills (the
+ * desktop profile ships `office-*` and others). Use {@link PROVIDER} to tell
+ * which skills *this* bundle contributes.
+ */
 export const SOURCE = 'bundled'
+
+/** Provider name this bundle registers; the accurate "is it ours" signal. */
+export const PROVIDER = 'dsh-enhance'
 
 /** Absolute path of the packaged skill bundles directory. */
 export const SKILLS_ROOT = fileURLToPath(new URL('../../skills/', import.meta.url))
@@ -100,7 +110,7 @@ export function createSkillsProvider(_control: SkillProviderControl): SkillProvi
           description: parsed.description,
           invocation: parsed.invocation,
           source: SOURCE,
-          provider: 'dsh-enhance',
+          provider: PROVIDER,
           rank: BUNDLED_RANK,
           path: skillPath,
           locator: entry.name,

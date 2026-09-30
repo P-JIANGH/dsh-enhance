@@ -9,13 +9,23 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import { PROVIDER as BUNDLED_PROVIDER } from '../features/skills-provider.js'
+
+/** One skill visible to the session, with its registry labels. */
+export interface SkillEntry {
+  name: string
+  /** Registration label (`bundled`, `user-agents`, …) — NOT an owner signal. */
+  source: string
+  /** Provider that owns the body; this is the accurate ownership signal. */
+  provider: string
+}
 
 /** The doctor tool's canonical output value. */
 export interface DoctorReport {
   /** Whether the dsh-enhance plugin row is loaded in this process. */
   pluginLoaded: boolean
   /** Skills the registry currently supplies, with their source label. */
-  skills: { name: string; source: string }[]
+  skills: SkillEntry[]
   /** The work-rules section name this bundle contributes. */
   workRulesSection: string
   /** The active plugin configuration. */
@@ -47,8 +57,17 @@ export function renderReport(report: DoctorReport, advisorEnabled: boolean): str
   if (report.skills.length === 0) {
     lines.push('技能：无（检查插件装配是否完整）')
   } else {
-    lines.push('技能：')
-    for (const skill of report.skills) lines.push(`- ${skill.name}（来源：${skill.source}）`)
+    // Separate "what this bundle contributes" from "what else is visible": a
+    // profile can expose several unrelated providers, and reporting them all as
+    // this plugin's skills is exactly the misattribution users notice.
+    const ours = report.skills.filter(s => s.provider === BUNDLED_PROVIDER)
+    const others = report.skills.filter(s => s.provider !== BUNDLED_PROVIDER)
+    lines.push(ours.length > 0
+      ? `本插件打包技能（${ours.length}）：${ours.map(s => s.name).join('、')}`
+      : '本插件打包技能：无（检查插件装配是否完整）')
+    if (others.length > 0) {
+      lines.push(`会话内其它来源技能：${others.length} 个（非本插件提供，如需详情见 skill 工具）`)
+    }
   }
   const next = suggestNext(report.config, advisorEnabled)
   if (next.length > 0) {
@@ -106,8 +125,9 @@ export function registerDoctorTool(
               properties: {
                 name: { type: 'string' },
                 source: { type: 'string' },
+                provider: { type: 'string' },
               },
-              required: ['name', 'source'],
+              required: ['name', 'source', 'provider'],
               additionalProperties: false,
             },
           },
@@ -133,9 +153,13 @@ export function registerDoctorTool(
       presentationMeta: (_args, value) => value,
     },
     async execute() {
-      let skills: { name: string; source: string }[] = []
+      let skills: SkillEntry[] = []
       try {
-        skills = (await ctx.skills.list({})).map(summary => ({ name: summary.name, source: summary.source }))
+        skills = (await ctx.skills.list({})).map(summary => ({
+          name: summary.name,
+          source: summary.source,
+          provider: summary.provider,
+        }))
       } catch {
         // A failed discovery is itself a diagnosis: report the empty list rather
         // than failing the whole call, so the model sees a degraded registry.

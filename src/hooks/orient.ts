@@ -10,7 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { SOURCE as BUNDLED_SOURCE } from '../features/skills-provider.js'
+import { PROVIDER as BUNDLED_PROVIDER } from '../features/skills-provider.js'
 
 /** Orientation-hook configuration. */
 export interface OrientationOptions {
@@ -37,11 +37,13 @@ export function registerSessionStartHook(ctx: Context, options: OrientationOptio
 async function orientAgent(ctx: Context, agent: Agent, extra?: string): Promise<void> {
   let skills: string[] = []
   try {
-    // `ctx.skills.list({})` returns every provider's skills (user roots included), so
-    // filter to this bundle's own source before calling them "打包技能" — claiming
-    // someone else's skills as ours overstates what this plugin contributes.
+    // `ctx.skills.list({})` returns every provider's skills. Filter by *provider*,
+    // not by `source`: `source: 'bundled'` only means "came from a bundled root"
+    // and several unrelated providers use it (the desktop profile ships its own
+    // `bundled` office-* skills), so filtering on it still overstates what this
+    // plugin contributes.
     skills = (await ctx.skills.list({}))
-      .filter(summary => summary.source === BUNDLED_SOURCE)
+      .filter(summary => summary.provider === BUNDLED_PROVIDER)
       .map(summary => summary.name)
   } catch {
     // A failed discovery must not block orientation; the message is still useful

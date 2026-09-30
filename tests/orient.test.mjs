@@ -44,21 +44,22 @@ async function orientText (skills) {
   return agent.injected.map(textOf).join('\n')
 }
 
-test('[orient] 只点名 bundled 技能，不含用户池技能', async () => {
+test('[orient] 只点名本插件提供的技能，不含其它 provider', async () => {
   const text = await orientText([
-    { name: 'code-review', source: 'bundled' },
-    { name: 'git-workflow', source: 'bundled' },
-    { name: 'tdd', source: 'bundled' },
-    { name: 'dingtalk-robot', source: 'user-agents' },
-    { name: 'wecomcli-send', source: 'user-agents' },
+    { name: 'code-review', source: 'bundled', provider: 'dsh-enhance' },
+    { name: 'git-workflow', source: 'bundled', provider: 'dsh-enhance' },
+    { name: 'tdd', source: 'bundled', provider: 'dsh-enhance' },
+    // 关键回归：其它 provider 的 source 同样是 bundled —— 按 source 过滤会误收。
+    { name: 'office-docx', source: 'bundled', provider: 'desktop-office' },
+    { name: 'dingtalk-robot', source: 'user-agents', provider: 'user-agents' },
   ])
   assert.match(text, /打包技能：code-review、git-workflow、tdd/)
+  assert.doesNotMatch(text, /office-docx/)
   assert.doesNotMatch(text, /dingtalk-robot/)
-  assert.doesNotMatch(text, /wecomcli-send/)
 })
 
-test('[orient] 没有任何 bundled 技能时不出现"打包技能"列举行', async () => {
-  const text = await orientText([{ name: 'dingtalk-robot', source: 'user-agents' }])
+test('[orient] 没有任何本插件技能时不出现"打包技能"列举行', async () => {
+  const text = await orientText([{ name: 'office-docx', source: 'bundled', provider: 'desktop-office' }])
   assert.doesNotMatch(text, /本会话可用的打包技能/)
   // 仍然要有开场信息与可执行起点
   assert.match(text, /dsh-enhance 已在本会话生效/)
