@@ -32,7 +32,7 @@ dsh plugin --profile dsh-enhance add dsh-enhance
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 
 # 或从 git（包通过 `prepare` 自构建）
-dsh plugin --profile dsh-enhance add git@.../dsh-enhance.git
+dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 
 # 或作为实时调试链接（指向本 checkout；改 src/ 后执行 `pnpm build`）
 dsh plugin --profile dsh-enhance add link:F:/dsh-enhance

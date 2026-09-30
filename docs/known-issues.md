@@ -10,7 +10,7 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **139/139** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **141/141** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 
 ---
@@ -60,6 +60,11 @@
 ---
 
 ## P1 — 文档与契约不一致 —— 全部已修复
+
+### ✅ P1-9 patch 行用了裸包名 → 按文档装完加载器直接失败（"用不起来"的根因）
+- 证据：真实实驱报 `Cannot find package 'dsh-enhance' imported from …` / `ERR_MODULE_NOT_FOUND`。上游惯例（`dsh-base` / `dsh-web-app` 的 patch）一律写完整包名（`'@deepseek-ai/dsh-*'`），而本仓库的 `cordis.patch.yml` 与预设生成器都写裸名 `dsh-enhance`——Cordis loader 把 `name` 当模块说明符从 profile 目录解析，因此 `dsh plugin add` 装完仍然解析不到，除非 profile 额外挂一个同名别名依赖。
+- 修复：`cordis.patch.yml` 与两个预设生成器改用 `'@dsh-enhance/dsh-enhance'`（`id` 保持短名，因为 id 是给用户 patch 定位用的，name 才是 loader 导入的）；预设已重新生成。
+- 复验：把隔离 profile 里的裸名别名依赖与 junction 都删掉、只留 scoped 名，`worktracking-drive` 与 `delivery-gate-drive` 实驱仍全 PASS。
 
 ### ✅ P1-8 orient 把会话里全部技能都称作"打包技能"
 - 证据（实驱，由主模型自己指出）：启动钩子把 31 个技能（含 `user-agents` 用户池）全部列成"打包技能"，而 doctor 只认 3 个 `bundled`——把别人的技能算作本插件的贡献。

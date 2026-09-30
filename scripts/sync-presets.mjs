@@ -223,7 +223,7 @@ export async function render({ presetsRoot: outRoot = presetsRoot } = {}) {
       header,
       headerNote,
       '- id: dsh-enhance',
-      '  name: dsh-enhance',
+      "  name: '@dsh-enhance/dsh-enhance'",
       '  config:',
       '    orientOnSessionStart: true',
       '    doctorTool: true',

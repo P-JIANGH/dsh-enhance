@@ -9,6 +9,13 @@
 # already provide the @deepseek-ai/dsh-agent-presets service — mounting it
 # again would double-register the `agentPresets` service and crash the loader
 # ("service agentPresets has been registered").
+#
+# `name` MUST be the full package name, matching the upstream convention
+# (base/web-app patches reference '@deepseek-ai/dsh-*'). The Cordis loader
+# resolves this as a module specifier from the profile directory, so a bare
+# `dsh-enhance` would fail with ERR_MODULE_NOT_FOUND unless the profile also
+# carried an extra alias dependency. The row `id` stays short — ids are what
+# user patches target, names are what the loader imports.
 - insert:
     - id: dsh-enhance
-      name: dsh-enhance
+      name: '@dsh-enhance/dsh-enhance'

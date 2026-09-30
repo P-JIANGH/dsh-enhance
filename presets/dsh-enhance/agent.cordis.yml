@@ -6,7 +6,7 @@
 # pointing at unknown global tools, which rejects every delegation.
 
 - id: dsh-enhance
-  name: dsh-enhance
+  name: '@dsh-enhance/dsh-enhance'
   config:
     orientOnSessionStart: true
     doctorTool: true

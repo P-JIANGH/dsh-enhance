@@ -4,7 +4,7 @@
 # fs/shell/todo/web itself (the Web surface disables every tool-* row in the host composition).
 
 - id: dsh-enhance
-  name: dsh-enhance
+  name: '@dsh-enhance/dsh-enhance'
   config:
     orientOnSessionStart: true
     doctorTool: true

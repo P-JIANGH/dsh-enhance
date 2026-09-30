@@ -122,6 +122,23 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   /** Message-count cursor per main agent for incremental transcript extraction. */
   const cursors = new Map<string, number>()
 
+  /**
+   * Agents the harness has already disposed. `agent.status` is only
+   * `idle | running` (disposal removes the agent from its registry rather than
+   * becoming a third status), and reading a disposed agent's transcript throws
+   * `cannot get required service "agents" in inactive context` — which real
+   * sessions hit on the turn boundary that races shutdown. Bounded so a
+   * long-lived host does not accumulate one entry per session forever; the
+   * guarded extraction below is the backstop when this set is not populated.
+   */
+  const gone = new Set<string>()
+  const GONE_CAP = 256
+
+  /** True when this agent should no longer be reviewed. */
+  function isGone(id: string): boolean {
+    return disposed || gone.has(id)
+  }
+
   /** Incremental transcript for one main agent since the last review. */
   function extractIncrement(main: Agent): string {
     const msgs = main.session.deriveMessages()
@@ -175,13 +192,23 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   // Cursors are per-agent; drop them when the agent goes away so a long-lived
   // host does not accumulate one entry per session forever.
   const offDisposed = ctx.on('agent/disposed', ({ agent }: { agent: Agent }) => {
-    if (typeof agent?.id === 'string') cursors.delete(agent.id)
+    if (typeof agent?.id !== 'string') return
+    cursors.delete(agent.id)
+    if (gone.size >= GONE_CAP) gone.clear()
+    gone.add(agent.id)
   })
 
   async function kickReview(main: Agent): Promise<void> {
-    if (disposed) return
+    if (isGone(main.id)) return
     try {
-      const increment = extractIncrement(main)
+      // Reading a disposed agent's transcript throws; that is a skip, not a failure.
+      let increment: string
+      try {
+        increment = extractIncrement(main)
+      } catch (err) {
+        trace('skip: transcript unavailable for', main.id, String((err as Error)?.message ?? err))
+        return
+      }
       if (!increment) { trace('skip: empty increment for', main.id); return }
       const { provider, model } = routeFor(main)
       const start = Date.now()
@@ -195,7 +222,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
         system: prompt,
       }
       const raw = await runReviewCall(llm, request)
-      if (disposed) return
+      if (isGone(main.id)) return
       trace('review for', main.id, 'route=', provider, model, 'incrementChars=', increment.length,
         'tookMs=', Date.now() - start, 'answerLen=', raw?.length ?? 0, 'raw=', JSON.stringify(raw))
       if (raw === null) return
@@ -214,6 +241,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
     offMain?.()
     offDisposed?.()
     cursors.clear()
+    gone.clear()
   }
 }
 

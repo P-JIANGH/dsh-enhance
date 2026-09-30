@@ -53,6 +53,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dsh-enhance/dsh-enhance"
+    "url": "git+ssh://git@gitcode.com/jiangh_hnr/dsh-enhance.git"
   }
 }

@@ -185,3 +185,29 @@ test('[advisor-run] enabled:false 不注册任何监听器', () => {
   assert.equal(ctx.handlers.size, 0)
   assert.equal(typeof dispose, 'function')
 })
+
+test('[advisor-run] agent 已销毁后不再发起审查', async () => {
+  const counter = { calls: 0 }
+  const ctx = fakeCtx(concernLlm(counter))
+  registerAdvisorRuntime(ctx, { enabled: true })
+  const agent = fakeAgent('main-gone')
+
+  ctx.handlers.get('agent/disposed')({ agent })
+  ctx.handlers.get('agent/turn-stopping')({ agent })
+  await new Promise(r => setTimeout(r, 50))
+
+  assert.equal(counter.calls, 0, 'agent/disposed 之后的 turn 边界不得再调模型')
+})
+
+test('[advisor-run] transcript 不可读时为 skip，不是 FAILED 噪声', async () => {
+  const counter = { calls: 0 }
+  const ctx = fakeCtx(concernLlm(counter))
+  registerAdvisorRuntime(ctx, { enabled: true })
+  const agent = fakeAgent('main-throws')
+  // 真实会话在关机竞争里会这样抛：读已销毁 agent 的 transcript。
+  agent.session.deriveMessages = () => { throw new Error('cannot get required service "agents" in inactive context') }
+
+  ctx.handlers.get('agent/turn-stopping')({ agent })
+  await new Promise(r => setTimeout(r, 50))
+  assert.equal(counter.calls, 0, '读不到 transcript 应跳过审查')
+})
