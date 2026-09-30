@@ -13,7 +13,7 @@
 | **orient 开场钩子** | 每次会话开始注入一条中文消息：点名当前激活的插件包与其技能，并附 1–2 条可执行起点（`dsh_enhance_doctor` / `ulw`） | `orientOnSessionStart: false` |
 | **doctor 工具** | `dsh_enhance_doctor` 报告实时装配状态（已加载插件、已注册技能、生效配置），并给出可执行的下一步建议 | `doctorTool: false` |
 | **人类指令**（`/doctor`、`/boulder`） | UI `/` 菜单里属于本包的入口：`/doctor` 复用同一份装配诊断，`/boulder` 显示工作追踪状态（令牌持有者、进行中的工作、工作项）。结果只在 UI 渲染——**不进模型历史、不消耗 token** | `commands: false` |
-| **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器、完成声明 delivery-gate | `guards: false` |
+| **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器（只读 `.dsh-enhance/rules/`）、完成声明 delivery-gate：绑定 `verify` + **受保护文件 manifest（sha256 快照，改动即 `tampered`）**，原生 goal 未完成时判为进展汇报 | `guards: false` |
 | **工作追踪** | boulder（CAS）+ 写令牌 + start-work / delivery-gate 钩子。**目标（goal）归原生**：`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`（目标未完成自动续轮） | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
 | **`ulw` / ultrawork 模式** | 输入提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`） | — |

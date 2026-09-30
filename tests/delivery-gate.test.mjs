@@ -92,6 +92,38 @@ test('[delivery-gate] buildReport 用状态标记 unmeasured/tampered/passed', (
   assert.equal(failed.state, 'failed')
 })
 
+test('[delivery-gate] tampered 优先于 unmeasured：没有 verify 也要报篡改', () => {
+  // §5.2.2-2：受保护文件被改是观察到的事实，不该被"未测量"盖过去。
+  assert.equal(buildReport({ text: 'done' }, undefined, ['tests/a.test.mjs']).state, 'tampered')
+})
+
+test('[delivery-gate] hashFiles 快照可复现，读不到的文件不进入快照', async () => {
+  const { writeFileSync } = await import('node:fs')
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const { tmpdir } = await import('node:os')
+  const { hashFile, hashFiles } = await import('../lib/features/delivery-gate/index.js')
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-enhance-hash-'))
+  try {
+    writeFileSync(join(dir, 'a.txt'), 'alpha')
+    const first = await hashFiles(['a.txt', 'missing.txt'], dir)
+    assert.deepEqual(Object.keys(first), ['a.txt'], '读不到的文件不进入快照')
+    assert.deepEqual(await hashFiles(['a.txt'], dir), first, '同一内容哈希稳定')
+    writeFileSync(join(dir, 'a.txt'), 'beta')
+    assert.notEqual(await hashFile(join(dir, 'a.txt')), first['a.txt'], '内容变化 → 哈希变化')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[delivery-gate] 受保护文件被改或消失 → findTampered 指认', () => {
+  const expected = { 'tests/a.test.mjs': 'h1', 'tests/b.test.mjs': 'h2' }
+  assert.deepEqual(findTampered(expected, { 'tests/a.test.mjs': 'h1', 'tests/b.test.mjs': 'h2' }), [])
+  assert.deepEqual(
+    findTampered(expected, { 'tests/a.test.mjs': 'hX', 'tests/b.test.mjs': 'h2' }),
+    ['tests/a.test.mjs'],
+  )
+  assert.deepEqual(findTampered(expected, { 'tests/a.test.mjs': 'h1' }), ['tests/b.test.mjs'], '消失也算改动')
+})
+
 test('[delivery-gate] runVerify 通过 exit 0 判 ok、非 0 判 fail', async () => {
   const { writeFileSync, chmodSync, mkdtempSync } = await import('node:fs')
   const { join } = await import('node:path')

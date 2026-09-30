@@ -10,11 +10,15 @@
  * 2. advances a per-session gate phase (`deliveryGateStep`) so the gate is a real
  *    state machine rather than a one-shot check;
  * 3. when a claim lands and no native goal is still open, runs the work's bound
- *    `verify` script if any (`runVerify`) and builds a structured report
- *    (`buildReport`) — **no verify bound means `unmeasured`, never a claimed pass**;
+ *    `verify` script if any (`runVerify`) and compares the protected-file manifest
+ *    against the hashes snapshotted at mount (`hashFiles` / `findTampered`), then
+ *    builds a structured report (`buildReport`) — **no verify bound means
+ *    `unmeasured`, never a claimed pass**, and a changed protected file means
+ *    `tampered`;
  * 4. on a passing/unmeasured delivery records the report, marks the work completed
- *    and releases the session's write token; on a *failed* verify it records the
- *    failure and steers one regression reminder (rate-limited) instead.
+ *    and releases the session's write token; on a *failed* verify or *tampered*
+ *    manifest it records the outcome and steers one regression reminder
+ *    (rate-limited) instead.
  *
  * An open goal stays with upstream: `dsh-goal-round-driver` turns an active goal
  * into further rounds (its prompt demands evidence before completion), so the gate
@@ -35,6 +39,8 @@ import {
   buildReport,
   detectCompletionClaim,
   deliveryGateStep,
+  findTampered,
+  hashFiles,
   runVerify,
   type CompletionSignals,
   type GatePhase,
@@ -153,13 +159,18 @@ async function reviewAndRecord(
     const result = await runVerify(work.verify, cwd)
     verified = result.ok
   }
-  // Protected-file manifests are not bound yet (roadmap): nothing to compare.
-  const tampered: string[] = []
+  // §5.2.2-2: compare the protected manifest against the hashes snapshotted when
+  // the work started. A file that changed or disappeared counts as tampered.
+  let tampered: string[] = []
+  if (work.protected_files && work.protected_files.length > 0) {
+    const observed = await hashFiles(work.protected_files, cwd)
+    tampered = findTampered(work.protected_hashes ?? {}, observed)
+  }
   const report = buildReport(signals, verified, tampered)
   const state = String(report.state)
 
-  if (state === 'failed') {
-    // Do not complete, do not release: record the failure and ask for a fix once.
+  if (state === 'failed' || state === 'tampered') {
+    // Do not complete, do not release: record the outcome and ask for a fix once.
     mutateBoulderState(cwd, (s) => {
       s.completion_log = [...(s.completion_log ?? []), {
         work_id: work.id,
@@ -169,7 +180,7 @@ async function reviewAndRecord(
         claim: signals.text ?? '',
       }]
     })
-    steerRegression(agent, session, work)
+    steerRegression(agent, session, work, state, tampered)
     return
   }
 
@@ -194,19 +205,25 @@ async function reviewAndRecord(
 
 /**
  * Steer one regression reminder, rate-limited per session so a repeatedly failing
- * verify cannot spin the loop.
+ * verify cannot spin the loop. The message names the actual reason: a failed
+ * verify, or protected files that changed after the manifest was mounted.
  */
-function steerRegression(agent: Agent, session: string, work: BoulderWork): void {
+function steerRegression(
+  agent: Agent,
+  session: string,
+  work: BoulderWork,
+  state = 'failed',
+  tampered: string[] = [],
+): void {
   const now = Date.now()
   const last = regressedAt.get(session) ?? 0
   if (now - last < REGRESSION_COOLDOWN_MS) return
   regressedAt.set(session, now)
+  const reason = state === 'tampered'
+    ? `受保护文件在交付前被改动或消失：${tampered.join('、')}。请还原这些文件（它们正是你声明的证据面），再重跑 verify。`
+    : `work「${work.id}」声明的完成未通过绑定的 verify（${work.verify}）。请修正后重跑 verify；未通过前不要宣称交付完成。`
   agent.steer(createUserMessage({
-    content: [{
-      type: 'text',
-      text: `交付门卫未放行：work「${work.id}」声明的完成未通过绑定的 verify（${work.verify}）。`
-        + '请修正后重跑 verify；未通过前不要宣称交付完成。',
-    }],
+    content: [{ type: 'text', text: `交付门卫未放行：${reason}` }],
     source: { kind: 'user' },
   }))
 }

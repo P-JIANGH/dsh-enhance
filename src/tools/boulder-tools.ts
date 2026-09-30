@@ -22,6 +22,7 @@ import { type JsonValue } from '@deepseek-ai/dsh-util-values'
 import type { JsonSchemaNode, ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
 import { readBoulder, mutateBoulderState, upsertWork, type BoulderState } from '../features/boulder/store.js'
 import { releaseWriteToken, readWriteToken } from '../features/boulder/write-token.js'
+import { hashFiles } from '../features/delivery-gate/index.js'
 
 /** Output schema for one boulder work record (mirrors {@link BoulderWork}). */
 const WORK_SCHEMA: JsonSchemaNode = {
@@ -33,6 +34,8 @@ const WORK_SCHEMA: JsonSchemaNode = {
     worktree_path: { oneOf: [{ type: 'string' }, { type: 'null' }] },
     goal_id: { type: 'string' },
     verify: { type: 'string' },
+    protected_files: { type: 'array', items: { type: 'string' } },
+    protected_hashes: { type: 'object' },
     updated_at: { type: 'integer' },
     session_ids: { type: 'array', items: { type: 'string' } },
     task_sessions: { type: 'array', items: { type: 'string' } },
@@ -87,7 +90,7 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
 
   const start: ToolDefinition = {
     name: 'boulder_start',
-    description: '开始或更新一项受追踪的工作（boulder）。记录计划名、状态、一个新会话或已有会话、可选的 goal id，以及可执行 verify 脚本（交付门卫用它判定是否达标）。',
+    description: '开始或更新一项受追踪的工作（boulder）。记录计划名、状态、一个新会话或已有会话、可选的 goal id、可执行 verify 脚本（交付门卫用它判定是否达标），以及受保护文件清单（交付门卫在交付时比对其 sha256，防止改动证据文件）。',
     parameters: {
       type: 'object',
       properties: {
@@ -95,15 +98,28 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
         plan_name: { type: 'string' },
         goal_id: { type: 'string' },
         verify: { type: 'string' },
+        protected_files: { type: 'array', items: { type: 'string' } },
       },
       required: ['work_id'],
       additionalProperties: false,
     },
     output: objectOutput({ ok: { type: 'boolean' }, active_work: WORK_SCHEMA }, ['ok', 'active_work']),
     async execute(args, exec) {
-      const a = args as { work_id: string; plan_name?: string; goal_id?: string; verify?: string }
+      const a = args as {
+        work_id: string
+        plan_name?: string
+        goal_id?: string
+        verify?: string
+        protected_files?: string[]
+      }
       const base = repoBaseOf(exec)
       const session = sessionKey(exec)
+      // §5.2.2-2: the manifest is mounted here — snapshot its hashes now, so the
+      // gate compares against the state the work started from, not against itself.
+      const protectedFiles = Array.isArray(a.protected_files) ? a.protected_files.map(String) : undefined
+      const protectedHashes = protectedFiles && protectedFiles.length > 0
+        ? await hashFiles(protectedFiles, base)
+        : undefined
       mutateBoulderState(base, (s: BoulderState) => {
         upsertWork(s, {
           id: String(a.work_id),
@@ -111,6 +127,8 @@ export function registerBoulderTools(ctx: Context, enabled: boolean): () => void
           status: 'active',
           goal_id: a.goal_id,
           verify: a.verify,
+          protected_files: protectedFiles,
+          protected_hashes: protectedHashes,
           updated_at: Date.now(),
           session_ids: [session],
         })

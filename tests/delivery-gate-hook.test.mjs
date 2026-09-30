@@ -264,3 +264,72 @@ test('[gate-hook] 目录里没有 boulder.json 时静默不抛', async () => {
     assert.equal(existsSync(boulderFileFor(dir)), false, '无 work 不应凭空建 boulder.json')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
+
+// ---- §5.2.2-2 受保护文件 manifest（反篡改支柱接线） ----
+
+/** 给沙箱里的 work 挂一份受保护文件清单，并快照当前哈希（= 工具侧 mount 时刻）。 */
+async function mountProtected (dir, files) {
+  const { hashFiles } = await import('../lib/features/delivery-gate/index.js')
+  const b0 = readBoulder(dir)
+  b0.works.w1.protected_files = files
+  b0.works.w1.protected_hashes = await hashFiles(files, dir)
+  writeFileSync(boulderFileFor(dir), JSON.stringify(b0, null, 2))
+  return b0.works.w1.protected_hashes
+}
+
+test('[gate-hook] 受保护文件被改动 → 记 tampered、不放行、只 steer 一次', async () => {
+  resetDeliveryGateState()
+  const dir = sandbox()
+  try {
+    writeFileSync(join(dir, 'protected.txt'), 'original evidence')
+    await mountProtected(dir, ['protected.txt'])
+    // 篡改"证据面"（例如为了让测试通过而改测试文件）。
+    writeFileSync(join(dir, 'protected.txt'), 'tampered evidence')
+
+    const handler = hookFor()
+    const agent = fakeAgent(dir, CLAIM)
+    await handler({ agent, turn: 1 })
+
+    const b = readBoulder(dir)
+    assert.equal(b.completion_log[0].state, 'tampered')
+    assert.equal(b.works.w1.status, 'active', '篡改不得结算 work')
+    assert.equal(b.active_work_id, 'w1', '篡改不得清 active_work')
+    assert.equal(b.exec_holder, SESSION, '篡改不得释放写令牌')
+    assert.equal(agent.steered.length, 1, '应回注一次回归提醒')
+    assert.match(JSON.stringify(agent.steered), /受保护文件/)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[gate-hook] 受保护文件未改动（且无 verify）→ unmeasured 照常放行', async () => {
+  resetDeliveryGateState()
+  const dir = sandbox()
+  try {
+    writeFileSync(join(dir, 'protected.txt'), 'untouched')
+    await mountProtected(dir, ['protected.txt'])
+
+    const handler = hookFor()
+    await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
+
+    const b = readBoulder(dir)
+    assert.equal(b.completion_log[0].state, 'unmeasured')
+    assert.equal(b.works.w1.status, 'completed')
+    assert.equal(b.active_work_id, undefined)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[gate-hook] 受保护文件在交付前消失 → 也算篡改，不放行', async () => {
+  resetDeliveryGateState()
+  const dir = sandbox()
+  try {
+    writeFileSync(join(dir, 'protected.txt'), 'here')
+    await mountProtected(dir, ['protected.txt'])
+    rmSync(join(dir, 'protected.txt'))
+
+    const handler = hookFor()
+    await handler({ agent: fakeAgent(dir, CLAIM), turn: 1 })
+
+    const b = readBoulder(dir)
+    assert.equal(b.completion_log[0].state, 'tampered')
+    assert.equal(b.works.w1.status, 'active')
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})

@@ -34,6 +34,14 @@ export interface BoulderWork {
    * criteria. Absent ⇒ the gate records `unmeasured` instead of claiming a pass.
    */
   verify?: string
+  /**
+   * Protected-file manifest (architecture §5.2.2-2): repo-relative paths whose
+   * integrity the delivery gate checks at delivery. `protected_hashes` snapshots
+   * their sha256 when the work started (the manifest's mount); a file that is
+   * changed or gone at delivery reads as `tampered`.
+   */
+  protected_files?: string[]
+  protected_hashes?: Record<string, string>
   updated_at: number
   session_ids: string[]
   task_sessions?: string[]
@@ -102,6 +110,15 @@ export function validateWork(w: unknown): string | undefined {
   if (w.worktree_path !== undefined && w.worktree_path !== null && !isNonEmptyString(w.worktree_path)) return 'work.worktree_path must be a string or null'
   if (w.goal_id !== undefined && !isNonEmptyString(w.goal_id)) return 'work.goal_id must be a non-empty string'
   if (w.verify !== undefined && !isNonEmptyString(w.verify)) return 'work.verify must be a non-empty string'
+  if (w.protected_files !== undefined
+    && (!Array.isArray(w.protected_files) || w.protected_files.some(p => !isNonEmptyString(p)))) {
+    return 'work.protected_files must be an array of non-empty strings'
+  }
+  if (w.protected_hashes !== undefined
+    && (!isPlainObject(w.protected_hashes)
+      || Object.values(w.protected_hashes as Record<string, unknown>).some(v => !isNonEmptyString(v)))) {
+    return 'work.protected_hashes must be an object of non-empty strings'
+  }
   return undefined
 }
 

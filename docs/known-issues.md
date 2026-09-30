@@ -113,6 +113,12 @@
 - 同步：README/architecture（§3 树、§5.2 机制表、工具表、§5.5 goal 存储、M4 里程碑）/modes/testing-plan/两个实驱（改用原生 `create_goal`/`get_goal`/`update_goal`）；`value-assessment.md` §3 的三行重复面标记为已处置。
 - 复验：`pnpm build` 0 · `pnpm test` **166/166**（删 7 例随实现退役的测试、新增 5 例：原生 goal 相位消歧、目标 open/缺失/读不到 agent、AGENTS.md 负向钉）。
 
+### ✅ P2-9 delivery-gate 的受保护文件 manifest 只是占位（纯函数已测却从未接线）
+- 证据：`src/hooks/delivery-gate.ts` 里写着 `Protected-file manifests are not bound yet (roadmap): nothing to compare.`，而 `findTampered` 早已实现并有单测；`BoulderWork` 也没有承载清单的字段——"反篡改"（§5.2.2-2）在运行时不成立，与 P0-6/P0-7 同类：文档承诺 vs 运行时。
+- 修复：`BoulderWork` 新增 `protected_files` / `protected_hashes`（含校验）；`boulder_start` 接受 `protected_files` 并在**挂载时**快照 sha256（`hashFiles`）；交付门卫在结算前用 `findTampered` 比对，`buildReport` 让 `tampered` **优先于 `unmeasured`**；命中即不结算、不清 `active_work`、不释放写令牌，并回注一次"还原这些文件"的提醒（文案区别于 verify 失败）。
+- 已知限制：清单由 work 自己声明，尚未达到架构 §5.2.2 的"最小可知性"（策略侧提供清单、交付时才挂载）——已写进 architecture §5.2.2 与 value-assessment §5 的待办。
+- 测试：`tests/delivery-gate.test.mjs` +3（哈希快照 / 消失也算改动 / `tampered` 优先级）、`tests/delivery-gate-hook.test.mjs` +3（被改、消失、未改照常放行）、`tests/tool-output-schema.test.mjs` 覆盖新字段的实时快照。
+
 ### ✅ P1-1 README 自相矛盾 + 幽灵 `presets/advisor`
 移除 `cp -r presets/advisor` 指引并标注模式 C 未实现；修正"三模式共享同一子代理池"（实际只有主预设挂 4 条作用域子代理行）；明确 advisor 是伴随机制而非可选人设预设。
 
@@ -164,7 +170,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 |---|---|
 | 模式 B（Planner S1–S7 骨架 persona + `presets/planner/` 增强） | [docs/modes.md](../modes.md) §7 |
 | 模式 C（`prompts/agents/advisor.persona.md` + `presets/advisor/`） | [docs/modes.md](../modes.md) §5 |
-| delivery-gate 三支柱的剩余部分（verify **模板库**、受保护文件 manifest、报告落盘） | [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
+| delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
 | Web 设置卡片 + `scripts/install.mjs`（预设装机那一半已由 `scripts/install-presets.mjs` 落地） | [docs/design-web-settings-card.md](../design-web-settings-card.md) §6 |
 | UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
 | `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](../design-onboarding.md) §7 |
@@ -196,3 +202,4 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-09-30 | P2-8 QA 实驱目标隔离优先 + 缺层报错可执行化 | `3793771` | `tests/qa-launch.test.mjs` 15 例（+4）；默认目标 = 隔离 home 实驱 PASS |
 | 2026-09-30 | P1-12 旧包名清零（profile 迁移 / `omd` 删除 / 安装文档校正） | 见下一次提交 | 两 profile `--dump-config` 命中 `# == @dsh-enhance/dsh-enhance`；真实 home 实驱 PASS |
 | 2026-09-30 | P1-13 按评估做减法（goal API / AGENTS.md 注入 / todo 续作） | 见下一次提交 | `pnpm build` 0 + `pnpm test` 166/166；原生 goal 相位消歧与 AGENTS.md 负向钉 |
+| 2026-09-30 | P2-9 反篡改支柱接线（受保护文件 manifest） | 见下一次提交 | `pnpm test` 172/172；被改/消失 → `tampered` 且不放行 |

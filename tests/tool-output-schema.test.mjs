@@ -10,7 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validateJsonSchemaValue, assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerBoulderTools } from '../lib/tools/boulder-tools.js'
@@ -85,11 +85,21 @@ test('[tool-output-schema] boulder_status output covers a real read shape', asyn
 test('[tool-output-schema] boulder_start output covers a live upsert shape', async () => {
   const cwd = tempCwd()
   try {
+    // A real manifest file so the §5.2.2-2 hash snapshot is non-empty.
+    writeFileSync(join(cwd, 'protected.txt'), 'evidence')
     const { defs } = capture(registerBoulderTools)
     const def = defs.find(d => d.name === 'boulder_start')
-    const value = await def.execute({ work_id: 'wt-schema-check', plan_name: 'x' }, fakeExec(cwd))
+    const value = await def.execute(
+      { work_id: 'wt-schema-check', plan_name: 'x', protected_files: ['protected.txt'] },
+      fakeExec(cwd),
+    )
     const violations = validateJsonSchemaValue(def.output.schema, value)
     assert.deepEqual(violations, [], `boulder_start value validates: ${JSON.stringify(violations)}`)
+    assert.match(
+      String(value.active_work.protected_hashes['protected.txt']),
+      /^[0-9a-f]{64}$/,
+      '挂载时快照受保护文件的 sha256',
+    )
     // The live write lands in the repo's .dsh-enhance/ state dir (architecture §5.5),
     // NOT at the repository root — the root must stay free of untracked store files.
     const boulderFile = boulderFileFor(cwd)

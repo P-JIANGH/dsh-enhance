@@ -159,12 +159,14 @@ dsh-enhance/
 - 场景契约（ultrawork 稿"五、证据"）中每个**可自动化断言**都应落为 verify 脚本的一条断言，而不是只在 review 时口头核对。
 - 交付门卫执行顺序：**先跑 verify.sh**（可观测事实，agent 无法假装），**再核对 `ultrawork-review.md` 中不可自动化的纪律项**（需求范围、禁止性声明、清理、提交完整性）。
 - 参考契约纪律：verify 脚本对 pristine 状态应为红（未做时失败）、对参考解应为绿（达标时通过）——保证它确实断言"交付达标"而非恒真。
+- **落地状态**：`BoulderWork.verify` + `boulder_start(verify=…)` + `runVerify` 已实现；无绑定记 `unmeasured`（绝不假装通过），失败记 `failed` 且不结算、不释放令牌。
 
 **（2）inverse contract / 反攻击**
 
 防止 agent 通过**改受保护测试、植入缺失依赖、特判断言**来"制造通过"：
 
-- verify 脚本可内嵌 **protected-file manifest**（受保护路径 + 期望哈希）。审查时先校验这些文件未被改/删，再 `verify.sh` 判定。
+- ~~verify 脚本可内嵌 **protected-file manifest**（受保护路径 + 期望哈希）~~ → **已接线（v1 形态）**：`boulder_start(protected_files=[…])` 在挂载时把 sha256 快照进 `protected_hashes`，交付时用 `findTampered` 比对；改动或消失 → 报告 `tampered`（**优先于 `unmeasured`**），且不放行、不清 `active_work`、不释放写令牌，只回注一次"还原这些文件"的提醒。
+- **已知限制（下一步）**：清单目前由 work 自行声明（`boulder_start` 参数），覆盖"别改自己的测试/证据文件"这一常见场景，但**不是**下面"最小可知性"的理想形态——agent 可以只声明一个宽松清单。理想形态是清单来自策略侧（仓库内 `.dsh-enhance/protected.json`，或直接内嵌在 verify 脚本里），且只在交付门卫执行时挂载。
 - **最小可知性**：verify 脚本与 manifest **运行后才挂载到工作区**，agent 在执行中看不到被监控的文件清单与哈希——它无法针对监控项绕过。
 - 只读审查角色（reviewer）与写角色（task）分离：受保护文件的校验由门卫/审查方执行，不由被审查任务的写 agent 自己跑。
 - 落地警示：verify 脚本必须在「交付门卫执行」时注入，而非随 work 初始 seed 进入——避免 agent 工作前就获知断言细节。
@@ -182,6 +184,7 @@ dsh-enhance/
 - 完成声明与回归结果记入**结构化完成报告**（计划/场景契约/verify 结果/未过项/最终通过项），随会话轨迹持久化，而非只口头宣称。
 - 无 verify 证据的完成声明记 `unmeasured`（未测量）而非"通过"；诚实未完成 / 明确报告缺失项也是合法出口（对应场景无解、受保护时）。
 - 目的是让"交付质量"可回看、可审计：谁能查"这个 work 是怎么宣称并证明完成的"。
+- **落地状态**：`completion_log` 已持久化结构化报告（`work_id` / `at` / `state` / `phase` / `claim`），交付门卫每轮留痕，不通过时同样留痕。
 
 **与 5.2.1 关系**：5.2.1 定状态机（触发→审查→未过回灌），5.2.2 定义"审查到底核对什么、如何防止被游戏"。
 

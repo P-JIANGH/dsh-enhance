@@ -104,6 +104,40 @@ export async function runVerify(verifyScript: string, cwd: string): Promise<{ ok
 }
 
 /**
+ * Hash one file's bytes (sha256 hex). Unreadable files report `undefined`, so a
+ * comparison against the manifest flags them as changed instead of crashing.
+ * @param path - absolute path to the file.
+ * @returns the digest, or `undefined` when the file cannot be read.
+ */
+export async function hashFile(path: string): Promise<string | undefined> {
+  try {
+    const { createHash } = await import('node:crypto')
+    const { readFile } = await import('node:fs/promises')
+    return createHash('sha256').update(await readFile(path)).digest('hex')
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Snapshot hashes for a manifest of repo-relative paths — the gate's mount moment
+ * (§5.2.2-2). Only readable files enter the snapshot: a file that later disappears
+ * then fails the comparison instead of silently leaving the manifest.
+ * @param paths - repo-relative manifest paths.
+ * @param cwd - repository root.
+ * @returns map of manifest path → sha256 (readable entries only).
+ */
+export async function hashFiles(paths: readonly string[], cwd: string): Promise<Record<string, string>> {
+  const { isAbsolute, join } = await import('node:path')
+  const out: Record<string, string> = {}
+  for (const p of paths) {
+    const digest = await hashFile(isAbsolute(p) ? p : join(cwd, p))
+    if (digest !== undefined) out[p] = digest
+  }
+  return out
+}
+
+/**
  * Tamper check: confirm protected files' hashes were not altered after the gate
  * mounted the manifest. Pure decision over precomputed hash vs observed.
  * @param expected - map of path → sha256 expected.
@@ -120,6 +154,9 @@ export function findTampered(expected: Record<string, string>, observed: Record<
 
 /**
  * Build a structured completion report (architecture §5.2.2.4).
+ *
+ * `tampered` outranks every other state: a modified protected file is an observed
+ * fact, so it is reported as `tampered` even when no executable verify is bound.
  * @param claim - the completion signals that were judged.
  * @param verified - whether an executable verify passed (undefined = unmeasured).
  * @param tampered - protected files whose hash changed.
@@ -133,7 +170,7 @@ export function buildReport(
   return {
     claimedAt: Date.now(),
     claimText: claim.text ?? '',
-    state: verified === undefined ? 'unmeasured' : tampered.length > 0 ? 'tampered' : (verified ? 'passed' : 'failed'),
+    state: tampered.length > 0 ? 'tampered' : verified === undefined ? 'unmeasured' : (verified ? 'passed' : 'failed'),
     verify: verified === undefined ? null : verified,
     tampered,
   }
