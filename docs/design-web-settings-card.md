@@ -206,3 +206,43 @@ export function apply(clientCtx: ClientContext): void {
 - **契约测试**：R2 断言清单（每个接触点运行时存在性）。
 - **实驱 QA**：隔离 `$DSH_HOME` 起 dsh web——卡片出现 → 编辑保存 → `settings.yaml` 落盘 → 重启 → `doctor` 报新值生效；模拟 loader 失败断言 host 照常。
 - **脚本**：临时 profile 全流程（link: 安装 → 预设装机 `scripts/install-presets.mjs` → dump-config 验证）。
+
+## 8. 实证修订（2026-10-08）：照 dshmarket 的做法重写本设计
+
+> 依据：`dshmarket@1.66.11`（本机 desktop profile 内）的 `package.json` / `client/client.js` / `lib/settings.js`，加上 live 客户端 Slot 树取证。**§4.2 的 `settingsBridge.register` 方案在当前宿主上不成立**，以下为修订后的方案。
+
+### 8.1 上游约束（三条硬事实）
+
+1. **宿主已不再为插件注册的命名空间提供服务**。dshmarket `lib/settings.js` 原话：dsh 0.1.7（#677）起 `SettingsService` **有 `describe` / `update`，没有 `register`**——"namespaces are derived from a plugin's Config schema instead"。本机桌面版是 `0.2.0-rc.2`，属此列。→ **§4.2 的 `ctx.settings.register(...)` 在目标宿主上不存在**，我们的配置面只能靠**插件自己的 `Config` schema 被宿主派生**（我们的 `Config` 已经是完整 schemastery schema ✓）。
+2. **不能导入被删掉的命名导出**。dsh 0.1.2-alpha.1 删除了 `settingsNamespace` / `installSettingsSection`；dshmarket 记下真实事故：ESM 里缺失的命名导出是 **SyntaxError → 整机 exit 1**（"Installing the market stopped the host from booting at all"）。→ 我们**绝不** import 这两个符号；若某天要兼容旧宿主，调用 `settings.register` 前必须 `typeof service.register === 'function'` 守卫（dshmarket 的 `canRegister()` 就是这么做的）。
+3. **设置页的 tab 是公开 slot，卡片槽不是**。live 客户端 Slot 树（本机 GUI）显示 `settings.plugins.tab` 的 occupants：`all`（order 10，随包）与 **`dsh-market`（id `dsh-market`，order 60，active）**；而 `settings.plugin.item`（内置"插件配置"tab 里的卡片槽）在本部署 `available: false`。→ **主面应是我们自己的 tab**，卡片槽只在被声明时才额外挂。
+
+### 8.2 修订后的接入形态（与 §4.2/§4.3 的差异）
+
+- **Host 半侧**：不再有 `settings-bridge`。① `Config` schema 保持完整（宿主据此派生可编辑面）；② 需要"当前生效值"时读**宿主派生后**的值——实现期先实测 `ctx.settings.describe/update` 的可用形态与命名空间键（预期 = 插件行 `id`，即 `dsh-enhance`，与 dshmarket 用 `dsh-market` 一致）；③ 写路径改成 `update(ns, patch)`（带 `expectedRevision`）。**绝不在 boot 时写盘**。
+- **Client 半侧**（按 dshmarket 的注册形状逐条对照）：
+  ```js
+  ctx.inject(['settingsScope'], (scoped) => {
+    scoped.slots.inject('settings.plugins.tab', () => scoped.slots.register({
+      name: 'settings.plugins.tab',
+      id: 'dsh-enhance',            // 自己的 id：新格子与随包 all 并排
+      order: 60,                    // 升序；dshmarket 用 60
+      label: () => t('nav'),        // thunk：切换语言不需重新注册
+      locale: 'dsh-enhance',
+      inject: () => ({ t }),
+    }, () => react.createElement(SettingsTab, { t })))
+  })
+  ```
+  数据读写走 **`ctx.settingsScope.bind(spec)`**（`@deepseek-ai/dsh-client-ui-settings` 提供的客户端服务）：绑定在**调用者自己的 ctx** 上（disposer 归调用 fiber）；重载由 `settings/document-updated` 与本命名空间事件驱动；**写入携带单字段路径 + 上次读到的 `expectedRevision`**；没有 `decode` 时非对象/校验失败/无法 rehydrate 的 section **什么都不发布**（自绘控件要自己渲染"不可用"态）。注意：settings RPC 仅 loopback 可用，非 loopback 浏览器里绑定恒为 `unavailable`。
+- **控件自绘 + 纯度约束**：上游契约是"带浏览器半侧的插件自己拥有卡片"，`dsh-client-ui-settings-plugins` 只做 flex 布局与派发；**跨插件 value import 会被 client bundle-purity gate 拒绝**，React 从宿主的模块表解析（dshmarket 注释原话）。
+- **构建**：复刻 dshmarket 的链——`tsc -p tsconfig.json && tsdown`（另有 banner 归一化脚本）；`package.json` 需要 `exports["./client"]` + `dsh.client = { inject: [客户端包名…], platform: 'web' }`；devDeps 参考 `@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-settings-plugins`（仅类型）、`tsdown`、react/react-dom 类型。
+- **单一写者纪律（dshmarket 用两次真实 bug 换来的）**：同一字段只能有一个编辑器/写者。它的 `buildEnv` 与"发布通道"都因为"设置层 + 自己的卡片同时写"而互相覆盖（"the exact shape of the channel bug documented below"）。→ 我们的 tab 里出现的字段，就**不要**再让 `/config` 命令或其它面写同一个键。
+
+### 8.3 修订后的实施波次
+
+| 波次 | 内容 | 验证 |
+|---|---|---|
+| A（零前端） | 实测宿主派生命名空间的键与 `describe/update` 形态（`cordis_inspect_query` + 一个临时探针），确认 tab 能绑到 `dsh-enhance` | 探针输出 + 记录进 `docs/upstream-migration.md` |
+| B | client 构建链落地：`tsconfig.client.json` + tsdown + `dsh.client` 声明 + 最小空 tab（只渲染版本/预设状态，不写配置） | `dsh web`/桌面端加载无报错；tab 出现在「设置 → 插件」旁 |
+| C | tab 控件：字段映射纯函数 + 草稿/`expectedRevision` 保存/重置；**受保护字段不走两处写** | 单测（映射 + revision）+ 真机保存 → 重启生效 |
+| D | 契约测试（slot 可注册性、`settingsScope` 形状）+ `docs/upstream-migration.md` | 契约测试通过；台账记录 |
