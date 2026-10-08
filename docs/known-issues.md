@@ -18,6 +18,7 @@
 - **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
 - **预设可感知（2026-10-08）**：主预设对外命名 **「Enhance 模式」**（id 仍是 `dsh-enhance`，保留编排）；新增 `/presets [install [prune] | status]` 人类指令（显式写盘、覆盖前备份）与安装期 `postinstall --if-installed`；装机逻辑抽成单源 `src/features/presets/install.ts`，脚本退化为薄 CLI。
 - **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：8 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
+- **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §10.5。
 
 ---
 
@@ -209,3 +210,4 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-08 | 「Enhance 模式」预设 + `/presets` 指令 + `postinstall` + 装机逻辑单源 | 见下一次提交 | `pnpm test` 176/176；真实家目录装机（先备份）+ `--if-installed` 仓库内静默 |
 | 2026-10-08 | 设置面宿主半侧（`volatile()` + `loader/volatile-update` 重挂） | `c585d68` | 隔离 home 真机探针四条全过（describe/update/user+revision/二次启动/过期 revision 被拒）；`tests/volatile-remount.test.mjs` 4 例 |
 | 2026-10-08 | 设置面浏览器半侧（`client/client.js` → `plugins.row.config`） | 见下一次提交 | `tests/client-contract.test.mjs` 8 例；`npm pack --dry-run` 含 `client/client.js` |
+| 2026-10-08 | 设置面真机验收（桌面端 GUI，set + unset 双向） | 见下一次提交 | 三条独立信号一致：profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来；全程不重启 |

@@ -329,7 +329,26 @@ cordis_inspect_query(platform="client", provider="Slots", method="listSubTree", 
 # 期望 occupants 里出现 key = "@dsh-enhance/dsh-enhance#dsh-enhance"
 ```
 
-### 10.5 未做与取舍
+### 10.5 真机验收记录（2026-10-08，桌面端 GUI，**双向**都跑）
+
+前置：重启桌面端后，客户端 Inspect 已确认 `plugins.row.config` 的唯一 occupant = `key "@dsh-enhance/dsh-enhance#dsh-enhance"`、`active: true`（`plugins.item` 的官方四条未受影响）。
+
+用户在「插件」面板对 **worktree 工具** 做了一次往返，三条互相独立的信号一致：
+
+| 信号 | 独立性 | set（取消勾选→保存） | unset（恢复默认→保存） |
+|---|---|---|---|
+| ① `~/.dsh/profiles/desktop/cordis.patch.yml` | 不依赖任何注册表/会话状态 | 新增整行 `- id: dsh-enhance / name: … / config: { worktree: false }` | **整行被删除**（文件回到 285 行，末行仍是 `agent-default-model`） |
+| ② `dsh_enhance_doctor` 回显的生效配置 | 读的是插件自己 resolve 出来的值 | `worktree=关`，其余全 `开`，`工作准则长度=286 字` | `worktree=开`，其余全 `开`，`工作准则长度=286 字` |
+| ③ `Tool.listTools`（宿主工具注册表） | 反映 volatile 原地提交 + 重挂是否真的跑了 | `worktree_create/list/cleanup` **消失**，`boulder_*`/`dsh_enhance_doctor` 原样 | 三个 `worktree_*` **回来** |
+
+三条合起来证明（**全程不需要重启**）：浏览器表单 → 客户端 `configForms`（带 revision 的 `mutate`）→ 宿主 `SettingsForms` → `configEditor.edit` 写桌面 profile 的补丁 → Loader 原地提交 volatile → 我们那一代接线先卸后挂 → 工具注册表变更。顺带纠正一个自疑：工具表**不是**会话开始时的快照，它在会话中途跟着变。
+
+两个只有真机能暴露的细节，记下来：
+
+- **界面写的是"最小增量"**，不是整份 config：`SettingsForms.write` 先 `strip(raw)` 保留目标行原有的非 volatile 字段，再叠加 volatile 增量，所以补丁里只有一个键。被省略的字段回落到 **schema 默认值**（`workRules` 的 286 字默认值仍在 ⇒ 提示词段没被清掉）。注意：这意味着**手写在 bundle 补丁里的同名值会被界面覆盖成 schema 默认**——所以单一写者纪律不是建议而是必须。
+- **恢复默认会整行删除**：`configEditor.edit` 在 `next` 与继承层深等时先删 `config` 键，若该行只剩 `id`/`name` 就整行删掉；实测正是如此，且删掉的只是**用户补丁里的 id 定向覆盖行**，bundle 自己的 `insert` 行不受影响。
+
+### 10.6 未做与取舍
 
 - **不做**自建设置 tab（`settings.plugins.tab`）：用户选定的席位是官方归属的 `plugins.row.config`；两者可复用同一组件，但目前不需要。
 - **不做**网页端构建链（tsdown/JSX）：见 §8.4。

@@ -182,7 +182,7 @@ dsh --profile dsh-enhance ...
 
 > 完整字段（`guards` / `workTracking` / `worktree` / `advisor` / `advisorModel`）见 README 的配置表。
 
-**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 8 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：用界面改了就别再手工在补丁里写同一个键。机制见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 8 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：界面写的是"最小增量"（保留该行原有的非 volatile 字段 + 你的 volatile 增量），被省略的字段一律回落到 **schema 默认值**，所以用界面改了就别再手工在补丁里写同一个键（会被覆盖成默认值）；点「恢复默认」会清掉该行覆盖——只剩 `id`/`name` 时整行删除，bundle 自己的 `insert` 行不受影响。机制与真机证据见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
