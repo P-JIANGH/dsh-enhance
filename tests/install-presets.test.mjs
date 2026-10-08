@@ -65,7 +65,7 @@ test('[install-presets] 空目标根：全量安装并可复判为最新', () =>
     const result = installPresets({ sourceRoot: source, targetRoot: target })
     assert.equal(result.summary.installed, 2)
     assert.equal(result.summary.replaced, 0)
-    assert.equal(result.checkOk, true)
+    assert.equal(result.current, true)
     assert.equal(existsSync(join(target, 'alpha', 'agent.cordis.yml')), true)
     assert.equal(dirsEqual(join(source, 'alpha'), join(target, 'alpha')), true)
     // 装完再判一次：应当已是最新，且不再产生备份。
@@ -141,13 +141,13 @@ test('[install-presets] --check 只判定不写盘，缺失即失败', () => {
     const source = makeSource(join(dir, 'src'), ['alpha'])
     const target = join(dir, 'target')
     const missing = installPresets({ sourceRoot: source, targetRoot: target, check: true })
-    assert.equal(missing.checkOk, false)
+    assert.equal(missing.current, false)
     assert.equal(missing.wrote, false)
     assert.equal(existsSync(target), false, '--check 不应创建目标目录')
 
     installPresets({ sourceRoot: source, targetRoot: target })
     const current = installPresets({ sourceRoot: source, targetRoot: target, check: true })
-    assert.equal(current.checkOk, true)
+    assert.equal(current.current, true)
   })
 })
 
@@ -167,9 +167,14 @@ test('[install-presets] 参数解析：未知参数拉响，--target 归一为�
   assert.deepEqual(parseArgs(['--dry-run', '--prune-renamed']), {
     targetRoot: undefined,
     pruneRenamed: true,
+    status: false,
     dryRun: true,
     check: false,
+    ifInstalled: false,
   })
+  // postinstall 走 --if-installed；--status 只读。
+  assert.equal(parseArgs(['--if-installed']).ifInstalled, true)
+  assert.equal(parseArgs(['--status']).status, true)
   const parsed = parseArgs(['--target', '.'])
   assert.equal(parsed.targetRoot, process.cwd())
   assert.throws(() => parseArgs(['--nope']), /未知参数/)

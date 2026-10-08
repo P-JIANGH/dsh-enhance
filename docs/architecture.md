@@ -47,7 +47,7 @@ dsh-enhance/
 │   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema）/ apply
 │   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
-│   ├── features/          # 特性模块（skills-provider、commands、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
+│   ├── features/          # 特性模块（skills-provider、commands、presets/、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
 │   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
 ├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
 ├── scripts/               # 预设生成（sync-presets / sync-dsh-enhance-preset）与装机（install-presets）

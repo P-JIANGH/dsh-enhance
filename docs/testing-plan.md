@@ -27,7 +27,7 @@
 | `tests/skill-trigger.test.mjs` | ulw 触发词判定 + `ULTRAWORK_ENTRY` 与 `prompts/modes/ultrawork.md` 逐字一致 | M6 | ✅ |
 | `tests/qa-launch.test.mjs` | QA 启动器解析、profile app 自检、实驱目标解析（隔离优先） | QA | ✅ |
 | `tests/orient.test.mjs` | 开场消息只点名本插件（按 `provider`，不是 `source`）的技能 | M1 | ✅ |
-| `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder` 注册与只读输出、开关与 disposer | M6 | ✅ |
+| `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder`、`/presets`（状态/装机/未知子命令）注册与只读输出、开关与 disposer | M6 | ✅ |
 | `tests/install-presets.test.mjs` | 预设装机脚本：幂等、先备份后覆盖、改名残留清理、`--check`/`--dry-run`、参数解析 | 装机 | ✅ |
 
 ## 2. dsh 实驱脚本

@@ -1,2 +1,2 @@
-name: dsh-enhance
-description: dsh-enhance orchestrator: full bundle + scout/librarian/reviewer/task subagents.
+name: Enhance 模式
+description: 开箱即用的增强模式：工作纪律 + 打包技能 + 交付门卫，并按需编排 scout/librarian/reviewer/task 子代理。

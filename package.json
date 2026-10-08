@@ -28,6 +28,7 @@
     "sync:presets": "node scripts/sync-presets.mjs",
     "install:presets": "node scripts/install-presets.mjs",
     "check:presets": "node scripts/install-presets.mjs --check",
+    "postinstall": "node scripts/install-presets.mjs --if-installed",
     "test": "node --test",
     "test:gate": "node --test tests/delivery-gate.test.mjs",
     "qa:gate": "node qa/delivery-gate-drive.mjs"

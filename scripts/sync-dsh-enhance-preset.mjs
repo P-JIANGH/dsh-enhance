@@ -34,9 +34,9 @@ const presetsRoot = path.join(root, 'presets')
 export const MAIN = {
   id: 'dsh-enhance',
   personaSource: 'dsh-enhance',
-  name: 'dsh-enhance',
-  title: 'Orchestrating dsh-enhance agent',
-  description: 'dsh-enhance orchestrator: full bundle + scout/librarian/reviewer/task subagents.',
+  name: 'Enhance 模式',
+  title: 'Enhance 模式（dsh-enhance 编排者）',
+  description: '开箱即用的增强模式：工作纪律 + 打包技能 + 交付门卫，并按需编排 scout/librarian/reviewer/task 子代理。',
 }
 
 /**

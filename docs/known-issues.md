@@ -10,12 +10,13 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **166/166** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
 - **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩迁移用途（`LEGACY_PACKAGE_NAMES`/`--prune-renamed`）与历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
 - **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
+- **预设可感知（2026-10-08）**：主预设对外命名 **「Enhance 模式」**（id 仍是 `dsh-enhance`，保留编排）；新增 `/presets [install [prune] | status]` 人类指令（显式写盘、覆盖前备份）与安装期 `postinstall --if-installed`；装机逻辑抽成单源 `src/features/presets/install.ts`，脚本退化为薄 CLI。
 
 ---
 
@@ -171,7 +172,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 模式 B（Planner S1–S7 骨架 persona + `presets/planner/` 增强） | [docs/modes.md](../modes.md) §7 |
 | 模式 C（`prompts/agents/advisor.persona.md` + `presets/advisor/`） | [docs/modes.md](../modes.md) §5 |
 | delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
-| Web 设置卡片 + `scripts/install.mjs`（预设装机那一半已由 `scripts/install-presets.mjs` 落地） | [docs/design-web-settings-card.md](../design-web-settings-card.md) §6 |
+| Web 设置卡片（**自建标签页**：上游 apiproxy 的 `exposedNamespaces()` 是硬编码 allowlist，第三方插件的 settings 命名空间无法被浏览器读写，因此改走 `settings.plugins.tab` + 自有 Remote） | [docs/design-web-settings-card.md](../design-web-settings-card.md) §6（§4.7 改名已执行；「Enhance 模式」命名与预设装机已落地） |
 | UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
 | `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](../design-onboarding.md) §7 |
 | M7 comment-check 空位 / M8 team mode | [docs/architecture.md](../architecture.md) §7 |
@@ -203,3 +204,4 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-09-30 | P1-12 旧包名清零（profile 迁移 / `omd` 删除 / 安装文档校正） | 见下一次提交 | 两 profile `--dump-config` 命中 `# == @dsh-enhance/dsh-enhance`；真实 home 实驱 PASS |
 | 2026-09-30 | P1-13 按评估做减法（goal API / AGENTS.md 注入 / todo 续作） | 见下一次提交 | `pnpm build` 0 + `pnpm test` 166/166；原生 goal 相位消歧与 AGENTS.md 负向钉 |
 | 2026-09-30 | P2-9 反篡改支柱接线（受保护文件 manifest） | 见下一次提交 | `pnpm test` 172/172；被改/消失 → `tampered` 且不放行 |
+| 2026-10-08 | 「Enhance 模式」预设 + `/presets` 指令 + `postinstall` + 装机逻辑单源 | 见下一次提交 | `pnpm test` 176/176；真实家目录装机（先备份）+ `--if-installed` 仓库内静默 |
