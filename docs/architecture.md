@@ -44,11 +44,12 @@ dsh-enhance/
 ├── skills/                # 打包 SKILL.md（静态知识层）
 ├── presets/               # dsh-agent-presets 预设目录（生成物；用 scripts/install-presets.mjs 装进 $DSH_HOME/.agent-presets）
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
-│   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema）/ apply
+│   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema，用户开关带 volatile()）/ apply
 │   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
 │   ├── features/          # 特性模块（skills-provider、commands、presets/、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
 │   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
+├── client/                # 浏览器半侧（手写、不经构建）：在「插件」面板认领本行的配置页（plugins.row.config）
 ├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
 ├── scripts/               # 预设生成（sync-presets / sync-dsh-enhance-preset）与装机（install-presets）
 ├── tests/                 # node --test 单测
@@ -83,6 +84,7 @@ dsh-enhance/
 - 打包技能没有开关：`skills-provider` 恒定注册（技能是零运行时成本的静态知识层，见设计原则 2），不做 `skillsEnabled` 配置——早期草案里提过该字段，实现时按"始终开启"定稿。
 - 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
 - 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 dsh-enhance 一行。
+- **界面可编辑面（2026-10-08）**：除 `workRules` 外的 8 个字段带 schemastery `volatile()`，于是宿主 `SettingsForms` 以 `ns: dsh-enhance`（= 补丁行 id）把它暴露成可编辑条目，浏览器半侧 `client/client.js` 在「插件」面板的 `plugins.row.config` 里渲染这张表。**volatile 改动由 Loader 原地提交、不重挂插件**，所以功能接线装在子插件 `dsh-enhance/features` 上，收到 `loader/volatile-update` 时先卸后挂。细节与真机证据：[design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 ### 5.2 Hooks 层（守卫 + 注入 + 续作）
 

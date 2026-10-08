@@ -29,6 +29,8 @@
 | `tests/orient.test.mjs` | 开场消息只点名本插件（按 `provider`，不是 `source`）的技能 | M1 | ✅ |
 | `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder`、`/presets`（状态/装机/未知子命令）注册与只读输出、开关与 disposer | M6 | ✅ |
 | `tests/install-presets.test.mjs` | 预设装机脚本：幂等、先备份后覆盖、改名残留清理、`--check`/`--dry-run`、参数解析 | 装机 | ✅ |
+| `tests/volatile-remount.test.mjs` | 设置面开关**即时生效**的接线契约：首挂同步、收到 `loader/volatile-update` 先卸后挂、连续改动串行、重挂失败只告警不打死条目 | 设置面 | ✅ |
+| `tests/client-contract.test.mjs` | 浏览器半侧跨文件契约：`exports["./client"]`/`dsh.client`、`plugins.row.config` 的 key = `<包名>#<行 id>`（从 `package.json`+`cordis.patch.yml` 推导）、`whileServed` 命名空间、7 开关 + advisorModel 字段集合与布尔往返、样式幂等 | 设置面 | ✅ |
 
 ## 2. dsh 实驱脚本
 
@@ -65,7 +67,7 @@
 
 > 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。
 
-**基线（2026-09-30 复验）**：本插件对齐 `@deepseek-ai/*@0.1.2-alpha.4`（唯一适配点：`JsonValue` 由 `dsh-util-values` 提供）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **175/175**（20 个测试文件）。运行用 dsh CLI 覆盖两代：`0.1.0-rc.6`（nvm）与桌面版 `0.2.0-rc.2`。
+**基线（2026-10-08 复验）**：本插件对齐 `@deepseek-ai/*@0.1.2-alpha.4`（唯一适配点：`JsonValue` 由 `dsh-util-values` 提供；`@deepseek-ai/schemastery` 为 `~3.18.4`，`volatile()` 需要它）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **188/188**（22 个测试文件）。运行用 dsh CLI 覆盖两代：`0.1.0-rc.6`（nvm）与桌面版 `0.2.0-rc.2`。
 
 **实驱目标解析（隔离优先）**：`qa/dsh-launch.mjs` 的 `resolveQaTarget()` 让三个实驱**默认**落在仓库内隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`）——只要它存在就不碰真实 `~/.dsh`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先。证据与终端都会标注本次实际使用的 profile 与 home。直接原因：不带环境变量跑实驱时，目标曾落在真实 home，实现在一个不含本插件的 profile 上找 bundle 层，于是报出"未发现 dsh-enhance 层"——把"跑错环境"误诊成"插件缺陷"。
 
@@ -75,6 +77,7 @@
 | CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
 | CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
 | 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 orient/doctor 卡片仍需改进 webbridge 输入注入后复验 |
+| 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
 
 **关于此前记录的「`--llm` 阻塞」——归因已更正（2026-09-30 实测）**：
 

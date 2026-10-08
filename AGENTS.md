@@ -4,7 +4,7 @@ Guidance for agents and humans editing this repository. Read this before changin
 
 ## What this repo is
 
-`dsh-enhance` (short form **dsh-enhance**) is an oh-my-zsh-style enhancement bundle for DeepSeek Harness (`dsh`): a single installable plugin that contributes packaged skills, human commands (`/doctor`, `/boulder`, `/presets`), a persistent `dsh-enhance/work-rules` prompt section, a session-start orientation hook, a `dsh_enhance_doctor` diagnostic tool, guard + delivery-gate discipline, boulder work tracking (**goals are native**), worktree tools, the `ulw` deep-work mode, an advisor companion-review runtime, and an orchestrating persona (**「Enhance 模式」**) that dispatches four subagent personas.
+`dsh-enhance` (short form **dsh-enhance**) is an oh-my-zsh-style enhancement bundle for DeepSeek Harness (`dsh`): a single installable plugin that contributes packaged skills, human commands (`/doctor`, `/boulder`, `/presets`), a persistent `dsh-enhance/work-rules` prompt section, a session-start orientation hook, a `dsh_enhance_doctor` diagnostic tool, guard + delivery-gate discipline, boulder work tracking (**goals are native**), worktree tools, the `ulw` deep-work mode, an advisor companion-review runtime, an orchestrating persona (**「Enhance 模式」**) that dispatches four subagent personas, and a browser half that puts the plugin's switches on the built-in Plugins panel.
 
 Refer to this project only as **dsh-enhance** or **dsh-enhance**.
 
@@ -17,6 +17,7 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - `src/hooks/` — prompt/hook wiring: `work-rules`, `orient`, `rules-injector`, `start-work`, `delivery-gate`.
 - `src/features/boulder/` — boulder state (`boulder.json` under `.dsh-enhance/`) + the write token. Goals are **not** here: they are the native `ctx.goals` service.
 - `src/tools/` — model-facing tools: `doctor`, `guards`, `guard-register`, `boulder-tools`, `worktree-tools`. Authored as raw `ToolDefinition`s with complete `output.schema` (see below).
+- `client/client.js` — the browser half: registers the plugin's configuration page on the built-in Plugins panel (`plugins.row.config`). **Hand-authored, not built** — the module loader takes it verbatim through `exports["./client"]` and only `require`s the host module table (`react`, `react-dom`, `@deepseek-ai/dsh-client-ui-primitives`). Keep it consistent with `package.json` + `cordis.patch.yml`; `tests/client-contract.test.mjs` pins that.
 - `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/ultrawork.md`, `modes/advisor.md`.
 - `presets/` — **generated** agent presets. Never hand-edit; regenerate (see "Single-source discipline").
 - `scripts/` — `sync-presets.mjs` (5 role presets), `sync-dsh-enhance-preset.mjs` (main orchestrator preset + subagent tool rows), `install-presets.mjs` (thin CLI over `src/features/presets/install.ts`: idempotent install of `presets/` into `$DSH_HOME/.agent-presets`, with backup, `--status`, `--check`, `--dry-run`, `--prune-renamed`, `--if-installed` for the `postinstall` hook).
@@ -28,6 +29,14 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - Edit the persona text only in `prompts/agents/<role>.persona.md`; the generated `presets/<role>/agent.cordis.yml` + `preset.yml` are **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks `tests/presets-pin.test.mjs` (byte-for-byte), which is intentional.
 - The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `node scripts/sync-dsh-enhance-preset.mjs`.
 - Keep `docs/prompts-review/*.md` consistent when you change a persona's constraints.
+
+## Settings surface（改配置面之前必读）
+
+本插件的配置页挂在**内置「插件」面板**上：`client/client.js` 在 `plugins.row.config` 里认领 key `<包名>#<行 id>`（= `@dsh-enhance/dsh-enhance#dsh-enhance`），控件经 `ctx.configForms.get('dsh-enhance')` 读写**同一个**共享表单（→ 永远只有一个写者）。机制依据与真机证据在 `docs/design-web-settings-card.md` §8–§10。三条不可忘：
+
+1. **只有 `volatile()` 字段能被设置面编辑**。宿主 `SettingsForms` 对每个 Loader 条目取 `volatileForm(Config)`；一个 volatile 字段都没有的条目**根本不出现在 `describe()` 里**，写非 volatile 路径会直接抛错。新加一个"用户可调"的开关 = 在 `src/index.ts` 的 `Config` 里给它 `.volatile()`，并且**在 `client/client.js` 的 `SWITCHES`/字典里补一行**（`tests/client-contract.test.mjs` 钉字段集合）。
+2. **volatile 改动不重挂插件**。`cordis-plugin-loader` 只把新值原地写进 accessor，并在本插件自己的 fiber 上发 `loader/volatile-update`。所以凡是"管的是一次注册"的开关（工具、命令、钩子、advisor 运行时），必须由 `applyFeatures` 这一代接线来落实 —— 现有实现是收到该事件后**先卸载再重挂**子插件。**新加开关时不要绕过这条**，否则开关会静默失效（第一轮真机探针就是这么抓到问题的）。
+3. **`apply` 收到的 volatile 字段是 accessor，不是值**。用 `fieldValue(...)`（`src/index.ts`）解包；旧写法 `config.x ?? true` 对 accessor 恒为真。
 
 ## Build / test / verify
 
@@ -57,6 +66,7 @@ Six roles: five persona presets **planner / scout / librarian / task / reviewer*
 - **不重复原生策略**：输出截断（原生 `tool-result-pruner`）、先读后写（原生 `fs-observation-policy`）—— 保留为已测纯函数，不在运行时接线。
 - **不做团队模式（M8）**：原生 Agent Teams 已有成员/共享任务板/邮箱。
 - **不新增并行 API**：任何"我们也来一个 X"之前，先用 `cordis_inspect_query` 在 live 运行时核对上游是否已提供。
+- **不自建设置 tab、不自建 Remote**：官方席位是内置「插件」面板的 `plugins.row.config`，数据通道就是 `volatile()` Config + 宿主 `SettingsForms` / 客户端 `ctx.configForms`。旧方案（`settings.register` 桥接层、自建 `settings.plugins.tab`、自有 `@Remote` + typert）在 0.2.0-rc.2 上已无必要（`docs/design-web-settings-card.md` §8）。
 
 ## Working practice
 

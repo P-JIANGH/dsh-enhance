@@ -11,12 +11,14 @@
       "default": "./lib/index.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./client": "./client/client.js",
     "./skills/*": "./skills/*",
     "./presets/*": "./presets/*",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
+    "client",
     "skills",
     "presets",
     "cordis.patch.yml"
@@ -36,6 +38,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
+      ],
+      "platform": "web"
     }
   },
   "peerDependencies": {

@@ -182,6 +182,8 @@ dsh --profile dsh-enhance ...
 
 > 完整字段（`guards` / `workTracking` / `worktree` / `advisor` / `advisorModel`）见 README 的配置表。
 
+**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 8 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：用界面改了就别再手工在补丁里写同一个键。机制见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
 ```sh
@@ -220,3 +222,11 @@ dsh --profile dsh-enhance --patch ./extra.yml ...
 2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: '@dsh-enhance/dsh-enhance'` 一行）。**`name` 必须是 loader 能解析的完整包名**：它以模块说明符的身份从 profile 目录解析，裸名只有在 profile 恰好装了同名依赖时才成立（这正是初版 `name: dsh-enhance` 装完仍报 `ERR_MODULE_NOT_FOUND` 的原因）。
 
 这样"万物皆插件"的插件就齐了：加一个依赖声明、一个补丁文件，就能用 `dsh plugin --profile <name> add <pkg>` 完成安装。
+
+**想在 Web/桌面端的设置界面里给用户一个配置页**，再加三样（全部与本仓库 `client/client.js` 同款，逐项对照官方 companion 包 `@deepseek-ai/dsh-client-ui-settings-agent-loop`）：
+
+1. `exports`：`"./client": "./client/client.js"`（并把它列进 `files`）。
+2. `dsh.client`：`{ "inject": ["@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-client-ui-plugin-manager"], "platform": "web" }` —— `inject` 列的是**你要用到的客户端包**，包含你所注册槽位的所有者。
+3. 浏览器半侧文件按模块加载器契约书写：`window.__ModuleLoader__.load({ id: "<包名>", factory: (require) => { … return { apply, inject } } })`，只能 `require` 宿主模块表里的东西（`react` / `react-dom` / `react/jsx-runtime` / `@deepseek-ai/dsh-client-ui-primitives`）。
+
+配置页的**数据通道**是宿主的设置面，不是自建 RPC：把「用户可调」的 `Config` 字段标成 schemastery `volatile()`，宿主就会以 `ns = 补丁行 id` 暴露该条目；客户端用 `ctx.configForms.get(id)` 读写（同一命名空间只有**一个**共享表单控制器，天然单一写者），并注册进 `plugins.row.config`（key = `<包名>#<行 id>`）。注意 **volatile 改动不会重挂你的插件**——凡"管的是一次注册"的开关，必须自己监听 `loader/volatile-update` 重建接线，否则开关静默失效。完整实证：[design-web-settings-card.md](design-web-settings-card.md) §8–§10。

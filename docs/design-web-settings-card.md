@@ -51,6 +51,8 @@
 
 ## 4. 最终设计
 
+> ⚠️ **本节（§4–§7）是最初的规划稿，已被 §8 起的实证修订取代**：§4.2 的 `settingsBridge` / `ctx.settings.register` 方案在目标宿主上**不存在**，§4.4 的构建链（tsdown）也未采用。**交付形态以 §10 为准**，机制依据与验收证据在 §8、§9。保留本节只为记录决策演进。
+
 ### 4.1 总体架构与数据流
 
 ```
@@ -207,74 +209,128 @@ export function apply(clientCtx: ClientContext): void {
 - **实驱 QA**：隔离 `$DSH_HOME` 起 dsh web——卡片出现 → 编辑保存 → `settings.yaml` 落盘 → 重启 → `doctor` 报新值生效；模拟 loader 失败断言 host 照常。
 - **脚本**：临时 profile 全流程（link: 安装 → 预设装机 `scripts/install-presets.mjs` → dump-config 验证）。
 
-## 8. 实证修订（2026-10-08）：照 dshmarket 的做法重写本设计
 
-> 依据：`dshmarket@1.66.11`（本机 desktop profile 内）的 `package.json` / `client/client.js` / `lib/settings.js`，加上 live 客户端 Slot 树取证。**§4.2 的 `settingsBridge.register` 方案在当前宿主上不成立**，以下为修订后的方案。
+## 8. 机制实证（2026-10-08）：设置面到底怎么工作
 
-### 8.1 上游约束（三条硬事实）
+> 依据：**本机运行中的桌面宿主**（`@deepseek-ai/dsh-desktop-runtime@0.2.0-rc.2`，解包自 `resources/app.asar`）的源码 + live Inspect 取证 + 隔离 home 上的真机探针。**§4.2 的 `settingsBridge` / `ctx.settings.register` 与 §4.4 的 tsdown 构建链都已作废**，本节起为最终依据。
 
-1. **宿主已不再为插件注册的命名空间提供服务**。dshmarket `lib/settings.js` 原话：dsh 0.1.7（#677）起 `SettingsService` **有 `describe` / `update`，没有 `register`**——"namespaces are derived from a plugin's Config schema instead"。本机桌面版是 `0.2.0-rc.2`，属此列。→ **§4.2 的 `ctx.settings.register(...)` 在目标宿主上不存在**，我们的配置面只能靠**插件自己的 `Config` schema 被宿主派生**（我们的 `Config` 已经是完整 schemastery schema ✓）。
-2. **不能导入被删掉的命名导出**。dsh 0.1.2-alpha.1 删除了 `settingsNamespace` / `installSettingsSection`；dshmarket 记下真实事故：ESM 里缺失的命名导出是 **SyntaxError → 整机 exit 1**（"Installing the market stopped the host from booting at all"）。→ 我们**绝不** import 这两个符号；若某天要兼容旧宿主，调用 `settings.register` 前必须 `typeof service.register === 'function'` 守卫（dshmarket 的 `canRegister()` 就是这么做的）。
-3. **设置页的 tab 是公开 slot，卡片槽不是**。live 客户端 Slot 树（本机 GUI）显示 `settings.plugins.tab` 的 occupants：`all`（order 10，随包）与 **`dsh-market`（id `dsh-market`，order 60，active）**；而 `settings.plugin.item`（内置"插件配置"tab 里的卡片槽）在本部署 `available: false`。→ **主面应是我们自己的 tab**，卡片槽只在被声明时才额外挂。
+### 8.1 三条硬事实（推翻了最初的规划假设）
 
-### 8.2 修订后的接入形态（与 §4.2/§4.3 的差异）
+1. **宿主没有 `register`，命名空间不是插件注册的。** `@deepseek-ai/dsh-settings@0.2.0-rc.2` 的服务类是 **`SettingsForms`**（不是 CLI 依赖树里 rc.6 的 `SettingsProvider`），方法只有 `describe` / `update` / `replace` / `mutate` / `prepareDocument` / `configure`。`describe()` 遍历 `configEditor.configuration()`，把**每个 Loader 条目的 `options.id`**（= 配置补丁行的 `id`，本插件即 `dsh-enhance`）当作命名空间。探针实测：本部署 `settings` 服务 = `SettingsForms`，`register=undefined`、`configure=function`。
+   （注意：`~/.dsh/profiles/node_modules/@deepseek-ai/dsh-settings` 里另有一份 rc.6、带 `register` 的旧实现——那是 **CLI** 的依赖树，桌面宿主按自己的解析表用 asar 里的 0.2.0-rc.2。分辨方法就是把服务实现身份打进日志。）
+2. **只有 `volatile()` 字段能被设置面编辑。** `SettingsForms.describe()` 对每个条目调 `volatileForm(Config)`：**一个 volatile 字段都没有的条目根本不进 `describe()`**；写路径还会对非 volatile 字段直接抛 `Config field "x" is not volatile`。所以"插件配置出现在设置里"的唯一开关，是把自己的 `Config` 字段标 `.volatile()`（schemastery 的 `Schema.prototype.volatile()` = `extra('volatile', true)`；宿主投影成 JSON Schema 的 `x-cordis.volatile`）。
+3. **volatile 改动不重挂插件。** `@deepseek-ai/cordis-plugin-loader` 的 `Entry.update`：当"只有 `config` 变、且 `equalExceptVolatile` 成立"时走 `_commitVolatile()` —— **原地**把新值写进已挂载插件的 accessor（`updateVolatile(ref, source)`），并只在**该插件自己的 fiber** 上 `emit('loader/volatile-update', paths)`，**不重新 apply**。只要还夹带一个普通字段的变化，就走普通更新生命周期（= 重挂）。
 
-- **Host 半侧**：不再有 `settings-bridge`。① `Config` schema 保持完整（宿主据此派生可编辑面）；② 需要"当前生效值"时读**宿主派生后**的值——实现期先实测 `ctx.settings.describe/update` 的可用形态与命名空间键（预期 = 插件行 `id`，即 `dsh-enhance`，与 dshmarket 用 `dsh-market` 一致）；③ 写路径改成 `update(ns, patch)`（带 `expectedRevision`）。**绝不在 boot 时写盘**。
-- **Client 半侧**（按 dshmarket 的注册形状逐条对照）：
-  ```js
-  ctx.inject(['settingsScope'], (scoped) => {
-    scoped.slots.inject('settings.plugins.tab', () => scoped.slots.register({
-      name: 'settings.plugins.tab',
-      id: 'dsh-enhance',            // 自己的 id：新格子与随包 all 并排
-      order: 60,                    // 升序；dshmarket 用 60
-      label: () => t('nav'),        // thunk：切换语言不需重新注册
-      locale: 'dsh-enhance',
-      inject: () => ({ t }),
-    }, () => react.createElement(SettingsTab, { t })))
-  })
-  ```
-  数据读写走 **`ctx.settingsScope.bind(spec)`**（`@deepseek-ai/dsh-client-ui-settings` 提供的客户端服务）：绑定在**调用者自己的 ctx** 上（disposer 归调用 fiber）；重载由 `settings/document-updated` 与本命名空间事件驱动；**写入携带单字段路径 + 上次读到的 `expectedRevision`**；没有 `decode` 时非对象/校验失败/无法 rehydrate 的 section **什么都不发布**（自绘控件要自己渲染"不可用"态）。注意：settings RPC 仅 loopback 可用，非 loopback 浏览器里绑定恒为 `unavailable`。
-- **控件自绘 + 纯度约束**：上游契约是"带浏览器半侧的插件自己拥有卡片"，`dsh-client-ui-settings-plugins` 只做 flex 布局与派发；**跨插件 value import 会被 client bundle-purity gate 拒绝**，React 从宿主的模块表解析（dshmarket 注释原话）。
-- **构建**：复刻 dshmarket 的链——`tsc -p tsconfig.json && tsdown`（另有 banner 归一化脚本）；`package.json` 需要 `exports["./client"]` + `dsh.client = { inject: [客户端包名…], platform: 'web' }`；devDeps 参考 `@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-settings-plugins`（仅类型）、`tsdown`、react/react-dom 类型。
-- **单一写者纪律（dshmarket 用两次真实 bug 换来的）**：同一字段只能有一个编辑器/写者。它的 `buildEnv` 与"发布通道"都因为"设置层 + 自己的卡片同时写"而互相覆盖（"the exact shape of the channel bug documented below"）。→ 我们的 tab 里出现的字段，就**不要**再让 `/config` 命令或其它面写同一个键。
+### 8.2 席位：`plugins.row.config`（用户 2026-10-08 选定 A）
 
-### 8.3 修订后的实施波次
+- 内置「插件」面板（`@deepseek-ai/dsh-client-ui-plugin-manager` 注册在 `main` 槽）声明并派发 `plugins.row.config`（keyed）。槽目录原话：*"The configuration of one row a bundle declares, keyed by `<package name>#<row id>` … the row on the bundle's page gains a configure control"*；同目录明确 bundle 的配置属于 `plugins.bundle.config` / `plugins.row.config`，而 `plugins.item` 是**官方随包页专用**。→ 我们的 key = `@dsh-enhance/dsh-enhance#dsh-enhance`（包名 + `cordis.patch.yml` 那行的 `id`）。
+- 派发侧代码就是判据：`configure.has = (row) => ledger.rows.has(rowConfigKey(pkg.name, row.rowId))` —— 台账里没有这个 key 就**没有**「配置」入口；组件收到 `{ view: 'summary' | 'page', form? }`。
+- 被否掉的备选：`settings.plugins.tab`（设置弹窗 →「内置插件」里的自建 tab，dshmarket 走的路，id `dsh-market`/order 60 已在 live 树中可见）。功能上可行，但官方槽目录把该区描述为随包页与官方视图的座位，且它绕开了"bundle 的配置"这条正式归属。
+- 对照（live）：`plugins.item` 的 occupants = `shell`/`agent-loop`/`subagent`/`web-search`（全为 `mf` 内置包，各自一个 companion 包）；`settings.section` occupants = `account`/`general`/`models`/`plugins`/`agent-presets`/`market`。
 
-| 波次 | 内容 | 验证 |
+### 8.3 官方 companion 包的形状（逐项对照 `dsh-client-ui-settings-agent-loop@0.2.0-rc.2`）
+
+```js
+const inject = ['slots', 'locale', 'configForms']              // 客户端服务
+ctx.effect(() => ctx.locale.register(NS, { zh, en }), '…')
+const card = new CardController(ctx.configForms.get('agent-loop'))
+ctx.effect(() => () => card.dispose(), '…')
+ctx.effect(() => ctx.configForms.whileServed(['agent-loop'], () =>
+  ctx.slots.inject('plugins.item', () => ctx.slots.register({ name, id, order, label, locale, inject }, Card))), '…')
+```
+- 带浏览器半侧的第三方插件用 `dsh.client = { inject: [客户端包名…], platform: 'web' }` + `exports["./client"]`；官方 companion 包同样如此（`dsh-client-ui-settings-agent-loop` 的 `dsh.client.inject` = locale + ui-settings + **ui-plugin-manager**，最后一个是它所注册槽位的所有者）。
+- 模块加载器给 `factory(require)` 的模块表里有 `react` / `react-dom` / `react/jsx-runtime` / `@deepseek-ai/dsh-client-ui-primitives`（dshmarket 与随包页都这么用）。
+- **单一写者**：`ctx.configForms.get(id)` 对同一命名空间返回**同一个**共享表单控制器（上游明文："repeated `get(entryId)` calls return the same form"），所以"用页面递来的 `form` 还是自己 `get`"不会变成双写者。dshmarket 记过两次真实 bug，纪律照旧：同一字段只有一个写者。
+
+### 8.4 为什么不引入构建链（与 §4.4 的差异）
+
+dshmarket 用 tsdown/rolldown 产出 `client/client.js`；本插件没有 CSS 模块、没有跨包 value import、也没有多文件拆分需求，因此**手写**该文件（模块加载器按 `exports["./client"]` 原样取用），保持本仓库 tsc-only 构建与"除 schemastery 外零运行时依赖"。代价：该文件不过 tsc；补偿见 §10.4 的契约测试。
+
+## 9. 波次 A 验收：写→读往返（2026-10-08，四条全部通过）
+
+> 探针：`.dsh-enhance/settings-probe/`（gitignored）+ 隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`，含探针行）。启动方式 = **桌面宿主 CLI** `resources/runtime/cli/bin/dsh.cmd`（→ `app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js`），因此跑的就是桌面那套 0.2.0-rc.2 语义。**全程不碰用户的 desktop profile。**
+
+第一次启动（`PROBE_WRITE=1`，原始日志节选）：
+
+```
+apply: settings=SettingsForms register=undefined configure=function describe=function update=function mutate=function
+describe: 11 namespace(s); ours=YES
+doctorToolRegistered(before)=yes
+tools(before)=boulder_complete,boulder_start,boulder_status,dsh_enhance_doctor,worktree_cleanup,worktree_create,worktree_list
+descriptor(before)={"ns":"dsh-enhance","revision":0,"applies":"live","autoGenerate":true,
+                    "value":{…7 个开关全 true…},"user":{},"base":{…同 value…},"secretPaths":[]}
+update(doctorTool=false) OK at revision 0
+descriptor(after)={… "revision":1, "value":{"doctorTool":false,…},
+                   "user":{"doctorTool":false}, "base":{"doctorTool":true,…}}
+doctorToolRegistered(after)=no
+tools(after)=boulder_complete,boulder_start,boulder_status,worktree_cleanup,worktree_create,worktree_list
+stale write rejected: SettingsConflictError code=SETTINGS_CONFLICT expected=0 actual=1
+patch file: … - id: dsh-enhance / name: "@dsh-enhance/dsh-enhance" / config: { doctorTool: false }
+```
+
+第二次启动（只读，新进程）：
+
+```
+describe: 11 namespace(s); ours=YES
+doctorToolRegistered(before)=no
+descriptor(before)={… "revision":0, "value":{"doctorTool":false,…},
+                    "user":{"doctorTool":false}, "base":{"doctorTool":true,…}}
+read-only boot: nothing written
+```
+
+逐条对照旧 §9.3 的出口条件：
+
+| # | 条件 | 结果 |
 |---|---|---|
-| A（零前端） | 实测宿主派生命名空间的键与 `describe/update` 形态（`cordis_inspect_query` + 一个临时探针），确认 tab 能绑到 `dsh-enhance` | 探针输出 + 记录进 `docs/upstream-migration.md` |
-| B | client 构建链落地：`tsconfig.client.json` + tsdown + `dsh.client` 声明 + 最小空 tab（只渲染版本/预设状态，不写配置） | `dsh web`/桌面端加载无报错；tab 出现在「设置 → 插件」旁 |
-| C | tab 控件：字段映射纯函数 + 草稿/`expectedRevision` 保存/重置；**受保护字段不走两处写** | 单测（映射 + revision）+ 真机保存 → 重启生效 |
-| D | 契约测试（slot 可注册性、`settingsScope` 形状）+ `docs/upstream-migration.md` | 契约测试通过；台账记录 |
+| 1 | `describe()` 里有本插件条目、键 = ? | ✅ `ns = "dsh-enhance"`（= 补丁行 id），`applies: "live"` |
+| 2 | `update(ns, patch, expectedRevision)` 被接受 | ✅ `update(doctorTool=false) OK at revision 0` |
+| 3 | 再读：新值进 **user 层**、`revision` 前进 | ✅ `user={doctorTool:false}`、`revision` 0 → 1，且 `base` 保持组合默认（可"恢复默认"） |
+| 4 | 第二次启动仍生效（证明落盘而非内存） | ✅ 写进了该 profile 的 `cordis.patch.yml`，新进程读到 `user={doctorTool:false}` |
+| 5 | 过期 revision 被拒 | ✅ `SettingsConflictError code=SETTINGS_CONFLICT expected=0 actual=1` |
 
-## 9. 证据级别与验收条件（2026-10-08 二次修订，回应 advisor 的 concern）
+**额外拿到的一条关键事实**（第一轮探针暴露、直接改变了实现）：写成功后 `dsh_enhance_doctor` **从工具表消失**，而 `boulder_*`/`worktree_*` 一个不多一个不少 —— 说明改动真的重建了整代接线（§8.1 事实 3 + §10.2 的重挂）。第一轮**没有**这条效果（工具还在），正是它逼出了重挂设计。
 
-> advisor 指出：§8 把"宿主从插件 `Config` 派生**可写**命名空间"当成了结论，而它当时只有 dshmarket 的**注释**支撑；dshmarket 在本机的实际行为恰恰是**降级**（`canRegister()` false → 警告一次 → 保持组合配置），而 slot 占用只证明"tab 渲染得出来"。**这条批评成立**，以下按证据级别重写。
+旧 §9.2 列的"尚未证明"五项逐条落定：descriptor ✅、命名空间键 ✅、写入/落盘/live ✅、桌面部署 compose 了 settings（`describe()` 返回 11 个命名空间）✅、客户端 `configForms` ✅（`@deepseek-ai/dsh-client-ui-settings` 的 `ConfigForms` 服务；本机客户端服务目录确未投影它，但官方 companion 包与 dshmarket 都按此写）。
 
-### 9.1 已被 live 运行时证明（本机宿主自己的服务目录，非第三方注释）
+## 10. 最终实现（已交付）
 
-- `settings` 服务存在，描述为 **"Project Config schemas into forms and own optional instance-level UI policy."**；方法集 = `describe` / `update(ns, patch, expectedRevision?)` / `replace` / `mutate` / `prepareDocument` / `configure`，**没有 `register`** → "不再有插件注册命名空间"在**本机**成立（`settings.register` 这条旧路确认走不通）。
-- `settingsController`（"Host service backing `ctx.remote.settings`"）暴露 `@Remote describe()` / `update(ns, patch, expectedRevision)` / `replace` / `mutate` → **浏览器写路径存在**，且写入形态就是"单/多字段 patch + `expectedRevision` 栅栏"。
-- `settings.plugins.tab` 是 root list slot，运行时 occupants = `all`(order 10) 与 `dsh-market`(id `dsh-market`, order 60, active) → **第三方插件加 tab 是公开且已验证的能力**；注册契约 `{ id, order, label }`。
+### 10.1 文件与职责
 
-### 9.2 尚未证明（**不得**当作结论写进实现）
+| 位置 | 内容 |
+|---|---|
+| `src/index.ts` | 8 个用户可见字段 `.volatile()`（`workRules` 保持普通值：长文本，非开关）；功能接线装进子插件 `dsh-enhance/features`；`ctx.on('loader/volatile-update')` 上串行「先卸载再重挂」 |
+| `client/client.js` | 浏览器半侧：注册 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`），`whileServed(['dsh-enhance'])` 门控；`SettingsFormModel` + 自写布尔规格 + `Checkbox` 行 + `SettingsValueField`（顾问模型）；字典与样式内联 |
+| `package.json` | `exports["./client"]`、`dsh.client = { inject: [locale, ui-settings, ui-plugin-manager], platform: 'web' }`、`files += client`；`@deepseek-ai/schemastery` 进 `dependencies`（`~3.18.4`，`volatile()` 需要它，与宿主同版本） |
+| `tests/volatile-remount.test.mjs` | 重挂编排契约：同步首挂、先卸后挂、串行、失败只告警 |
+| `tests/client-contract.test.mjs` | 浏览器半侧跨文件契约（§10.4） |
 
-1. 本插件的 `Config` 是否产出一个 `describe()` descriptor（即"派生命名空间"是否覆盖第三方插件，还是只覆盖宿主自带的少数 provider）。
-2. 该 descriptor 的**命名空间键**（推测 = 插件行 `id` `dsh-enhance`，依据仅 dshmarket 用 `dsh-market`）。
-3. `update()` 对该命名空间是否**接受写入**、是否经 Loader 落盘、生效是 live 还是 restart。
-4. 桌面 profile 是否 compose 了 settings provider（`describe()` 可能返回空）。
-5. 客户端 `settingsScope`（`dsh-client-ui-settings` 提供）在本部署是否可注入——本机**客户端服务目录里没有它的条目**（目录只见 `layout/locale/sessions/slots/theme/timer/uiWorkspace/workspaces`），目录可能是部分投影，**不能据此断定它不存在**，但也不能当作已存在。
+### 10.2 开关为什么必须重挂
 
-### 9.3 验收条件（波次 A 的出口，先于任何卡片代码）
+`describe()` 只暴露 volatile 字段 → 只能靠 volatile 编辑；而 volatile 改动**不重挂**（§8.1 事实 3）。本插件每个开关管的都是**注册**（工具、命令、钩子、advisor 运行时），原地改 accessor 不会改变已注册面，所以功能接线必须由我们自己重建：
+`apply` 同步挂一个子插件 → 收到 `loader/volatile-update` 时**串行**地 `dispose()` 旧代再挂新代（先卸后挂，避免与"同一层内重名即失败"撞车）→ 子插件在挂载时读 accessor 的**当前**值。若某个部署的 loader 不发这个事件，退化为"值已存下、下次启动生效"。
 
-**必须完成一次真实启动上的「写→读往返」，不接受"存在性"作为通过标准**：
+### 10.3 单一写者与字段范围
 
-1. `describe()` → 记录键集合与各 descriptor 的 `revision`/层级（defaults/base/user）；
-2. 取目标命名空间，`update(ns, { <一个字段>: <新值> }, expectedRevision)`；
-3. 再次 `describe()` → 断言该字段出现在 **user 层**且 `revision` 前进；
-4. **再启动一次**进程 → 断言值仍在新进程里生效（证明落盘，而非仅内存）；
-5. 反向：故意用过期 `expectedRevision` 再写一次 → 断言被拒（`SETTINGS_CONFLICT` 语义）。
+- 7 个开关（`orientOnSessionStart` / `doctorTool` / `commands` / `guards` / `workTracking` / `worktree` / `advisor`）+ `advisorModel`；`workRules` **不可**在页面编辑（仍在 profile 补丁里改）。
+- 页面用 `ctx.configForms.get('dsh-enhance')`，与「插件」面板拿到的控制器是同一个 → 不存在两个写者。
+- 写入走 `mutate(ops, revision)`：`set` 单字段、`unset` 恢复组合默认；revision 来自上次 `describe`。
 
-**探针机制（不碰用户的 desktop profile）**：在仓库内 gitignored 目录造一个一次性 probe 插件（`dsh.bundle.patch` 插入一行；`apply` 时 `ctx.inject(['settings'], …)` 里做上面 1–3 并写日志文件，全程 try/catch，绝不 import 被删除的 `settingsNamespace`/`installSettingsSection`——缺失命名导出是 **SyntaxError 且宿主 exit 1**）→ 装进**隔离 `$DSH_HOME` 的 profile** → 以 headless 启动（本会话无 key，boot 后 LLM 步会失败，但 probe 日志在 `apply` 阶段已落盘）→ 读日志；第 4 步用第二次启动复验。
+### 10.4 验收清单（本仓库可复跑）
 
-**若 9.2 的 1/3 被证伪**（`Config` 只是宿主侧静态配置、没有可写命名空间），那么要重新设计的**不是 tab、也不是构建链，而是数据通道**——候选：① 走 `configEditor.edit(entry, change)`（写 entry config 并经 Loader 应用，本机签名已确认存在）；② 我们自己的 Host Remote（`@Remote` + typert 注册）；③ 退化为"导出 patch 片段 + 用户粘贴"。**在 9.3 通过或明确证伪之前，不写任何卡片代码。**
+```sh
+pnpm typecheck && pnpm build && node --test      # 188/188
+pnpm check:presets                              # 预设装机仍是最新
+npm pack --dry-run                              # 含 client/client.js
+```
+浏览器半侧的**真机验收**：重启桌面端 → 打开「插件」面板 → 本插件那一行应出现「配置」入口；随后可用客户端 Inspect 复核（不必靠肉眼）：
+
+```
+cordis_inspect_query(platform="client", provider="Slots", method="listSubTree", input={root: "plugins.row.config"})
+# 期望 occupants 里出现 key = "@dsh-enhance/dsh-enhance#dsh-enhance"
+```
+
+### 10.5 未做与取舍
+
+- **不做**自建设置 tab（`settings.plugins.tab`）：用户选定的席位是官方归属的 `plugins.row.config`；两者可复用同一组件，但目前不需要。
+- **不做**网页端构建链（tsdown/JSX）：见 §8.4。
+- **未覆盖**：非 loopback 浏览器拿不到持久设置（上游限制：`persistence` 恒为 memory，表单呈 unavailable）；本插件页面因此也只承诺桌面端与 loopback Web。

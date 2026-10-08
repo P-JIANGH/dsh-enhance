@@ -10,13 +10,14 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **188/188** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
 - **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩迁移用途（`LEGACY_PACKAGE_NAMES`/`--prune-renamed`）与历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
 - **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
 - **预设可感知（2026-10-08）**：主预设对外命名 **「Enhance 模式」**（id 仍是 `dsh-enhance`，保留编排）；新增 `/presets [install [prune] | status]` 人类指令（显式写盘、覆盖前备份）与安装期 `postinstall --if-installed`；装机逻辑抽成单源 `src/features/presets/install.ts`，脚本退化为薄 CLI。
+- **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：8 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
 
 ---
 
@@ -172,7 +173,6 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 模式 B（Planner S1–S7 骨架 persona + `presets/planner/` 增强） | [docs/modes.md](../modes.md) §7 |
 | 模式 C（`prompts/agents/advisor.persona.md` + `presets/advisor/`） | [docs/modes.md](../modes.md) §5 |
 | delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
-| Web 设置卡片（**自建标签页**：上游 apiproxy 的 `exposedNamespaces()` 是硬编码 allowlist，第三方插件的 settings 命名空间无法被浏览器读写，因此改走 `settings.plugins.tab` + 自有 Remote） | [docs/design-web-settings-card.md](../design-web-settings-card.md) §6（§4.7 改名已执行；「Enhance 模式」命名与预设装机已落地） |
 | UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
 | `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](../design-onboarding.md) §7 |
 | M7 comment-check 空位 / M8 team mode | [docs/architecture.md](../architecture.md) §7 |
@@ -181,6 +181,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | MCP 内置机制确认 | 同上 |
 
 > **已部分提前落地**：delivery-gate 的 verify **绑定**（§5.2.2-1 的核心机制）已在 P0-7 接入 —— `BoulderWork.verify` 指向脚本、`runVerify` 判定、无绑定记 `unmeasured`。剩余的是模板库、受保护文件 manifest 与报告落盘。
+>
+> **原 P3「Web 设置卡片」已交付**（2026-10-08）：席位从"自建 `settings.plugins.tab` + 自有 Remote"改为**官方归属的 `plugins.row.config`**，数据通道是 `Config` 字段 `volatile()` + 宿主 `SettingsForms`（旧方案基于的 `settings.register` 在 0.2.0-rc.2 上已不存在）。证据见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
 
 ---
 
@@ -205,3 +207,5 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-09-30 | P1-13 按评估做减法（goal API / AGENTS.md 注入 / todo 续作） | 见下一次提交 | `pnpm build` 0 + `pnpm test` 166/166；原生 goal 相位消歧与 AGENTS.md 负向钉 |
 | 2026-09-30 | P2-9 反篡改支柱接线（受保护文件 manifest） | 见下一次提交 | `pnpm test` 172/172；被改/消失 → `tampered` 且不放行 |
 | 2026-10-08 | 「Enhance 模式」预设 + `/presets` 指令 + `postinstall` + 装机逻辑单源 | 见下一次提交 | `pnpm test` 176/176；真实家目录装机（先备份）+ `--if-installed` 仓库内静默 |
+| 2026-10-08 | 设置面宿主半侧（`volatile()` + `loader/volatile-update` 重挂） | `c585d68` | 隔离 home 真机探针四条全过（describe/update/user+revision/二次启动/过期 revision 被拒）；`tests/volatile-remount.test.mjs` 4 例 |
+| 2026-10-08 | 设置面浏览器半侧（`client/client.js` → `plugins.row.config`） | 见下一次提交 | `tests/client-contract.test.mjs` 8 例；`npm pack --dry-run` 含 `client/client.js` |
