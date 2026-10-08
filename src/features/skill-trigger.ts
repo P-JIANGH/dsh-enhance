@@ -14,6 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { PreStepDecision } from '@deepseek-ai/dsh-agent'
+import { CONTEXT_SOURCE_KIND } from '../shared/provenance.js'
 
 /**
  * The ultrawork entry contract injected on trigger.
@@ -72,6 +73,24 @@ function bodyToText(msg: { content?: ReadonlyArray<{ type: string; text?: string
   return msg.content.map((block) => ('text' in block && typeof block.text === 'string' ? block.text : '')).join('\n')
 }
 
+/**
+ * Whether one admitted message is the human's own input.
+ *
+ * The first step's `messages` also carry every injected context message —
+ * workspace instructions (`agent-instructions`), the skill catalog, runtime
+ * context, another producer's notice. Their text is not the user's prompt, and
+ * reading it made this trigger fire on sessions whose *documents* merely
+ * mention the token: this repository's `AGENTS.md` names `ulw`, so every new
+ * session in it entered the mode before the user had typed anything. The
+ * message source is the only honest discriminator; `kind: 'user'` is what a
+ * human's input carries (verified against a real session log).
+ * @param message - one admitted `agent/pre-step` message.
+ * @returns true only for genuine human input.
+ */
+function isHumanInput(message: { source?: { kind?: string } }): boolean {
+  return message.source?.kind === 'user'
+}
+
 /** skill-trigger routing options. */
 export interface SkillTriggerOptions {
   /** Master switch: false installs a no-op and skips the listener. Default on. */
@@ -100,8 +119,10 @@ export function registerSkillTrigger(ctx: Context, options: SkillTriggerOptions)
     // Skip companion/advisor children: they are peer reviewers, not executors,
     // and must not receive the executor-only deep-work entry contract.
     if (typeof agent.id === 'string' && agent.id.endsWith('__advisor')) return decision
-    // The first step's messages carry the user's fresh prompt; scan their text.
-    const input = decision.messages.map(bodyToText).join('\n')
+    // Only the human's own input may arm this: injected context messages are not
+    // prompts, and one of them naming the token used to fire the mode at boot
+    // (see {@link isHumanInput}).
+    const input = decision.messages.filter(isHumanInput).map(bodyToText).join('\n')
     if (!detectUlw(input)) return decision
     if (primed.has(agent.id)) return decision
     primed.add(agent.id)
@@ -110,7 +131,10 @@ export function registerSkillTrigger(ctx: Context, options: SkillTriggerOptions)
       messages: [
         createUserMessage({
           content: [{ type: 'text', text: entry }],
-          source: { kind: 'user' },
+          // Producer-owned kind, never `user`: labelling this entry as the
+          // human's own words would let a forked agent's inherited transcript
+          // re-arm the trigger on its own text.
+          source: { kind: CONTEXT_SOURCE_KIND },
         }),
         ...decision.messages,
       ],

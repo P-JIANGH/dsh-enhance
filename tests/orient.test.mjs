@@ -87,3 +87,20 @@ test('[orient] enabled:false 不注册监听器', () => {
   assert.equal(ctx.handlers.size, 0)
   assert.equal(typeof dispose, 'function')
 })
+
+// 回归（2026-10-08）：开场引导语是**插件产生的上下文**，不是用户说的话。
+// 旧实现标成 `kind:'user'`，于是：① skill-trigger 把引导语里的 `ulw` 当用户提示词，
+// 每个新会话无条件进入深度工作模式；② 会话标题那条"从人类消息生成标题"的请求也会
+// 把引导语正文当成用户说过的话。
+test('[orient] 注入消息的来源是插件上下文，不是 user', async () => {
+  const ctx = fakeCtx([])
+  registerSessionStartHook(ctx, { enabled: true })
+  const agent = fakeAgent()
+  await ctx.handlers.get('agent/session-start')({ agent })
+  await new Promise(r => setTimeout(r, 10))
+  assert.equal(agent.injected.length, 1)
+  const source = agent.injected[0].source
+  assert.notEqual(source.kind, 'user')
+  assert.equal(source.kind, 'plugin:dsh-enhance')
+})
+

@@ -10,7 +10,7 @@
 
 ## 当前基线（2026-09-30 复验）
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **188/188** · `git status` 干净。
+- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **194/194** · `git status` 干净。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
@@ -19,6 +19,9 @@
 - **预设可感知（2026-10-08）**：主预设对外命名 **「Enhance 模式」**（id 仍是 `dsh-enhance`，保留编排）；新增 `/presets [install [prune] | status]` 人类指令（显式写盘、覆盖前备份）与安装期 `postinstall --if-installed`；装机逻辑抽成单源 `src/features/presets/install.ts`，脚本退化为薄 CLI。
 - **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：8 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
 - **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §10.5。
+- **`ulw` 触发的读入面（2026-10-08，P1 已修）**：`skill-trigger` 原先把 `agent/pre-step` 第一步的**全部** `messages` 当"用户提示词"扫（`decision.messages.map(bodyToText).join()`）。真机会话日志（`session.v4.jsonl.zstd`）显示这一步里除用户输入还有 `agent-instructions`（本仓库 AGENTS.md 里就写着 `ulw`）、`skill-catalog`、`runtime-context`、`time-context`、`dsh-session-title-llm`、以及**别的 agent 发来的 `agent-message`** —— 任何一个含触发词都会把会话静默推进深度工作模式。现改为**只读 `source.kind === 'user'`**（即人真正打的字），并加 5 条回归钉。
+- **注入消息的来源署名（2026-10-08，两个 P1 一起修）**：① 开场引导语原本署名为 `kind:'user'`，等于把自己伪装成用户输入（既会被上面的触发器当下用户提示词，也会被"从人类消息生成会话标题"那条请求当作用户说过的话）；② 更硬的约束来自 v4 会话格式：`@deepseek-ai/dsh-session-format-v3-to-v4` 明文**拒绝** `kind:'plugin'`（v3 的旧包装），要求"producer-owned source kind"，第三方生产者规范形态是 `plugin:<名字>`。真机验证：写成 `plugin:dsh-enhance` 才能落盘（写成 `plugin` 会让启动直接失败：`dsh: format v4 message requires a producer-owned source kind`）。共享常量在 `src/shared/provenance.ts`，用 `MessageSourceMap` 的声明式扩展点声明我们的 kind。
+- **开场引导钩子在 0.2.0 上从未生效（2026-10-08，**未修**，P1）**：`registerSessionStartHook` 监听的是 `agent/session-start`，而该事件在桌面 0.2.0-rc.2 的事件目录中**不存在**，字符串也不出现在 304 个宿主 bundle 里 → 桌面端从来没有注入过开场引导（用户"感知不到"与之一致）。0.2.0 的对应事件是 **`agent/created`**（serial，payload `{agent, source}`，`source: startup|resume|clear|compact`）。待决：改绑 `agent/created`（只看 `startup`）还是按减法退役这个钩子。
 
 ---
 
@@ -211,3 +214,5 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-08 | 设置面宿主半侧（`volatile()` + `loader/volatile-update` 重挂） | `c585d68` | 隔离 home 真机探针四条全过（describe/update/user+revision/二次启动/过期 revision 被拒）；`tests/volatile-remount.test.mjs` 4 例 |
 | 2026-10-08 | 设置面浏览器半侧（`client/client.js` → `plugins.row.config`） | 见下一次提交 | `tests/client-contract.test.mjs` 8 例；`npm pack --dry-run` 含 `client/client.js` |
 | 2026-10-08 | 设置面真机验收（桌面端 GUI，set + unset 双向） | 见下一次提交 | 三条独立信号一致：profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来；全程不重启 |
+| 2026-10-08 | `ulw` 触发器只读人真正的输入 + 注入署名改为 producer-owned kind | 见下一次提交 | 真机双向：写了 `ulw` 的提示词仍注入（`[user\|plugin:dsh-enhance] <ultrawork-mode>`，exit=0），普通提示词不注入；`tests/skill-trigger.test.mjs` 9 例（+5）、`tests/orient.test.mjs` 5 例（+1）；194/194 |
+

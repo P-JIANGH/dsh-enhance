@@ -11,6 +11,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { PROVIDER as BUNDLED_PROVIDER } from '../features/skills-provider.js'
+import { CONTEXT_SOURCE_KIND } from '../shared/provenance.js'
 
 /** Orientation-hook configuration. */
 export interface OrientationOptions {
@@ -59,6 +60,10 @@ async function orientAgent(ctx: Context, agent: Agent, extra?: string): Promise<
   if (extra) parts.push(extra)
   agent.inject(createUserMessage({
     content: [{ type: 'text', text: parts.join('\n\n') }],
-    source: { kind: 'user' },
+    // Plugin-produced context, never a user utterance. This text names the `ulw`
+    // trigger, so labelling it `user` made the skill-trigger read it as the
+    // human's prompt and enter deep-work mode at session start (and made the
+    // session-title pass treat orientation prose as something the user said).
+    source: { kind: CONTEXT_SOURCE_KIND },
   }))
 }
