@@ -246,3 +246,35 @@ export function apply(clientCtx: ClientContext): void {
 | B | client 构建链落地：`tsconfig.client.json` + tsdown + `dsh.client` 声明 + 最小空 tab（只渲染版本/预设状态，不写配置） | `dsh web`/桌面端加载无报错；tab 出现在「设置 → 插件」旁 |
 | C | tab 控件：字段映射纯函数 + 草稿/`expectedRevision` 保存/重置；**受保护字段不走两处写** | 单测（映射 + revision）+ 真机保存 → 重启生效 |
 | D | 契约测试（slot 可注册性、`settingsScope` 形状）+ `docs/upstream-migration.md` | 契约测试通过；台账记录 |
+
+## 9. 证据级别与验收条件（2026-10-08 二次修订，回应 advisor 的 concern）
+
+> advisor 指出：§8 把"宿主从插件 `Config` 派生**可写**命名空间"当成了结论，而它当时只有 dshmarket 的**注释**支撑；dshmarket 在本机的实际行为恰恰是**降级**（`canRegister()` false → 警告一次 → 保持组合配置），而 slot 占用只证明"tab 渲染得出来"。**这条批评成立**，以下按证据级别重写。
+
+### 9.1 已被 live 运行时证明（本机宿主自己的服务目录，非第三方注释）
+
+- `settings` 服务存在，描述为 **"Project Config schemas into forms and own optional instance-level UI policy."**；方法集 = `describe` / `update(ns, patch, expectedRevision?)` / `replace` / `mutate` / `prepareDocument` / `configure`，**没有 `register`** → "不再有插件注册命名空间"在**本机**成立（`settings.register` 这条旧路确认走不通）。
+- `settingsController`（"Host service backing `ctx.remote.settings`"）暴露 `@Remote describe()` / `update(ns, patch, expectedRevision)` / `replace` / `mutate` → **浏览器写路径存在**，且写入形态就是"单/多字段 patch + `expectedRevision` 栅栏"。
+- `settings.plugins.tab` 是 root list slot，运行时 occupants = `all`(order 10) 与 `dsh-market`(id `dsh-market`, order 60, active) → **第三方插件加 tab 是公开且已验证的能力**；注册契约 `{ id, order, label }`。
+
+### 9.2 尚未证明（**不得**当作结论写进实现）
+
+1. 本插件的 `Config` 是否产出一个 `describe()` descriptor（即"派生命名空间"是否覆盖第三方插件，还是只覆盖宿主自带的少数 provider）。
+2. 该 descriptor 的**命名空间键**（推测 = 插件行 `id` `dsh-enhance`，依据仅 dshmarket 用 `dsh-market`）。
+3. `update()` 对该命名空间是否**接受写入**、是否经 Loader 落盘、生效是 live 还是 restart。
+4. 桌面 profile 是否 compose 了 settings provider（`describe()` 可能返回空）。
+5. 客户端 `settingsScope`（`dsh-client-ui-settings` 提供）在本部署是否可注入——本机**客户端服务目录里没有它的条目**（目录只见 `layout/locale/sessions/slots/theme/timer/uiWorkspace/workspaces`），目录可能是部分投影，**不能据此断定它不存在**，但也不能当作已存在。
+
+### 9.3 验收条件（波次 A 的出口，先于任何卡片代码）
+
+**必须完成一次真实启动上的「写→读往返」，不接受"存在性"作为通过标准**：
+
+1. `describe()` → 记录键集合与各 descriptor 的 `revision`/层级（defaults/base/user）；
+2. 取目标命名空间，`update(ns, { <一个字段>: <新值> }, expectedRevision)`；
+3. 再次 `describe()` → 断言该字段出现在 **user 层**且 `revision` 前进；
+4. **再启动一次**进程 → 断言值仍在新进程里生效（证明落盘，而非仅内存）；
+5. 反向：故意用过期 `expectedRevision` 再写一次 → 断言被拒（`SETTINGS_CONFLICT` 语义）。
+
+**探针机制（不碰用户的 desktop profile）**：在仓库内 gitignored 目录造一个一次性 probe 插件（`dsh.bundle.patch` 插入一行；`apply` 时 `ctx.inject(['settings'], …)` 里做上面 1–3 并写日志文件，全程 try/catch，绝不 import 被删除的 `settingsNamespace`/`installSettingsSection`——缺失命名导出是 **SyntaxError 且宿主 exit 1**）→ 装进**隔离 `$DSH_HOME` 的 profile** → 以 headless 启动（本会话无 key，boot 后 LLM 步会失败，但 probe 日志在 `apply` 阶段已落盘）→ 读日志；第 4 步用第二次启动复验。
+
+**若 9.2 的 1/3 被证伪**（`Config` 只是宿主侧静态配置、没有可写命名空间），那么要重新设计的**不是 tab、也不是构建链，而是数据通道**——候选：① 走 `configEditor.edit(entry, change)`（写 entry config 并经 Loader 应用，本机签名已确认存在）；② 我们自己的 Host Remote（`@Remote` + typert 注册）；③ 退化为"导出 patch 片段 + 用户粘贴"。**在 9.3 通过或明确证伪之前，不写任何卡片代码。**
