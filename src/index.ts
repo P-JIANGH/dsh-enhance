@@ -7,7 +7,7 @@
  * @module dsh-enhance
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Plugin } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-commands'
 import type {} from '@deepseek-ai/dsh-goal'
@@ -28,6 +28,17 @@ import { registerDeliveryGateHook } from './hooks/delivery-gate.js'
 import { registerSkillTrigger } from './features/skill-trigger.js'
 import { registerAdvisorRuntime } from './features/advisor/runtime.js'
 import { registerHumanCommands, COMMAND_NAMES } from './features/commands.js'
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * The Loader committed a `volatile()`-only config change in place instead
+     * of re-applying the plugin (`cordis-plugin-loader`'s `Entry._commitVolatile`).
+     * Emitted on the owning plugin's own fiber, so only that plugin hears it.
+     */
+    'loader/volatile-update': (paths: string[][]) => void
+  }
+}
 
 /** Cordis plugin name. */
 export const name = 'dsh-enhance'
@@ -54,7 +65,13 @@ export const DEFAULT_WORK_RULES = `# 工作准则
 6. 事实永远在文件：上下文/会话记录不一定是事实；关键事实以文件为准（代码、配置、AGENTS.md、测试），行动前先读文件核实。
 7. 不臆想、不编造：信息不足时多提问，不猜；宁可多问，不要假设。`
 
-/** Plugin configuration. */
+/**
+ * Plugin configuration as a profile document writes it: plain values, every
+ * field optional. This is the shape a user edits in the profile patch and the
+ * shape `dsh_enhance_doctor` echoes back. At runtime the fields marked
+ * `volatile()` in {@link Config} reach {@link apply} as accessors instead —
+ * see {@link ResolvedConfig}.
+ */
 export interface Config {
   /** Work-rules prose for the persistent prompt section. Empty text drops the section at render. */
   workRules?: string
@@ -96,34 +113,127 @@ export interface Config {
   advisorModel?: string
 }
 
-/** Runtime schema for the plugin row. */
-export const Config: z<Config> = z.object({
+/**
+ * Runtime schema for the plugin row.
+ *
+ * The eight user-facing fields are `volatile()`: the Host's configuration form
+ * owns them, renders them on the Plugins page (`plugins.row.config`, keyed by
+ * `<package>#<row id>`, see `docs/design-web-settings-card.md`), and writes a
+ * change back into this profile's patch, which hot-reloads this entry — so a
+ * toggle takes effect without a restart. `workRules` stays a plain document
+ * value: it is long prose, not a switch, and is edited in the patch itself.
+ */
+export const Config = z.object({
   workRules: z.string().default(DEFAULT_WORK_RULES),
-  orientOnSessionStart: z.boolean().default(true),
-  doctorTool: z.boolean().default(true),
-  commands: z.boolean().default(true),
-  guards: z.boolean().default(true),
-  workTracking: z.boolean().default(true),
-  worktree: z.boolean().default(true),
-  advisor: z.boolean().default(true),
-  advisorModel: z.string(),
+  orientOnSessionStart: z.boolean().default(true).volatile(),
+  doctorTool: z.boolean().default(true).volatile(),
+  commands: z.boolean().default(true).volatile(),
+  guards: z.boolean().default(true).volatile(),
+  workTracking: z.boolean().default(true).volatile(),
+  worktree: z.boolean().default(true).volatile(),
+  advisor: z.boolean().default(true).volatile(),
+  advisorModel: z.string().volatile(),
 })
+
+/** One `volatile()` field as schemastery resolves it: an accessor the settings surface updates in place. */
+interface VolatileField<T> {
+  /** @returns the field's current value. */
+  get(): T
+}
+
+/**
+ * Plugin configuration as the Loader hands it to `apply`: the plain document
+ * fields, and an accessor for each `volatile()` field. Upstream
+ * `dsh-agent-loop` reads its own volatile `maxParallelToolCalls` the same way.
+ */
+export interface ResolvedConfig {
+  /** @see Config.workRules */
+  workRules?: string
+  /** @see Config.orientOnSessionStart */
+  orientOnSessionStart?: VolatileField<boolean>
+  /** @see Config.doctorTool */
+  doctorTool?: VolatileField<boolean>
+  /** @see Config.commands */
+  commands?: VolatileField<boolean>
+  /** @see Config.guards */
+  guards?: VolatileField<boolean>
+  /** @see Config.workTracking */
+  workTracking?: VolatileField<boolean>
+  /** @see Config.worktree */
+  worktree?: VolatileField<boolean>
+  /** @see Config.advisor */
+  advisor?: VolatileField<boolean>
+  /** @see Config.advisorModel */
+  advisorModel?: VolatileField<string>
+}
+
+/**
+ * Read one configuration field, whichever shape it arrived in.
+ * @param field - a plain document value, a `volatile()` accessor, or absent.
+ * @returns the field's current plain value.
+ */
+function fieldValue<T>(field: T | VolatileField<T> | undefined): T | undefined {
+  if (field === undefined) return undefined
+  if (typeof field === 'object' && field !== null && typeof (field as VolatileField<T>).get === 'function') {
+    return (field as VolatileField<T>).get()
+  }
+  return field as T
+}
+
+/** One generation of the feature wiring: re-mounted whenever a `volatile()` field changes. */
+const Features: Plugin<ResolvedConfig> = {
+  name: 'dsh-enhance/features',
+  apply: applyFeatures,
+}
 
 /**
  * Apply the dsh-enhance bundle to one context.
+ *
+ * Every switch here gates a *registration* (tools, commands, hooks, the
+ * advisor runtime). The Loader adopts a `volatile()` change without
+ * re-applying this plugin: it commits the new value into the field accessors
+ * in place and emits `loader/volatile-update` on this plugin's own fiber
+ * (`cordis-plugin-loader`'s `Entry._commitVolatile`). Left alone, a toggle
+ * would therefore stay inert until the next restart, so the feature wiring
+ * lives in a child plugin that is unmounted and re-mounted on that event. A
+ * deployment whose loader never emits the event degrades to exactly that: the
+ * value is stored and applies at the next start.
+ *
  * @param ctx - context with the `skills`, `systemPrompt`, `tools` and `commands` services.
  * @param config - validated plugin configuration.
  */
-export function apply(ctx: Context, config: Config): void {
+export function apply(ctx: Context, config: ResolvedConfig): void {
+  let mounted = ctx.plugin(Features, config)
+  let queue: Promise<void> = Promise.resolve()
+  ctx.on('loader/volatile-update', () => {
+    queue = queue
+      .then(async () => {
+        const previous = mounted
+        await previous.dispose()
+        mounted = ctx.plugin(Features, config)
+      })
+      .catch((error: unknown) => {
+        ctx.logger.warn('dsh-enhance: rebuilding the feature wiring after a settings change failed')
+        ctx.logger.warn(error)
+      })
+  })
+}
+
+/**
+ * Register the whole feature surface for the configuration as it stands now.
+ * @param ctx - the child context owning this generation's registrations.
+ * @param config - validated plugin configuration; volatile fields are read here.
+ */
+function applyFeatures(ctx: Context, config: ResolvedConfig): void {
   const workRules = config.workRules ?? ''
-  const orientOnSessionStart = config.orientOnSessionStart ?? true
-  const doctorTool = config.doctorTool ?? true
-  const commands = config.commands ?? true
-  const guards = config.guards ?? true
-  const workTracking = config.workTracking ?? true
-  const worktree = config.worktree ?? true
-  const advisor = config.advisor ?? true
-  const advisorModel = config.advisorModel
+  const orientOnSessionStart = fieldValue(config.orientOnSessionStart) ?? true
+  const doctorTool = fieldValue(config.doctorTool) ?? true
+  const commands = fieldValue(config.commands) ?? true
+  const guards = fieldValue(config.guards) ?? true
+  const workTracking = fieldValue(config.workTracking) ?? true
+  const worktree = fieldValue(config.worktree) ?? true
+  const advisor = fieldValue(config.advisor) ?? true
+  const advisorModel = fieldValue(config.advisorModel)
 
   registerSkillsProvider(ctx)
   if (workRules) registerWorkRules(ctx, workRules)
