@@ -30,6 +30,21 @@ pnpm qa:pack                     # 打包安装验收（零 token，真 tarball 
 node qa/dsh-enhance-drive.mjs --llm    # 真实会话断言插件加载 / 技能 / doctor
 ```
 
+### 首次公开前的历史扫描（只做一次）
+
+GitHub 一旦公开，**历史**也一起公开——所以密钥检查必须扫全部提交，而不只是工作树：
+
+```sh
+# 每个提交扫一遍（本仓库 54 个提交，秒级完成）；命中数必须为 0
+for c in $(git rev-list --all); do
+  git grep -n -E 'sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\s*=\s*\S|BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' "$c"
+done
+git log --all --oneline -- .env   # 必须为空：.env 从未入库
+```
+
+2026-10-09 在 v0.1.0 前的实测结论：54 个提交 **0 命中**，`.env` 从未提交，工作树里它由
+`.gitignore` 忽略。
+
 ## 2. 打标签与发布
 
 ```sh
