@@ -118,11 +118,16 @@ git config --local http.https://github.com.proxy http://127.0.0.1:10809
 
 ## 4. 发布后
 
-- 确认 GitHub 上 `master` 与 `v0.1.0` 指向同一提交（`git ls-remote origin`），并看一次 CI
-  run 是否通过（`.github/workflows/ci.yml`；推送 `.github/workflows/**` 需要 token 带
-  `workflow` scope）。
-- 用 **GitHub 源码安装**做一次真机闭环（这是分发的真正验收，比 `git ls-remote` 强）：
+- 确认 `v0.1.0` 指向的提交 **CI 是绿的**（`git ls-remote origin` 看 tag 指向；`.github/workflows/ci.yml`；
+  推送 `.github/workflows/**` 需要 token 带 `workflow` scope）。`master` 允许在 tag 之后继续前进——
+  发布后的文档提交就该这样；但**任何代码或产物变更都必须切新版本**，不能塞回已发布的 tag。
+- 用**已发布产物**再验一次，不同形态各一条（比 `git ls-remote` 强得多）：
   ```sh
+  # ① 产物级：装出来的包必须真的贡献三条技能（无需 LLM）
+  curl -L -o dl.tgz https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  #    并用 sha256 与本地 npm pack 产物比对；再把它装进一次性 profile，对装出来的
+  #    lib/features/skills-provider.js 调 list()，断言 code-review / git-workflow / tdd
+  # ② 分发级：从 GitHub 源码装一次并 dump-config
   dsh plugin --profile qa-gh add github:P-JIANGH/dsh-enhance
   dsh --profile qa-gh --dump-config | Select-String "dsh-enhance|preset-enhance"
   ```
