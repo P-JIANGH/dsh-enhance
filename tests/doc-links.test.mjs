@@ -33,7 +33,11 @@ test('[docs] 每一条指向仓库内文件的链接都真实存在', () => {
   const broken = []
   let checked = 0
   for (const file of markdownFiles()) {
+    // 先剥掉代码块与行内代码：文档引用 markdown 语法本身（例如正文里写 `](target)`）
+    // 不是链接，不能被当成链接检查。链接文本里的行内代码被剥掉后，`[](path)` 仍可解析。
     const text = readFileSync(file, 'utf8')
+      .replace(/```[\s\S]*?```/g, '')
+      .replace(/`[^`\n]*`/g, '')
     for (const match of text.matchAll(/\]\(([^)\s]+)\)/g)) {
       const target = match[1]
       if (/^[a-z][a-z0-9+.-]*:/i.test(target)) continue // http(s):, mailto:, …

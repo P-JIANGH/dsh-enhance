@@ -48,11 +48,11 @@ dsh-enhance/
 │   ├── hooks/             # 生命周期钩子（work-rules、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
 │   ├── features/          # 特性模块（skills-provider、commands、boulder/、worktree/、delivery-gate/、advisor/）
-│   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
+│   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本、来源署名、会话作用域判定）
 ├── client/                # 浏览器半侧（手写、不经构建）：在「插件」面板认领本行的配置页（plugins.row.config）
-├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
-├── scripts/               # 预设行生成（sync-dsh-enhance-preset → cordis.patch.yml；`presets/` 与 sync-presets 已于 2026-10-09 退役）
-├── tests/                 # node --test 单测
+├── qa/                    # 实驱脚本：pack-install-drive（零 token 打包安装验收）+ 真实 LLM 驱动（隔离 home、证据落盘）
+├── scripts/               # 预设行生成（sync-dsh-enhance-preset → cordis.patch.yml）+ 发布载荷形状检查（check-pack-payload）
+├── tests/                 # node --test 单测（含宿主契约钉、文档链接钉、字节钉）
 └── cordis.patch.yml       # 插件注入补丁 + preset-enhance 预设行（生成物）
 └── package.json
 ```

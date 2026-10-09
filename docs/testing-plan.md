@@ -29,6 +29,8 @@
 | `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder` 注册与只读输出、开关与 disposer；断言诊断里不复活已退役机制 | M6 | ✅ |
 | `tests/volatile-remount.test.mjs` | 设置面开关**即时生效**的接线契约：首挂同步、收到 `loader/volatile-update` 先卸后挂、连续改动串行、重挂失败只告警不打死条目 | 设置面 | ✅ |
 | `tests/client-contract.test.mjs` | 浏览器半侧跨文件契约：`exports["./client"]`/`dsh.client`、`plugins.row.config` 的 key = `<包名>#<行 id>`（从 `package.json`+`cordis.patch.yml` 推导）、`whileServed` 命名空间、6 开关 + advisorModel 字段集合与布尔往返、样式幂等 | 设置面 | ✅ |
+| `tests/host-contract.test.mjs` | **宿主契约**：`src` 里每个 `ctx.on('<ns>/<name>')` 必须在**已安装上游 typings** 里被声明（`agent/session-start` 曾让两个默认开启的钩子静默永不触发；带负控制断言，自证式 pin 无意义）+ 注入署名契约（`createUserMessage(` 调用数 == `kind: CONTEXT_SOURCE_KIND` 数，`src` 里没有 `kind: 'user'`）+ `isDelegatedSession` / `hasInjectedText` 纯函数 | 全部 | ✅ |
+| `tests/doc-links.test.mjs` | 文档内部链接可点：所有 markdown 里指向仓库文件的 `](target)` 必须存在（发布前曾有 16 个坏链接无人发现）；带非真空断言 | 发布面 | ✅ |
 
 ## 2. dsh 实驱脚本
 
@@ -37,6 +39,8 @@
 | `qa/dsh-enhance-drive.mjs` | 插件激活实驱：`--dump` 零成本 compose 校验 / `--llm` 真实 headless | M1 | ✅ 已实现并跑通 dump 与 llm |
 | `qa/worktracking-drive.mjs` | 工作追踪 + 写令牌 + 路径越界守卫（真实 LLM 会话） | M4 | ✅ `--llm` 已跑通 |
 | `qa/delivery-gate-drive.mjs` | 交付门卫反向实驱（假完成声明 → 报告落盘、`active_work` 清空） | M3 | ✅ `--llm` 已跑通 |
+| `qa/pack-install-drive.mjs`（`pnpm qa:pack`） | **打包安装验收，零 token**：真 `npm pack` → 真装进一次性 profile → 21 条断言。这是唯一覆盖"用户真装一遍"的层：仓库里其余测试都跑在 `link:` 形态下，解析会落到本 checkout 的 `node_modules`，因此**看不见**"宿主供给的包被写成 dependency / 副本遮蔽宿主"这类缺陷。断言含：宿主 0.2.x、插件是真实目录而非链接、复制进 profile 的只有 `schemastery`+`cosmokit`（无任何服务类宿主包副本）、安装无 peer 告警、`--dump-config` 行齐备无失败诊断、真启动解析全部静态 import 且本插件行**已激活**、未激活名单只有 `preset-enhance`/`agentPresets` 这条已知项 | 发布面 | ✅ 21/21 |
+| `scripts/check-pack-payload.mjs`（`pnpm check:pack`） | 发布载荷形状：必需文件（`lib/index.js`、`lib/enhance-mode.js`、`client/client.js`、`skills/`、`cordis.patch.yml` …）必须在，**已删源码的编译产物必须不在**（历史上 4 个陈旧模块曾被打进 tarball），`src/`/`tests/`/`docs/`/`.dsh-enhance/` 不得入载荷 | 发布面 | ✅ |
 
 ## 3. 后续里程碑测试规划（能力未实现 → 规划先行）
 
@@ -66,7 +70,7 @@
 
 > 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。
 
-**基线（2026-10-08 复验）**：本插件对齐 `@deepseek-ai/*@0.1.2-alpha.4`（唯一适配点：`JsonValue` 由 `dsh-util-values` 提供；`@deepseek-ai/schemastery` 为 `~3.18.4`，`volatile()` 需要它）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **188/188**（22 个测试文件）。运行用 dsh CLI 覆盖两代：`0.1.0-rc.6`（nvm）与桌面版 `0.2.0-rc.2`。
+**基线（2026-10-09 发布收尾轮复验）**：本插件对齐**宿主实际携带的** `@deepseek-ai/*@0.2.0-rc.2`（`cordis@4.0.4`；`@deepseek-ai/schemastery` 为 dependency `~3.18.4`，`volatile()` 需要它，且宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema——跨副本安全）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **187/187**（21 个测试文件）· `pnpm qa:pack` **21/21** · `pnpm check:pack` PASS。**此前的基线是 `@deepseek-ai/*@0.1.2-alpha.4`（另一条大版本）**——那次错配正是 P0-10 的根因：`tsc` 校的不是宿主实际 API，两个钩子因此长期绑在一个不存在的事件上，全绿也没人发现。日常实驱默认跑桌面宿主 `0.2.0-rc.2`（`resolveDsh()` 会从 PATH 命中里认出桌面 shim；旧 nvm `0.1.0-rc.6` 只在显式 `DSH_BIN` 时才用得上）。
 
 **实驱目标解析（隔离优先）**：`qa/dsh-launch.mjs` 的 `resolveQaTarget()` 让三个实驱**默认**落在仓库内隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`）——只要它存在就不碰真实 `~/.dsh`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先。证据与终端都会标注本次实际使用的 profile 与 home。直接原因：不带环境变量跑实驱时，目标曾落在真实 home，实现在一个不含本插件的 profile 上找 bundle 层，于是报出"未发现 dsh-enhance 层"——把"跑错环境"误诊成"插件缺陷"。
 
@@ -78,6 +82,12 @@
 | 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；**说明（2026-10-09）**：以上截图是历史证据，自 2026-10-09 起本插件只出 Enhance 一个预设，其余条目来自上游 dsh；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
 | 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
 | 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@dsh-enhance/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
+| **打包安装验收（2026-10-09）** | **已通过（21/21，零 token）** | `pnpm qa:pack`：真 `npm pack` → 真装进一次性 profile `qa-pack`（隔离 home）→ 宿主 0.2.x、插件以真实目录装成、profile 里只有 `schemastery`+`cosmokit`（**无任何服务类宿主包副本**）、安装无 peer 告警、`--dump-config` 行齐备、**真启动解析全部静态 import 且本插件行已激活**、未激活名单只有 `preset-enhance`/`agentPresets`。证据 `.dsh-enhance/evidence/pack-install-drive.md` |
+
+**这道验收证明什么、不证明什么（写清楚，别过度归因）**：
+
+- **证明**：用户真装一遍的那条路上，模块解析、行装配、启动、激活状态都成立；宿主供给的包没有被复制进 profile。
+- **不证明**：预设行在有 `agentPresets` 服务的 **Web 组合**里会激活（本验收用的是 headless 组合，那里它必然 pending）。"预设可用"这一条目前仍由历史真机证据支撑：2026-10-09 的 Web/桌面 probe 复刻 `agentPresets.resolve` + `mount` 后，Enhance 预设会话 `session-454ff36e` 的 system prompt 含完整 `<enhance-mode>`。想要端到端断言它，需要在 Web 形状的 profile 上起一次带超时的真启动——那会引入"杀掉服务器进程"的脆弱性，暂不做，记为 v2。
 
 **关于此前记录的「`--llm` 阻塞」——归因已更正（2026-09-30 实测）**：
 
