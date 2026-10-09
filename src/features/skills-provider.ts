@@ -52,10 +52,19 @@ export interface ParsedSkill {
  * Parse the `---`-fenced frontmatter block off a SKILL.md body. Recognized
  * keys: `name`, `description`, `disable-model-invocation`, `user-invocable`
  * (the exact keys the filesystem provider reads). Unknown keys are ignored.
- * @param text - full SKILL.md text.
+ *
+ * Line endings are normalised to `\n` first, and that is not cosmetic: a Windows
+ * checkout (git's `core.autocrlf=true` default, and what CI's Windows runner
+ * produces) hands us CRLF, the old `\n`-anchored fence then never matched, and
+ * `list()` silently skipped **every** packaged skill. The bundle looked healthy —
+ * the directory existed, the plugin row activated — while contributing zero
+ * skills. A `github:` install on Windows is exactly that path.
+ *
+ * @param text - full SKILL.md text, LF or CRLF.
  * @returns parsed skill, with empty `name`/`description` when the block is missing or malformed.
  */
-export function parseSkillBody(text: string): ParsedSkill {
+export function parseSkillBody(raw: string): ParsedSkill {
+  const text = raw.replace(/\r\n?/g, '\n')
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text)
   if (!match?.[1] || !match[2]) {
     return { name: '', description: '', content: text, invocation: { modelInvocable: true, userInvocable: true } }
@@ -77,26 +86,29 @@ export function parseSkillBody(text: string): ParsedSkill {
   }
 }
 
-/** Absolute path of one skill bundle directory inside this package. */
-function skillDir(name: string): string {
-  return path.join(SKILLS_ROOT, name)
+/** Absolute path of one skill bundle directory inside a skills root. */
+function skillDir(name: string, root: string = SKILLS_ROOT): string {
+  return path.join(root, name)
 }
 
 /**
  * Create the packaged-skill provider. Discovery reads every `skills/<name>/SKILL.md`
  * directory; loading rereads the winning body for the caller.
  * @param _control - registration-scoped abort/invalidate control (unused: packaged skills are static).
+ * @param root - skills root to read; defaults to this package's own `skills/`.
+ *   Injectable so a test can exercise CRLF files end to end without touching the
+ *   repository's own tree (tests must not write to the working tree).
  * @returns the provider handed to `ctx.skills.registerProvider()`.
  */
-export function createSkillsProvider(_control: SkillProviderControl): SkillProvider {
+export function createSkillsProvider(_control: SkillProviderControl, root: string = SKILLS_ROOT): SkillProvider {
   return {
     name: 'dsh-enhance',
     async list() {
-      const entries = await readdir(SKILLS_ROOT, { withFileTypes: true })
+      const entries = await readdir(root, { withFileTypes: true })
       const candidates: SkillCandidate[] = []
       for (const entry of entries) {
         if (!entry.isDirectory()) continue
-        const dir = path.join(SKILLS_ROOT, entry.name)
+        const dir = path.join(root, entry.name)
         const skillPath = path.join(dir, 'SKILL.md')
         let parsed: ParsedSkill
         try {
@@ -120,7 +132,7 @@ export function createSkillsProvider(_control: SkillProviderControl): SkillProvi
       return candidates
     },
     async get(candidate) {
-      const skillPath = path.join(skillDir(String(candidate.locator)), 'SKILL.md')
+      const skillPath = path.join(skillDir(String(candidate.locator), root), 'SKILL.md')
       const parsed = parseSkillBody(await readFile(skillPath, 'utf8'))
       if (parsed.name !== candidate.name) return undefined
       return { ...candidate, content: parsed.content }

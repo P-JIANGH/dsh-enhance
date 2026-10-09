@@ -6,3 +6,7 @@
 # 这些文件的操作把工作树弄脏）。
 cordis.patch.yml text eol=lf
 prompts/** text eol=lf
+# 打包技能同样是"按内容解析"的资产：SKILL.md 的 frontmatter 围栏一旦被检出成 CRLF，
+# 解析器就会一个技能都认不出来（CI 第一次跑就是这么红的）。解析器已改成容忍 CRLF，
+# 这里再让检出本身确定化，两道都留着。
+skills/** text eol=lf
