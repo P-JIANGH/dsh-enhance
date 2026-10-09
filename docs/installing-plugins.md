@@ -111,25 +111,35 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 
 > 为什么已经链接了还要 build？因为 `dsh`（和其它 Node 加载器一样）读取的是包入口指向的**已编译 JS**。你要是愿意，可以把 dsh-enhance 的 `main`/`exports` 临时指向 `src/index.ts`，并让 profile 用 tsx 之类的运行时打开 —— 但这不是 dsh 默认的加载方式，日常调试按上面的 build 循环最省事。
 
-### 3.4 安装来源三：Git 托管（包通过 `prepare` 自构建）
+### 3.4 安装来源三：GitHub（发行版 tarball / 源码 / 镜像）
 
 ```sh
-# 主仓（GitHub）
+# 1) 发行版 tarball（推荐：免构建、免 allowBuilds；实测 9 秒）
+dsh plugin --profile dsh-enhance add \
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+
+# 2) 源码（跟 master；包通过 `prepare` 自构建）
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
-# 等价写法（SSH / HTTPS 显式 URL）
 dsh plugin --profile dsh-enhance add git@github.com:P-JIANGH/dsh-enhance.git
 dsh plugin --profile dsh-enhance add https://github.com/P-JIANGH/dsh-enhance.git
 
-# 镜像（GitCode，内容同步）
+# 3) 镜像（GitCode，内容同步）
 dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ```
 
-> 注意：pnpm ≥10 默认会拦截 git 依赖的 `prepare`（构建）脚本，直到你在 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 里放行它。失败时 `dsh plugin` 会在 stderr 打印 pnpm 报出的确切 key，按其提示加白后重跑即可。
+> **源码装（第 2 种）必须放行构建脚本**：pnpm ≥10 默认拦截 git 依赖的 `prepare`，`dsh plugin` 会失败并把确切 key 打印出来，例如
+> `@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#7b4a492…`。把它加进 **profile** 的 `pnpm-workspace.yaml`：
+> ```yaml
+> allowBuilds:
+>   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+> ```
+> 两个容易踩的点：**key 里带 commit 号**（每次升级都要换），而且 key 含 `:` 与 `#`，**YAML 里必须加引号**（不加会报 `bad indentation of a mapping entry`）。发行版 tarball（第 1 种）没有这一步，因为 `lib/` 已经打进去了。
 >
-> 网络：在部分网络环境下 `github.com` 需要走代理才可达。git 可以按 URL 定向设代理（只影响 GitHub，不影响其它远端）：
+> 网络：直连不通时，git 按 URL 定向走代理（只影响 GitHub）：
 > ```sh
 > git config --global http.https://github.com.proxy http://127.0.0.1:10809
 > ```
+> pnpm 拉 tarball 走的是 `HTTPS_PROXY` 环境变量。
 
 ### 3.5 安装第三方插件为普通依赖（非 bundle）
 

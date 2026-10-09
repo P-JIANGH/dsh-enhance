@@ -47,17 +47,30 @@
 需要 `dsh` CLI（npm：`@deepseek-ai/dsh`）。示例使用名为 `dsh-enhance` 的 profile；如有不同可替换为你自己的 profile 名。
 
 ```sh
-# 从 GitHub 源码装（推荐；包通过 `prepare` 自构建）
+# 1) 发行版 tarball（推荐：免构建、免额外放行；实测 9 秒装完）
+dsh plugin --profile dsh-enhance add \
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+
+# 2) GitHub 源码（跟最新 master；包通过 `prepare` 自构建，需要先按下面的说明放行构建脚本）
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
 
-# 或直接从本地 checkout 装
+# 3) 本地 checkout
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 
-# 或作为实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
+# 4) 实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
 dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
-> 包名是 `@dsh-enhance/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面三种装法都由 `dsh plugin` 按路径/仓库解析，不需要包名。
+> 包名是 `@dsh-enhance/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面四种装法都由 `dsh plugin` 按路径/URL/仓库解析，不需要在命令里写包名。
+
+> **源码装（第 2 种）的两点摩擦**：① pnpm ≥10 会拦住 git 依赖的 `prepare` 构建，必须把 `dsh plugin` 报错里给你的那个 key 加进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`；② 该 key 里**带 commit 号**，所以每次升级都要换一行，而且 key 含 `:` 与 `#`，在 YAML 里**必须加引号**：
+> ```yaml
+> allowBuilds:
+>   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+> ```
+> 嫌麻烦就用第 1 种（tarball 里已经带了构建产物 `lib/`）。
+>
+> **网络**：部分网络环境直连 `github.com` 不通。git 可按 URL 定向设代理（只影响 GitHub）：`git config --global http.https://github.com.proxy http://127.0.0.1:10809`；pnpm 拉 tarball 则认 `HTTPS_PROXY` 环境变量。
 
 本插件是一个补丁层：它向 profile 中插入一行 `dsh-enhance` 插件。验证方式：
 

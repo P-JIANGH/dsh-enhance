@@ -56,11 +56,26 @@ GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应�
 
 - **标题**：`v0.1.0`
 - **正文**：Added / Changed / Fixed / Removed / Compatibility 五节；把"两个默认开启的钩子
-  从未触发"这类修复写清楚（用户需要知道行为变了）。
-- **附件**：`npm pack` 产出的 `dsh-enhance-dsh-enhance-0.1.0.tgz`。用户可以
-  `dsh plugin --profile <p> add <tarball-url>` 直接装它，不必 clone。
+  从未触发"这类修复写清楚（用户需要知道行为变了）。**建议用脚本从 `CHANGELOG.md` 抽对应小节**，
+  避免正文与变更记录漂移（v0.1.0 就是这么生成的）。
+- **附件**：`npm pack` 产出的 `dsh-enhance-dsh-enhance-0.1.0.tgz`。**这是给用户的首选安装来源**
+  （免构建、免 allowBuilds）：
+  ```sh
+  dsh plugin --profile <p> add \
+    https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  ```
 - **兼容性一句话**：预设行需要 dsh ≥ 0.2.0；纯 headless profile 会打印一行
   `preset-enhance … pending (waiting for service: agentPresets)`，属预期。
+
+**v0.1.0 的两条分发路径都做过真机验收**（隔离 home 的一次性 profile，桌面宿主 0.2.0-rc.2）：
+
+| 路径 | 结果 |
+|---|---|
+| Release tarball URL | ✅ 9 秒装完；无需 `allowBuilds`；装出来的 profile 里只有 `schemastery`+`cosmokit`+`@standard-schema`；真启动后本插件行**已激活**，未激活名单只有预期的 `preset-enhance`/`agentPresets` |
+| `github:P-JIANGH/dsh-enhance` | ✅ 1 分 20 秒（clone + `prepare` 构建）；**必须先按报错放行 `allowBuilds`**，且 key 含 commit 号、YAML 里必须加引号；真启动同样激活 |
+
+结论写进了 README / installing-plugins：**用户首选 tarball**，源码装作为"跟最新 master"的第二选择，
+并把两条摩擦点（放行构建、key 加引号）写在旁边。
 
 ## 3. 远端布局与本机网络
 

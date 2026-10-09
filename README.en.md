@@ -59,20 +59,40 @@ You need the `dsh` CLI (npm: `@deepseek-ai/dsh`). The examples use a profile nam
 `dsh-enhance`; substitute your own name.
 
 ```sh
-# from the GitHub source (the package builds itself through `prepare`)
+# 1) release tarball (recommended: no build step, no allowlist; measured at 9 seconds)
+dsh plugin --profile dsh-enhance add \
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+
+# 2) GitHub source (tracks master; the package builds itself through `prepare` — see the note below)
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
 
-# or from a local checkout
+# 3) a local checkout
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 
-# or as a live link for debugging (point it at your checkout; run `pnpm build` after src/ edits)
+# 4) a live link for debugging (points at your checkout; run `pnpm build` after src/ edits)
 dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
 > The package name is `@dsh-enhance/dsh-enhance` — **not** the bare name
-> `dsh-enhance`, which is a different, unrelated name on npm. All three install
-> forms above resolve by path or repository, so the package name never appears in
-> the command.
+> `dsh-enhance`, which is a different, unrelated name on npm. All four forms
+> resolve by path, URL or repository, so the package name never appears in the
+> command.
+
+> **Two frictions with the source install (form 2)**: pnpm ≥10 blocks a git
+> dependency's `prepare` build until you add the exact key from `dsh plugin`'s error
+> to the profile's `pnpm-workspace.yaml` under `allowBuilds`; that key contains the
+> **commit**, so it changes with every release, and it contains `:` and `#`, so YAML
+> needs it **quoted**:
+> ```yaml
+> allowBuilds:
+>   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+> ```
+> Prefer form 1 if that is annoying — the tarball already ships the built `lib/`.
+>
+> **Network**: on networks where `github.com` is not directly reachable, git can use a
+> proxy scoped to GitHub only:
+> `git config --global http.https://github.com.proxy http://127.0.0.1:10809`
+> (pnpm fetching the tarball honours `HTTPS_PROXY` instead).
 
 Verify what the profile will actually assemble:
 
