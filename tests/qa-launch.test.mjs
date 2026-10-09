@@ -14,6 +14,7 @@ import {
   resolveDsh,
   dshMissingHint,
   desktopRootOf,
+  desktopRootFromShims,
   desktopLaunchFrom,
   resolveQaTarget,
   QA_HOME,
@@ -97,11 +98,16 @@ test('[qa-launch] resolveDsh 返回统一形状（cmd 为字符串，prefix 为�
 // 直接 spawn .cmd 在 Windows 上会 EINVAL，所以必须复刻这三条事实。
 
 /** 造一个桌面版安装布局：<root>/<App>.exe + resources/... + app.asar/…/cli.js。 */
-function fakeDesktopLayout({ withShim = true, withCli = true, withExe = true } = {}) {
+function fakeDesktopLayout({ withShim = true, withCli = true, withExe = true, asarFile = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-'))
   const cliDir = join(root, 'resources', 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'dsh-desktop-host', 'lib')
   mkdirSync(cliDir, { recursive: true })
   if (withCli) writeFileSync(join(cliDir, 'cli.js'), '// cli')
+  if (asarFile) {
+    // 真实安装形态：app.asar 是**文件**，cli.js 在它里面（Node 看不见，Electron 自己读）。
+    rmSync(join(root, 'resources', 'app.asar'), { recursive: true, force: true })
+    writeFileSync(join(root, 'resources', 'app.asar'), '')
+  }
   const shimDir = join(root, 'resources', 'runtime', 'cli', 'bin')
   mkdirSync(shimDir, { recursive: true })
   if (withShim) writeFileSync(join(shimDir, 'dsh.cmd'), '@echo off\n')
@@ -136,6 +142,17 @@ test('[qa-launch] desktopRootOf 从桌面 shim 反推应用根，其它路径返
   assert.equal(desktopRootOf(undefined), undefined)
 })
 
+test('[qa-launch] desktopRootFromShims 从 PATH 命中里认出桌面根（非桌面 shim 忽略）', () => {
+  // 实测本机 PATH 上命中的就是桌面 shim；认不出它就会退回 nvm 的 0.1.0-rc.6。
+  assert.equal(desktopRootFromShims(['F:\\nvm\\v24.13.0\\dsh.cmd']), undefined)
+  assert.equal(
+    desktopRootFromShims(['F:\\nvm\\v24.13.0\\dsh.cmd', 'F:\\dsh-desktop\\resources\\runtime\\cli\\bin\\dsh.cmd']),
+    'F:\\dsh-desktop',
+  )
+  assert.equal(desktopRootFromShims([]), undefined)
+  assert.equal(desktopRootFromShims(undefined), undefined)
+})
+
 test('[qa-launch] desktopLaunchFrom 复刻 Electron-as-node 启动三要素', () => {
   const root = fakeDesktopLayout()
   try {
@@ -157,6 +174,20 @@ test('[qa-launch] desktopLaunchFrom 布局不全时返回 undefined（不猜）'
       assert.equal(desktopLaunchFrom(root), undefined, `缺件时应 undefined: ${JSON.stringify(opts)}`)
     } finally { rmSync(root, { recursive: true, force: true }) }
   }
+})
+
+test('[qa-launch] desktopLaunchFrom 接受打包布局（真实安装：cli.js 在 app.asar 文件里）', () => {
+  // 真机就是这一种：app.asar 是 121MB 的文件，Node 的 existsSync 看不到里面的 cli.js。
+  // 只认解包目录的话，本机 resolveDsh 会一路退回 nvm 的 0.1.0-rc.6（实测过）。
+  const root = fakeDesktopLayout({ withCli: false, asarFile: true })
+  try {
+    const d = desktopLaunchFrom(root)
+    assert.ok(d, 'app.asar 文件存在即布局成立')
+    assert.equal(d.kind, 'desktop')
+    assert.equal(d.cmd, join(root, 'MyApp.exe'))
+    assert.match(d.prefix[1].replace(/\\/g, '/'), /resources\/app\.asar\/dsh\/node_modules\/@deepseek-ai\/dsh-desktop-host\/lib\/cli\.js$/)
+    assert.equal(d.env.ELECTRON_RUN_AS_NODE, '1')
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })
 
 test('[qa-launch] DSH_DESKTOP_ROOT 让 resolveDsh 走桌面版启动路径', () => {

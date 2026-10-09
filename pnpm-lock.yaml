@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: ~3.18.4
+        version: 3.18.4
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: ^4.0.4
@@ -35,9 +39,6 @@ importers:
       '@deepseek-ai/dsh-util-values':
         specifier: 0.2.0-rc.2
         version: 0.2.0-rc.2(@deepseek-ai/cordis@4.0.4)
-      '@deepseek-ai/schemastery':
-        specifier: ~3.18.4
-        version: 3.18.4
       '@types/node':
         specifier: ^26.2.0
         version: 26.2.0

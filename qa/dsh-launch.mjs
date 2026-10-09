@@ -14,7 +14,7 @@
  * @module qa/dsh-launch
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -67,6 +67,25 @@ export function desktopRootOf(bin) {
 }
 
 /**
+ * 从 PATH 上命中的 `dsh` shim 列表里认出桌面版应用根。
+ *
+ * 桌面 shim 边上**没有** `lib/bin.js`，普通 shim 识别（`binFromShim`）会跳过它，于是一路
+ * 退回 nvm 里的旧 CLI —— 实驱就跑在与文档不符的运行时上（本机实测：桌面 0.2.0-rc.2 vs
+ * nvm 0.1.0-rc.6，后者连行式预设注册表都没有）。所以 PATH 命中里只要出现桌面布局，就先按
+ * 桌面路径解析。
+ *
+ * @param shims - PATH 上按序命中的 shim 路径（可能含非桌面 shim）。
+ * @returns 桌面应用根，或 undefined。
+ */
+export function desktopRootFromShims(shims) {
+  for (const shim of shims ?? []) {
+    const root = desktopRootOf(shim)
+    if (root !== undefined) return root
+  }
+  return undefined
+}
+
+/**
  * 由桌面版应用根目录构造启动命令。
  *
  * 桌面版不能像普通 shim 那样直接 spawn：它的 `dsh.cmd` 会再拉一次
@@ -81,7 +100,16 @@ export function desktopLaunchFrom(root) {
   if (!root || !existsSync(root)) return undefined
   const shim = join(root, ...DESKTOP_SHIM_REL)
   const cliJs = join(root, ...DESKTOP_HOST_CLI_REL)
-  if (!existsSync(shim) || !existsSync(cliJs)) return undefined
+  // 内层 cli.js 有两种形态，真实安装是第二种：
+  //   解包目录：<root>/<cli.js 路径> 在文件系统里真实存在（开发/解包布局）；
+  //   打包文件：它躺在 `resources/app.asar` **里面** —— 那是个 121MB 的文件，Node 的
+  //     existsSync 永远看不见里面（ENOTDIR），但 Electron 自己能读。桌面 shim 原文也是
+  //     这么调的（`"<App>.exe" --expose-internals "<root>/resources/app.asar/…/cli.js"`），
+  //     所以 asar 存在即布局成立。只认第一种会让真机上一路退回 nvm 的旧 CLI。
+  const asar = join(root, 'resources', 'app.asar')
+  let cliPacked = false
+  try { cliPacked = statSync(asar).isFile() } catch { cliPacked = false }
+  if (!existsSync(shim) || (!existsSync(cliJs) && !cliPacked)) return undefined
   let exe
   try {
     // 应用根下的可执行文件；优先与应用目录同名的那个（避开 elevate.exe 之类助手程序）。
@@ -158,9 +186,11 @@ export function resolveDsh() {
   const finder = isWin ? 'where.exe' : 'which'
   const info = spawnSync(finder, [shimName], { encoding: 'utf8' })
   if (!info.error && info.status === 0 && info.stdout) {
-    for (const line of info.stdout.split(/\r?\n/)) {
-      const shim = line.trim()
-      if (!shim) continue
+    const shims = info.stdout.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+    const deskRoot = desktopRootFromShims(shims)
+    const desktop = deskRoot === undefined ? undefined : desktopLaunchFrom(deskRoot)
+    if (desktop) return desktop
+    for (const shim of shims) {
       const bin = binFromShim(shim)
       if (bin) return { cmd: process.execPath, prefix: [bin], shim }
     }
@@ -168,13 +198,19 @@ export function resolveDsh() {
 
   // 2) 直接扫描 PATH 目录（where 不可用，或 shim 不在 PATH 但 bin.js 在某个前缀下）
   const pathDirs = (process.env.PATH ?? '').split(pathSep).filter(Boolean)
+  const candidates = []
   for (const dir of pathDirs) {
     for (const name of isWin ? ['dsh.cmd', 'dsh.exe', 'dsh'] : ['dsh']) {
       const cand = join(dir, name)
-      if (!existsSync(cand)) continue
-      const bin = binFromShim(cand)
-      if (bin) return { cmd: process.execPath, prefix: [bin], shim: cand }
+      if (existsSync(cand)) candidates.push(cand)
     }
+  }
+  const scanRoot = desktopRootFromShims(candidates)
+  const scanDesktop = scanRoot === undefined ? undefined : desktopLaunchFrom(scanRoot)
+  if (scanDesktop) return scanDesktop
+  for (const cand of candidates) {
+    const bin = binFromShim(cand)
+    if (bin) return { cmd: process.execPath, prefix: [bin], shim: cand }
   }
 
   // 3) nvm 布局：NVM_HOME 显式给出，或 PATH 里出现 nvm 根（nvm-windows 只把根放进 PATH，
