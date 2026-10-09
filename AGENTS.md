@@ -20,17 +20,16 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - `src/tools/` — model-facing tools: `doctor`, `guards`, `guard-register`, `boulder-tools`, `worktree-tools`. Authored as raw `ToolDefinition`s with complete `output.schema` (see below).
 - `client/client.js` — the browser half: registers the plugin's configuration page on the built-in Plugins panel (`plugins.row.config`). **Hand-authored, not built** — the module loader takes it verbatim through `exports["./client"]` and only `require`s the host module table (`react`, `react-dom`, `@deepseek-ai/dsh-client-ui-primitives`). Keep it consistent with `package.json` + `cordis.patch.yml`; `tests/client-contract.test.mjs` pins that.
 - `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/enhance-mode.md`, `modes/advisor.md`.
-- `presets/` — the **generated** role-preset patch fragment (`presets/roles.patch.yml`). Never hand-edit; regenerate (see "Single-source discipline").
 - `cordis.patch.yml` — the bundle patch: the plugin install row **and** the `preset-enhance` agent-preset row. Also **generated** — never hand-edit.
-- `scripts/` — `sync-presets.mjs` (the 5 role preset rows → `presets/roles.patch.yml`), `sync-dsh-enhance-preset.mjs` (the plugin row + Enhance preset → `cordis.patch.yml`).
+- `scripts/` — `sync-dsh-enhance-preset.mjs` (the plugin row + the single Enhance preset row → `cordis.patch.yml`).
 - `qa/` — real-dsh LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). They consume tokens and write evidence under `.dsh-enhance/evidence/`.
 - `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `enhance-mode.test.mjs` (single-source pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`.
 
 ## Single-source discipline (important)
 
 - Agent presets are **plugin rows**, not directories: on dsh 0.2.x `@deepseek-ai/dsh-agent-preset` registers `{ id, name, description, order, plugins }` into `ctx.agentPresets`, and the retired `$DSH_HOME/.agent-presets/<id>/` scan is gone. The rows are generated from the persona single sources and pinned byte-for-byte by `tests/presets-pin.test.mjs`.
-- Edit the persona text only in `prompts/agents/<role>.persona.md`; `cordis.patch.yml` and `presets/roles.patch.yml` are **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks the byte-pin test, which is intentional.
-- The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `pnpm sync:enhance-preset` (and `pnpm sync:presets` for the role rows).
+- Edit the persona text only in `prompts/agents/<role>.persona.md`; `cordis.patch.yml` is **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks the byte-pin test, which is intentional.
+- The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `pnpm sync:enhance-preset`.
 - The enhance-mode prose is single-sourced in `prompts/modes/enhance-mode.md` and mirrored as `ENHANCE_MODE_TEXT` in `src/enhance-mode.ts`; `tests/enhance-mode.test.mjs` pins the two together.
 - Keep `docs/prompts-review/*.md` consistent when you change a persona's constraints.
 
@@ -49,7 +48,7 @@ pnpm install
 pnpm build          # tsc → lib/  (run after any src/ change)
 pnpm typecheck      # tsc --noEmit
 pnpm test           # node --test (all tests)
-pnpm sync:presets ; pnpm sync:enhance-preset   # regenerate the preset patch files after persona edits
+pnpm sync:enhance-preset   # regenerate cordis.patch.yml after persona edits
 ```
 
 - **Tools must declare full `output.schema`.** A tool whose `execute` returns fields that `output.schema` does not cover is rejected by the harness ("returned invalid output") and breaks real sessions. When changing a tool's return shape, update the schema and add a case in `tests/tool-output-schema.test.mjs` (it runs the tool against a real schema check).

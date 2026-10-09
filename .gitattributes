@@ -1,9 +1,8 @@
 # 逐字节比较的资产强制 LF 存储/检出。
 #
-# tests/presets-pin.test.mjs 把 presets/ 与 cordis.patch.yml 的生成物与
+# tests/presets-pin.test.mjs 把 cordis.patch.yml 的生成物与
 # prompts/agents/*.persona.md 单源做逐字节比较。在 core.autocrlf=true 的 Windows
 # 检出下，工作区文件会变成 CRLF，导致比较出现与内容无关的假失败（也会让任何重写
 # 这些文件的操作把工作树弄脏）。
 cordis.patch.yml text eol=lf
-presets/** text eol=lf
 prompts/** text eol=lf

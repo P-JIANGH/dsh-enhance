@@ -23,14 +23,12 @@
     "lib",
     "client",
     "skills",
-    "presets",
     "cordis.patch.yml"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "sync:presets": "node scripts/sync-presets.mjs",
     "sync:enhance-preset": "node scripts/sync-dsh-enhance-preset.mjs",
     "test": "node --test",
     "test:gate": "node --test tests/delivery-gate.test.mjs",
@@ -38,10 +36,7 @@
   },
   "dsh": {
     "bundle": {
-      "patch": [
-        "./cordis.patch.yml",
-        "./presets/roles.patch.yml"
-      ]
+      "patch": "./cordis.patch.yml"
     },
     "client": {
       "inject": [

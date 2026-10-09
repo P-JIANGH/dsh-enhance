@@ -2,7 +2,7 @@
 
 > 状态：**设计定稿（设计评审稿，2026-08-26）**。本文把 dsh-enhance 的智能体能力整理为三种可选的**工作模式（mode / preset）**——dsh-enhance 万能、Planner 计划实施、Advisor 目标回归。三者共享同一套底层能力基底（一个 tool plane + 4 个专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal 工作追踪），差异只在**编排层**：谁主导、按什么流程推进、如何处理"完成"。
 > 关联文档：[roles.md](roles.md)（6 角色来源）、[architecture.md](architecture.md)（能力实现）、prompts-review/（各 persona/模式提示词稿）。
-> 本文是**设计说明**；预设落点/QA 的验收口径由下文给出，落地以生成的 `cordis.patch.yml`（模式 A）与 `presets/roles.patch.yml`（角色预设）为准。
+> 本文是**设计说明**；预设落点/QA 的验收口径由下文给出，落地以生成的 `cordis.patch.yml`（模式 A 的 `preset-enhance`，2026-10-09 起也是本插件唯一的预设行）为准。
 
 ---
 
@@ -80,7 +80,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 4. 模式 B：Planner 计划实施（Planner — fixed-skeleton plan-then-execute）
 
-- **预设 / persona 源**：`preset-planner`（`presets/roles.patch.yml` 生成物）← `prompts/agents/planner.persona.md`（**增强**：从单句 persona 扩为可执行固定骨架编排者）。
+- **预设 / persona 源**：`preset-planner`（`presets/roles.patch.yml` 生成物；**该文件与其中 5 个角色预设行已于 2026-10-09 退役**）← `prompts/agents/planner.persona.md`（**增强**：从单句 persona 扩为可执行固定骨架编排者；persona 文本保留为模式 B 的设计源）。
 - **定位**：**骨架固定、过程动态**的计划者。planner 为主导模型，**按固定工作流顺序**调用 subagent，每个阶段是一个 gate，只有通过才进入下一阶段。
 - **编排风格**：固定骨架 staged workflow。骨架是**常量**（阶段顺序不变），阶段内部过程是**动态**的（据此收集结果、据此提问、据此定计划）。
 - **何时选**：复杂/多步/牵扯面广的任务；需要先对齐目标与方法、用户确认后才动手的改动；风险较高的交付。
@@ -188,7 +188,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 7. 落地与 QA
 
-- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@dsh-enhance/dsh-enhance/enhance-mode`）；`preset-planner` 增强为模式 B 编排 persona（**未实现**——当前 planner.persona.md 仍是单句）；`preset-advisor` 为模式 C 编排 + 装配（**未实现**——`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
+- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@dsh-enhance/dsh-enhance/enhance-mode`；2026-10-09 起本插件唯一的预设行）。原计划把 `preset-planner` 增强为模式 B 编排 persona、`preset-advisor` 作为模式 C 编排 + 装配，两者**均未实现**；2026-10-09 按用户要求只保留 Enhance 一个预设，五个角色预设行（含原计划的 `preset-planner`）连同 `presets/roles.patch.yml` 已退役，persona 文本保留为设计源（当前 `prompts/agents/planner.persona.md` 仍是单句；`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
 - **触发方式**：会话创建时选择对应 preset（web Agent 面板 / headless `--profile` + preset）。**没有**意图路由或关键词触发：模式是会话构成的一部分（0.2.x 的预设行），不写进 `plugins` 就没有。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；

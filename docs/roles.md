@@ -102,7 +102,7 @@ dsh-enhance 的 agents 目前是 5 个 persona（planner / reviewer / executor /
 
 **剩余项（随 M1 落地）**：
 - advisor 落地形态接线细节待 M1 实驱确认（见 prompts-review/advisor.md）——伴随监督已纳入首批。
-- 角色预设行落地（2026-10-09 更新）：五份角色 persona 已生成成 `presets/roles.patch.yml` 的预设行；模式 C 的 advisor 编排 persona 仍缺。
+- 角色预设行落地（2026-10-09 更新，同日退役）：五份角色 persona 曾生成成 `presets/roles.patch.yml` 的预设行；**2026-10-09 按用户要求只保留 Enhance 一个预设，该文件与这五行已删除**——scout/librarian/reviewer/task 四份 persona 现作为 `cordis.patch.yml` 的 Enhance 预设内的四条 scoped subagent 行，planner 未落地（原计划的 `preset-planner` 行已退役，文本保留为模式 B 的设计源）。模式 C 的 advisor 编排 persona 仍缺。
 
 ---
 

@@ -42,7 +42,6 @@ dsh-enhance/
 ├── docs/                  # 设计 + 用户文档
 ├── prompts/               # 提示词单源（agents/<role>.persona.md、modes/*.md）
 ├── skills/                # 打包 SKILL.md（静态知识层）
-├── presets/               # 生成物：五个角色预设行（presets/roles.patch.yml），由 bundle 补丁层直接声明
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
 │   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema，用户开关带 volatile()）/ apply
 │   ├── enhance-mode.ts    # 预设作用域常驻系统提示词段（@dsh-enhance/dsh-enhance/enhance-mode）
@@ -52,7 +51,7 @@ dsh-enhance/
 │   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
 ├── client/                # 浏览器半侧（手写、不经构建）：在「插件」面板认领本行的配置页（plugins.row.config）
 ├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
-├── scripts/               # 预设行生成（sync-presets → presets/roles.patch.yml；sync-dsh-enhance-preset → cordis.patch.yml）
+├── scripts/               # 预设行生成（sync-dsh-enhance-preset → cordis.patch.yml；`presets/` 与 sync-presets 已于 2026-10-09 退役）
 ├── tests/                 # node --test 单测
 └── cordis.patch.yml       # 插件注入补丁 + preset-enhance 预设行（生成物）
 └── package.json
@@ -310,12 +309,12 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 | 模式 | 预设 | 编排风格 | 一句话 |
 |---|---|---|---|
 | **A dsh-enhance 万能**（默认） | `preset-enhance`（`cordis.patch.yml`） | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer；并常驻 enhance-mode 段 |
-| **B Planner 计划实施** | `preset-planner`（`presets/roles.patch.yml`） | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
+| **B Planner 计划实施** | `preset-planner`（**计划中**；原 `presets/roles.patch.yml` 落点已随角色预设于 2026-10-09 退役） | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
 | **C Advisor 目标回归** | `preset-advisor`（计划中） | goal 驱动的回归环 | 设 goal；advisor 持续纠偏；结束前回归审查，不过则压缩上下文继续直到达标 |
 
 **落地挂载点**：三种模式复用同一份工具平面（generators 里的 `toolPlane` 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "预设（无需安装动作）"。
 
-> **当前落地状态（2026-10-09）**：模式 A 已实现并实驱（`preset-enhance`）；模式 B 的固定骨架 persona（`prompts/agents/planner.persona.md` 目前仍是单句）与模式 C 的 `prompts/agents/advisor.persona.md` + `preset-advisor` **均未实现**，是 [modes.md](modes.md) §7 的后续实现项。文档中模式 C 的预设一律按"计划中"理解。
+> **当前落地状态（2026-10-09）**：模式 A 已实现并实驱（`preset-enhance`，也是本插件唯一的预设行）；模式 B 的固定骨架 persona（`prompts/agents/planner.persona.md` 目前仍是单句）与模式 C 的 `prompts/agents/advisor.persona.md` + `preset-advisor` **均未实现**，是 [modes.md](modes.md) §7 的后续实现项。原计划随角色预设落地的 `preset-planner` 等预设行已随 `presets/roles.patch.yml` 于 2026-10-09 一并退役（用户要求只保留 Enhance 一个预设），模式 B/C 若重启需另定预设命名。文档中模式 C 的预设一律按"计划中"理解。
 
 **统一纪律**：无论哪种模式，完成声明都过 delivery-gate；只读角色可并行、写角色受令牌/worktree 约束（5.5.1）；委派用六要素模板；persona 单源 + presets-pin 锁定（modes.md 第 6 节）。
 

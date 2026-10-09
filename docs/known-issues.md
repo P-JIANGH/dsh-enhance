@@ -10,9 +10,9 @@
 
 ## 当前基线
 
-- **2026-10-09 基线（模式段改造）**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。深度工作模式从"关键词触发展开的注入"改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；`skill-trigger` / `ulwTrigger` / `orient` 开场钩子 / 目录式预设投递链（`install-presets`、`/presets`、`postinstall`）一并退役。预设改为 bundle 补丁里的行：`cordis.patch.yml`（插件行 + `preset-enhance`）+ `presets/roles.patch.yml`（五个角色预设）。
+- **2026-10-09 基线（模式段改造）**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。深度工作模式从"关键词触发展开的注入"改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；`skill-trigger` / `ulwTrigger` / `orient` 开场钩子 / 目录式预设投递链（`install-presets`、`/presets`、`postinstall`）一并退役。预设改为 bundle 补丁里的行：`cordis.patch.yml`（插件行 + `preset-enhance`）；同日稍后按用户要求只保留 Enhance 一个预设，`presets/roles.patch.yml`（五个角色预设）已删除——现在只剩 `cordis.patch.yml` 的一条 `preset-enhance`。
 - **2026-09-30 复验**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 194/194。
-- **真机预设验证（2026-10-09）**：官方 `dsh-headless` 一次性 runner **不消费 agent 预设**（源码原话 "which the one-shot runner does not compose"；`agents.create` 不带 preset），所以"用 headless CLI 断言预设会话的系统提示词"这条路径在本版本上不成立——不是预设行的问题。改用一次性探针（`.dsh-enhance/preset-probe`，gitignored）复刻 Web/桌面 surface 的绑定（`agentPresets.resolve` + `setup` 里 `agentPresets.mount`）：六个预设全部 `broken=-`、`enhance` 为默认，真实会话 `session-454ff36e` 的 system-prompt 含完整 `<enhance-mode>`（26 行）与 persona prefix，且全日志无 `ultrawork`；对照组（headless qa 会话 `session-9dc3f130`，无预设）不含该段。**探针同时抓出两个真实缺陷**（见 P1-14「真机抓出的预设行缺陷」）。
+- **真机预设验证（2026-10-09）**：官方 `dsh-headless` 一次性 runner **不消费 agent 预设**（源码原话 "which the one-shot runner does not compose"；`agents.create` 不带 preset），所以"用 headless CLI 断言预设会话的系统提示词"这条路径在本版本上不成立——不是预设行的问题。改用一次性探针（`.dsh-enhance/preset-probe`，gitignored）复刻 Web/桌面 surface 的绑定（`agentPresets.resolve` + `setup` 里 `agentPresets.mount`）：六个预设全部 `broken=-`（当时含 5 个角色预设；2026-10-09 用户要求只留 Enhance，故已删除）、`enhance` 为默认，真实会话 `session-454ff36e` 的 system-prompt 含完整 `<enhance-mode>`（26 行）与 persona prefix，且全日志无 `ultrawork`；对照组（headless qa 会话 `session-9dc3f130`，无预设）不含该段。**探针同时抓出两个真实缺陷**（见 P1-14「真机抓出的预设行缺陷」）。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
 - **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。**注意（2026-10-09 起）**：预设行需要 **dsh ≥ 0.2.0** 的行式注册表；0.1.0-rc.6 上 `preset-enhance` 会成为 inactive entry（见 P1-14）。
 - **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`/presets` 于 2026-10-09 退役（预设随 bundle 声明）。
@@ -45,7 +45,7 @@
 - 证据（实测）：篡改一个生成的预设文件后 `node --test tests/presets-pin.test.mjs` 仍 2/2 通过，标记被 `generate()` 静默覆写，工作树被写。
 - 修复：生成器拆成纯 `render({...})` 与 `generate()`；测试改用 `render()` 与磁盘比对，并加"手改必须被发现"与"`render()` 按 mtime 断言不写盘"两条回归钉。新增 `.gitattributes` 固定 `presets/**`、`prompts/**`、`cordis.patch.yml` 为 LF。
 - 复验：篡改后 pin 测试由"2/2 通过"变为"变红、exit 1"，且篡改保留。
-- **2026-10-09 更新**：生成物从 `presets/<role>/` 目录改为 `cordis.patch.yml`（插件行 + `preset-enhance`）与 `presets/roles.patch.yml`（五个角色预设行）；篡改检测的对象随之改为这两个文件。
+- **2026-10-09 更新**：生成物从 `presets/<role>/` 目录改为 `cordis.patch.yml`（插件行 + `preset-enhance`）与 `presets/roles.patch.yml`（五个角色预设行）；篡改检测的对象随之改为这两个文件。**2026-10-09 退役注解**：`presets/roles.patch.yml` 已删除（用户要求只保留 Enhance 一个预设），篡改检测的对象现在只剩 `cordis.patch.yml`。
 
 ### ✅ P0-5 advisor 在上下文失活后仍触发审查
 - 证据（实驱）：`[advisor] review FAILED ... cannot get required service "agents" in inactive context`。
@@ -133,7 +133,7 @@
 - 修复（减法 + 加法）：
   - 加法：新增 `src/enhance-mode.ts`（`export name` / `export inject = ['systemPrompt']` / `export apply`，在同一作用域注册 `dsh-enhance/enhance-mode` 段落）；`cordis.patch.yml` 的 `preset-enhance` 行在 `config.plugins` 里挂 `{ id: enhance-mode, name: '@dsh-enhance/dsh-enhance/enhance-mode' }`。正文单源 `prompts/modes/enhance-mode.md`（由 `prompts/modes/ultrawork.md` 改名，正文只换标签），`tests/enhance-mode.test.mjs` 逐字 pin。
   - 减法：删除 `src/features/skill-trigger.ts`、`tests/skill-trigger.test.mjs`、`src/hooks/orient.ts`、`tests/orient.test.mjs`、`src/shared/provenance.ts`、`ulwTrigger` 与 `orientOnSessionStart` 两个配置字段、`src/features/presets/install.ts`、`scripts/install-presets.mjs`、`tests/install-presets.test.mjs`、`/presets` 指令、`presets/<role>/` 目录、`presets/*` 导出与 `install:presets`/`check:presets`/`postinstall` 脚本。
-- 预设投递（同一改动）：改造成 bundle 补丁里的行 —— `scripts/sync-dsh-enhance-preset.mjs` 生成整个 `cordis.patch.yml`（插件行 + `preset-enhance`），`scripts/sync-presets.mjs` 生成 `presets/roles.patch.yml`（五个角色预设行），`package.json` 的 `dsh.bundle.patch` 列这两个文件（与上游 `dsh-web-app` 列 `presets/*.patch.yml` 同一形态；每个文件一个写者）。
+- 预设投递（同一改动）：改造成 bundle 补丁里的行 —— `scripts/sync-dsh-enhance-preset.mjs` 生成整个 `cordis.patch.yml`（插件行 + `preset-enhance`），`scripts/sync-presets.mjs` 生成 `presets/roles.patch.yml`（五个角色预设行），`package.json` 的 `dsh.bundle.patch` 列这两个文件（与上游 `dsh-web-app` 列 `presets/*.patch.yml` 同一形态；每个文件一个写者）。（**2026-10-09 退役注解**：`presets/roles.patch.yml`、`scripts/sync-presets.mjs` 与 `sync:presets` 脚本已删除，`dsh.bundle.patch` 回到单文件 `./cordis.patch.yml`；预设行现在只有 `cordis.patch.yml` 的一条 `preset-enhance`。）
 - 兼容性：`@deepseek-ai/dsh-agent-preset` 只存在于 **dsh ≥ 0.2.0**。老 CLI（`0.1.0-rc.6`）上该行是 inactive entry（启动诊断可见），不发明条件插入机制。
 - 测试：新增 `tests/enhance-mode.test.mjs` 5 例；`tests/presets-pin.test.mjs` 重写为钉两个新生成物（含"只有 Enhance 预设挂 enhance-mode"这条负向断言 + 一条**行形态契约**：persona 用 `prefix` 而非 `text`、必须有 `agent-instructions`、delegation 的引擎行是 `workflow-ptc`）；`tests/commands.test.mjs` / `tests/doctor.test.mjs` / `tests/client-contract.test.mjs` 同步字段集与行数（设置页 final = **6 个开关** + `advisorModel`；规格原文写"7 个开关"，与"8 个布尔开关去掉 orient 与 ulw"的算术不符，以实际删除后的 6 为准）。`pnpm test` 176/176。
 - **真机抓出的预设行缺陷（同一次改动，已修）**：探针第一次跑 `preset=enhance broken=persona (...): $.prefix missing required value`，第二次跑 `broken=tool-workflow (...): waiting for workflowEngine`。两处都是**旧生成器形状在新机制下才暴露**的缺陷（目录机制从未加载过这些文件）：
@@ -162,7 +162,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 
 ### ✅ P1-7 modes.md / architecture 的预设落点标注
 在模式 B/C 的预设落点处显式标注"未实现"。
-**2026-10-09**：落点写法随机制改为"补丁里的一条预设行"（`preset-enhance` / `preset-planner` / `preset-advisor`）。
+**2026-10-09**：落点写法随机制改为"补丁里的一条预设行"（`preset-enhance` / `preset-planner` / `preset-advisor`）。（**同日退役注解**：`preset-planner` 等 5 个角色预设行随 `presets/roles.patch.yml` 一并退役；现存落点只有 `preset-enhance`。）
 
 ---
 
@@ -192,7 +192,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 
 | 项 | 来源 |
 |---|---|
-| 模式 B（Planner S1–S7 骨架 persona + `preset-planner` 增强） | [docs/modes.md](../modes.md) §7 |
+| 模式 B（Planner S1–S7 骨架 persona + `preset-planner` 增强；原 `preset-planner` 行已随角色预设于 2026-10-09 退役，若重启需另定预设命名） | [docs/modes.md](../modes.md) §7 |
 | 模式 C（`prompts/agents/advisor.persona.md` + `preset-advisor`） | [docs/modes.md](../modes.md) §5 |
 | delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
 | UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
@@ -234,6 +234,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-08 | 设置面真机验收（桌面端 GUI，set + unset 双向） | 见下一次提交 | 三条独立信号一致：profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来；全程不重启 |
 | 2026-10-08 | `ulw` 触发器只读人真正的输入 + 注入署名改为 producer-owned kind | 见下一次提交 | 真机双向：写了 `ulw` 的提示词仍注入（`[user\|plugin:dsh-enhance] <ultrawork-mode>`，exit=0），普通提示词不注入；`tests/skill-trigger.test.mjs` 9 例（+5）、`tests/orient.test.mjs` 5 例（+1）；194/194 |
 | 2026-10-09 | `ulwTrigger` 开关（原实现写死为开、README 的「关闭方式」是空栏，即根本没有关闭途径） | `b80e9e9` | 设置页当时的第 8 个开关；`tests/client-contract.test.mjs` 字段集/行数断言同步；194/194。**同日该开关随整套触发机制退役**（见下一行） |
-| 2026-10-09 | P1-14 模式改造（enhance-mode 常驻段）+ 预设改行式投递 + orient/skill-trigger/目录装机链退役；真机抓出并修掉两个预设行缺陷（persona `text`→`prefix`、`workflow-worker-thread`→`workflow-ptc`）+ 补齐 `agent-instructions` | 见下一次提交 | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 176/176；真机（隔离 home + 桌面宿主 CLI）：探针复刻 Web/桌面绑定后六个预设全部可用、`enhance` 默认，会话 `session-454ff36e` 的 system prompt 含 `<enhance-mode>`、全日志无 ultrawork；无预设对照组不含该段 |
+| 2026-10-09 | P1-14 模式改造（enhance-mode 常驻段）+ 预设改行式投递 + orient/skill-trigger/目录装机链退役；真机抓出并修掉两个预设行缺陷（persona `text`→`prefix`、`workflow-worker-thread`→`workflow-ptc`）+ 补齐 `agent-instructions` | 见下一次提交 | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 176/176；真机（隔离 home + 桌面宿主 CLI）：探针复刻 Web/桌面绑定后六个预设全部可用（当时含 5 个角色预设；2026-10-09 用户要求只留 Enhance，已删除）、`enhance` 默认，会话 `session-454ff36e` 的 system prompt 含 `<enhance-mode>`、全日志无 ultrawork；无预设对照组不含该段 |
+| 2026-10-09 | 按用户要求只保留 Enhance 一个预设（删除 5 个角色预设行 + `presets/roles.patch.yml` + `scripts/sync-presets.mjs` + `sync:presets`） | 见下一次提交 | `node --test` 176/176；`tests/presets-pin.test.mjs` 新增'只准一条 preset 行 / 不得再有 roles.patch.yml'负向钉 |
 
 

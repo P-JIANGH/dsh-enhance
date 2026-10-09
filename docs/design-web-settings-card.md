@@ -162,7 +162,7 @@ export function apply(clientCtx: ClientContext): void {
 | 模型工具 | `oh_my_dsh_doctor` | `dsh_enhance_doctor`（保长度，用户定） |
 | 提示词段 | `oh-my-dsh/work-rules` | `dsh-enhance/work-rules` |
 | 开场点名（已退役 2026-10-09） | 包名 | `dsh-enhance` |
-| 预设行 | `presets/omd/` | `cordis.patch.yml` 的 `preset-enhance` + `presets/roles.patch.yml` |
+| 预设行 | `presets/omd/` | `cordis.patch.yml` 的 `preset-enhance`（2026-10-09 起本插件唯一的预设行；原 `presets/roles.patch.yml` 五个角色预设行已退役） |
 | 存储目录 | `~/.omd/**` | `~/.dsh-enhance/**`（品牌统一，用户定） |
 | QA/脚本 | `qa/omd-drive.mjs` 等 | `qa/dsh-enhance-drive.mjs` 等 |
 | 文档/测试 | 107 处 `oh-my-dsh`/`oh_my_dsh` | 全量替换 |
@@ -200,7 +200,7 @@ export function apply(clientCtx: ClientContext): void {
 | 2 | Client 半侧：`bridge.ts`、字段映射纯函数 + 卡片、package.json 接入声明 | 卡片渲染 |
 | 3 | 契约测试 + dsh web 实驱 QA（改配置 → settings.yaml → 重启生效） | 实驱证据（`.dsh-enhance/evidence/`） |
 | 4 | `docs/upstream-migration.md` + README 安装段更新 | 文档评审 |
-| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设投递**那一半已由 bundle 补丁行落地——`cordis.patch.yml` + `presets/roles.patch.yml`，见 README；目录装机脚本已于 2026-10-09 退役） |
+| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设投递**那一半已由 bundle 补丁行落地——`cordis.patch.yml` 的 `preset-enhance`（2026-10-09 起本插件唯一的预设行），见 README；目录装机脚本已于 2026-10-09 退役） |
 
 ## 7. 验证策略
 
@@ -319,7 +319,7 @@ read-only boot: nothing written
 
 ```sh
 pnpm typecheck && pnpm build && node --test      # 176/176（2026-10-09）
-pnpm sync:presets && pnpm sync:enhance-preset && git diff --exit-code -- cordis.patch.yml presets/roles.patch.yml  # 生成物与单源同步
+pnpm sync:enhance-preset && git diff --exit-code -- cordis.patch.yml  # 生成物与单源同步（2026-10-09 起只有这一个生成物）
 npm pack --dry-run                              # 含 client/client.js
 ```
 浏览器半侧的**真机验收**：重启桌面端 → 打开「插件」面板 → 本插件那一行应出现「配置」入口；随后可用客户端 Inspect 复核（不必靠肉眼）：

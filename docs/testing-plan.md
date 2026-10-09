@@ -11,7 +11,7 @@
 | 测试文件 | 覆盖能力 | 里程碑 | 状态 |
 |---|---|---|---|
 | `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ |
-| `tests/presets-pin.test.mjs` | prompts 单一源 → `cordis.patch.yml`（插件行 + `preset-enhance`）与 `presets/roles.patch.yml` 的字节 pin 防漂移；含"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1/M6 | ✅ |
+| `tests/presets-pin.test.mjs` | prompts 单一源 → `cordis.patch.yml`（插件行 + `preset-enhance`）的字节 pin 防漂移；含负向钉（只准一条 preset 行、`presets/roles.patch.yml` 不得复活）与"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1/M6 | ✅ |
 | `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ |
 | `tests/boulder.test.mjs` | boulder CAS 合并、写令牌（goal 落盘测试随实现一起退役） | M4 | ✅ |
 | `tests/rules.test.mjs` | rules-injector 只读 `.dsh-enhance/rules/`（AGENTS.md 归原生，含负向断言） | M3 | ✅ |
@@ -53,7 +53,7 @@
 
 ## 4. 提示词验证（架构 8.4，M2 已审查）
 
-- 每个 agent/模式一次实驱触发，核对行为约束生效。依赖 agents 落地（`presets/roles.patch.yml` 已就绪 5 个角色预设；advisor 需伴随机制）。
+- 每个 agent/模式一次实驱触发，核对行为约束生效。依赖 agents 落地（scout/librarian/reviewer/task 四份 persona 已作为 `cordis.patch.yml` 的 Enhance 预设内的四条 scoped subagent 行就绪；原 `presets/roles.patch.yml` 的 5 个角色预设行已于 2026-10-09 退役；advisor 需伴随机制）。
 - 状态：审查稿已定稿（M2）；实驱随各能力落地时由 `qa/dsh-enhance-drive.mjs --llm` 逐步执行。
 - **模式段（M6，2026-10-09）**：enhance-mode 不再是"触发后注入"的文本，而是 Enhance 预设会话的常驻系统提示词段；验证方式是真机会话日志里 system prompt 含 `<enhance-mode>`（见第 6 节）。
 
@@ -75,7 +75,7 @@
 | 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
 | CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
 | CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
-| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
+| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；**说明（2026-10-09）**：以上截图是历史证据，自 2026-10-09 起本插件只出 Enhance 一个预设，其余条目来自上游 dsh；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
 | 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
 | 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@dsh-enhance/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
 

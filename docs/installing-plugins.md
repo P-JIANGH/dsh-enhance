@@ -126,7 +126,7 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 
 ### 3.6 预设随 bundle 一起装（无需单独动作）
 
-`dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 列了两个补丁文件，`cordis.patch.yml` 插入插件行 **与** `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`），`presets/roles.patch.yml` 插入五个角色预设行。装完预设菜单里就有六个预设，**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
+`dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 只列**一个**补丁文件 `cordis.patch.yml`，其中插入插件行 **与** `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。本插件只提供 **Enhance** 一个预设（id `enhance`）；预设菜单里其余条目（`standard` / `ptc` / `minimal` / `cordis`）来自上游 dsh，不由本插件贡献。**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
 
 > **兼容性（必须知道）**：行式预设注册表（`@deepseek-ai/dsh-agent-preset` + `ctx.agentPresets`）只存在于 **dsh ≥ 0.2.0**。老 CLI（如 `0.1.0-rc.6`，机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 **inactive entry**（启动诊断里能看到，给出一条告警），而不是静默生效。本插件**不为此发明条件插入机制**。
 >
