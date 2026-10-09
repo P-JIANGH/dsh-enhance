@@ -39,7 +39,7 @@ window.__ModuleLoader__.load({
     /** 本页拥有的字典命名空间。 */
     const LOCALE_NS = 'dsh-enhance.settings'
 
-    /** 7 个开关：字段名 + 字典键。顺序即页面顺序。 */
+    /** 8 个开关：字段名 + 字典键。顺序即页面顺序。 */
     const SWITCHES = [
       { field: 'orientOnSessionStart', label: 'orientOnSessionStart', hint: 'orientOnSessionStartHint' },
       { field: 'doctorTool', label: 'doctorTool', hint: 'doctorToolHint' },
@@ -48,6 +48,7 @@ window.__ModuleLoader__.load({
       { field: 'workTracking', label: 'workTracking', hint: 'workTrackingHint' },
       { field: 'worktree', label: 'worktree', hint: 'worktreeHint' },
       { field: 'advisor', label: 'advisor', hint: 'advisorHint' },
+      { field: 'ulwTrigger', label: 'ulwTrigger', hint: 'ulwTriggerHint' },
     ]
 
     /** 英文文案。 */
@@ -67,6 +68,8 @@ window.__ModuleLoader__.load({
       worktreeHint: 'Requires work tracking.',
       advisor: 'Advisor companion review',
       advisorHint: 'Spawns one shadow sub-agent per session to review increments and steer back.',
+      ulwTrigger: 'Deep-work trigger (ulw / ultrawork)',
+      ulwTriggerHint: 'Typing the word yourself injects the deep-work contract for that session; once injected it stays. Off leaves it ordinary text.',
       advisorModel: 'Advisor model',
       advisorModelHint: 'Leave empty to inherit the main session route.',
       advisorModelPlaceholder: 'e.g. deepseek-flash',
@@ -96,6 +99,8 @@ window.__ModuleLoader__.load({
       worktreeHint: '需要先打开工作追踪。',
       advisor: '顾问旁审（advisor）',
       advisorHint: '每个会话派一个影子子代理复核增量并回注建议。',
+      ulwTrigger: '深度工作触发词（ulw / ultrawork）',
+      ulwTriggerHint: '你自己打的字里出现该词时，为那个会话注入深度工作契约；注入后会常驻该会话。关闭后它只是普通词。',
       advisorModel: '顾问模型',
       advisorModelHint: '留空表示沿用主会话的路由。',
       advisorModelPlaceholder: '例如 deepseek-flash',

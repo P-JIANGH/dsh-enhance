@@ -173,7 +173,7 @@ test('[client] whileServed 盯的是 dsh-enhance，表单取自同一个共享�
   assert.equal(primitives.seen.namespace, 'dsh-enhance')
 })
 
-test('[client] 表单规格覆盖 7 个开关 + advisorModel，且布尔往返正确', () => {
+test('[client] 表单规格覆盖 8 个开关 + advisorModel，且布尔往返正确', () => {
   const { primitives } = mountClient()
   const fields = primitives.seen.specs.map((spec) => spec.field)
   assert.deepEqual(fields, [
@@ -184,9 +184,10 @@ test('[client] 表单规格覆盖 7 个开关 + advisorModel，且布尔往返�
     'workTracking',
     'worktree',
     'advisor',
+    'ulwTrigger',
     'advisorModel',
   ])
-  for (const spec of primitives.seen.specs.slice(0, 7)) {
+  for (const spec of primitives.seen.specs.slice(0, 8)) {
     assert.equal(spec.format(true), 'true')
     assert.equal(spec.format(false), 'false')
     assert.deepEqual(spec.parse('true'), { kind: 'set', value: true })
@@ -215,7 +216,7 @@ test('[client] summary 视图只出一行摘要，page 视图出整张表单', (
   assert.equal(page.type, 'SettingsForm')
   assert.equal(page.props.state, state)
   const [rows, modelRow] = page.children
-  assert.equal(rows.length, 7, '7 个开关行')
+  assert.equal(rows.length, 8, '8 个开关行')
   assert.deepEqual(rows[0].props.row.field, 'orientOnSessionStart')
   assert.equal(modelRow.type, 'SettingsValueField')
 })
@@ -240,3 +241,4 @@ test('[client] 包清单声明了浏览器半侧：exports["./client"] + dsh.cli
   assert.ok(pkg.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-plugin-manager'))
   assert.ok(pkg.files.includes('client'))
 })
+

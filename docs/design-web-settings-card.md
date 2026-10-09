@@ -298,7 +298,7 @@ read-only boot: nothing written
 
 | 位置 | 内容 |
 |---|---|
-| `src/index.ts` | 8 个用户可见字段 `.volatile()`（`workRules` 保持普通值：长文本，非开关）；功能接线装进子插件 `dsh-enhance/features`；`ctx.on('loader/volatile-update')` 上串行「先卸载再重挂」 |
+| `src/index.ts` | 9 个用户可见字段 `.volatile()`（`workRules` 保持普通值：长文本，非开关）；功能接线装进子插件 `dsh-enhance/features`；`ctx.on('loader/volatile-update')` 上串行「先卸载再重挂」 |
 | `client/client.js` | 浏览器半侧：注册 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`），`whileServed(['dsh-enhance'])` 门控；`SettingsFormModel` + 自写布尔规格 + `Checkbox` 行 + `SettingsValueField`（顾问模型）；字典与样式内联 |
 | `package.json` | `exports["./client"]`、`dsh.client = { inject: [locale, ui-settings, ui-plugin-manager], platform: 'web' }`、`files += client`；`@deepseek-ai/schemastery` 进 `dependencies`（`~3.18.4`，`volatile()` 需要它，与宿主同版本） |
 | `tests/volatile-remount.test.mjs` | 重挂编排契约：同步首挂、先卸后挂、串行、失败只告警 |
@@ -353,3 +353,4 @@ cordis_inspect_query(platform="client", provider="Slots", method="listSubTree", 
 - **不做**自建设置 tab（`settings.plugins.tab`）：用户选定的席位是官方归属的 `plugins.row.config`；两者可复用同一组件，但目前不需要。
 - **不做**网页端构建链（tsdown/JSX）：见 §8.4。
 - **未覆盖**：非 loopback 浏览器拿不到持久设置（上游限制：`persistence` 恒为 memory，表单呈 unavailable）；本插件页面因此也只承诺桌面端与 loopback Web。
+

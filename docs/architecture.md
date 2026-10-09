@@ -84,7 +84,7 @@ dsh-enhance/
 - 打包技能没有开关：`skills-provider` 恒定注册（技能是零运行时成本的静态知识层，见设计原则 2），不做 `skillsEnabled` 配置——早期草案里提过该字段，实现时按"始终开启"定稿。
 - 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
 - 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 dsh-enhance 一行。
-- **界面可编辑面（2026-10-08）**：除 `workRules` 外的 8 个字段带 schemastery `volatile()`，于是宿主 `SettingsForms` 以 `ns: dsh-enhance`（= 补丁行 id）把它暴露成可编辑条目，浏览器半侧 `client/client.js` 在「插件」面板的 `plugins.row.config` 里渲染这张表。**volatile 改动由 Loader 原地提交、不重挂插件**，所以功能接线装在子插件 `dsh-enhance/features` 上，收到 `loader/volatile-update` 时先卸后挂。细节与真机证据：[design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+- **界面可编辑面（2026-10-08）**：除 `workRules` 外的 9 个字段带 schemastery `volatile()`，于是宿主 `SettingsForms` 以 `ns: dsh-enhance`（= 补丁行 id）把它暴露成可编辑条目，浏览器半侧 `client/client.js` 在「插件」面板的 `plugins.row.config` 里渲染这张表。**volatile 改动由 Loader 原地提交、不重挂插件**，所以功能接线装在子插件 `dsh-enhance/features` 上，收到 `loader/volatile-update` 时先卸后挂。细节与真机证据：[design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 ### 5.2 Hooks 层（守卫 + 注入 + 续作）
 
@@ -411,3 +411,4 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 - **comment-checker 二进制**：需确认 dsh 侧可用实现或换方案。
 - **worktree 与 Windows**：dsh 跨平台，`git worktree` 路径处理（长短路径、大小写）需在 Windows 上实测（本项目仓库本身就在 Windows 上开发）。
 - **不预抽 Core 包**：单一宿主的现实选择；若未来出现第二个 dsh 系 harness，再按 MIT 生态的 Core 分层思路抽取。
+

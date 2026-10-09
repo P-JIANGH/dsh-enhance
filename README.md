@@ -16,11 +16,11 @@
 | **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器（只读 `.dsh-enhance/rules/`）、完成声明 delivery-gate：绑定 `verify` + **受保护文件 manifest（sha256 快照，改动即 `tampered`）**，原生 goal 未完成时判为进展汇报 | `guards: false` |
 | **工作追踪** | boulder（CAS）+ 写令牌 + start-work / delivery-gate 钩子。**目标（goal）归原生**：`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`（目标未完成自动续轮） | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
-| **`ulw` / ultrawork 模式** | 输入提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`） | — |
+| **`ulw` / ultrawork 模式** | **你自己打的字**里提到 `ulw`/`ultrawork` 时，在首个步骤前注入深度工作入口契约（`<ultrawork-mode>`）；注入后常驻该会话（这也意味着没有"退出模式"的动作，只能靠开关让它不再点燃） | `ulwTrigger: false` 或设置页里的同名开关 |
 | **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
 | **工作模式** | 面向用户的主预设是 **「Enhance 模式」**（预设 id `dsh-enhance`）：纪律 + 打包技能 + 交付门卫，且**保留编排**——它把 scout/librarian/reviewer/task 接线为受作用域限制的子代理，因此"一个会话只有一个预设"也能分派专职子代理（角色预设本身无法在会话内切换）。另有设计稿中的 Planner / Advisor 两种模式，**尚未落地**（见 `docs/modes.md` §7） | 新建会话时选「Enhance 模式」 |
 | **Agent 预设** | 底层 6 角色：`planner` / `scout` / `librarian` / `task` / `reviewer` 作为 persona 预设，外加 `advisor`（伴随机制，**不是**可选人设预设）；上面三种**工作模式**对它们进行编排 | 见 `docs/modes.md` |
-| **界面配置页** | 内置「插件」面板里本插件那一行有「配置」入口：7 个开关 + 顾问模型就地改，**保存即生效**（写入 profile 补丁的 user 层，每项可单独恢复默认） | 无需配置；只有 `workRules` 仍需在 YAML 里改 |
+| **界面配置页** | 内置「插件」面板里本插件那一行有「配置」入口：8 个开关 + 顾问模型就地改，**保存即生效**（写入 profile 补丁的 user 层，每项可单独恢复默认） | 无需配置；只有 `workRules` 仍需在 YAML 里改 |
 
 ## 如何体验（装完之后你会看到什么）
 
@@ -28,7 +28,7 @@
 
 | 你看到的 | 怎么触发 | 需要什么 |
 |---|---|---|
-| **会话开场消息**（点名打包技能与起点） | 新开一个会话就自动出现 | `orientOnSessionStart: true`（默认） |
+| **会话开场消息**（点名打包技能与起点） | 新开一个会话就自动出现（**注意**：该钩子的绑定事件 `agent/session-start` 在 0.2.0 已不存在，桌面端目前实际不会出现，见 known-issues） | `orientOnSessionStart: true`（默认） |
 | **`/` 菜单里的打包技能** `code-review` / `git-workflow` / `tdd` | 在输入框打 `/`；或直接手打 `/tdd`——手打的同名 token 会把技能正文确定性注入该轮 | 插件已挂载 |
 | **`/` 菜单里的本包指令** `/doctor`、`/boulder`、`/presets` | 在输入框打 `/` 选择后回车（`/doctor`、`/boulder` 无入参→回车即执行；`/presets` 可带 `install` 等子命令） | `commands: true`（默认） |
 | **预设**：**「Enhance 模式」**（id `dsh-enhance`，编排者）+ `planner` / `scout` / `librarian` / `task` / `reviewer` | 新建会话时用会话标题旁的预设菜单选择；或在设置的预设名册区块里管理（复制 / 删除 / 设为默认）。**装预设**：在会话里执行 `/presets install`，或跑一次脚本（见「安装」） | 预设需先安装（`/presets install` 或 `pnpm install:presets`） |
@@ -116,10 +116,11 @@ node scripts/install-presets.mjs --status   # 只看每个预设的安装状态
 | `worktree` | `true` | `worktree_create/list/cleanup` 工具（需要 workTracking） |
 | `advisor` | `true` | Advisor 伴随审查运行时 |
 | `advisorModel` | — | advisor 子代理的独立模型；默认继承主 agent 的路由 |
+| `ulwTrigger` | `true` | 深度工作触发词：**你自己打的字**里出现 `ulw`/`ultrawork` 时，为那个会话注入 `<ultrawork-mode>` 契约（只读真实用户输入；注入后常驻该会话，所以关掉它才是"不再进入该模式"的办法） |
 
 ### 在界面里改（不用手写 YAML）
 
-除 `workRules` 之外的 8 个字段都标了 `volatile()`，因此**内置「插件」面板**里本插件那一行会有一个「配置」入口：勾选/取消即时生效（写完立刻重建接线，不需要重启），改动落到你 profile 的 `cordis.patch.yml`（`user` 层），每行旁的「恢复默认」会把覆盖删掉、退回组合默认。
+除 `workRules` 之外的 9 个字段都标了 `volatile()`，因此**内置「插件」面板**里本插件那一行会有一个「配置」入口：勾选/取消即时生效（写完立刻重建接线，不需要重启），改动落到你 profile 的 `cordis.patch.yml`（`user` 层），每行旁的「恢复默认」会把覆盖删掉、退回组合默认。
 
 - 面板位置：侧边栏「插件」→ 找到 `@dsh-enhance/dsh-enhance` 包 → 它那一行（设置弹窗里也有只读清单可查）。
 - 一条纪律：**同一个字段只有一个写者**。用界面改了之后，就别再同时手工在补丁里写同一个键——界面会把你的覆盖读成 user 层，两边同时写会互相覆盖。
@@ -167,3 +168,5 @@ node scripts/install-presets.mjs   # 幂等装进 $DSH_HOME/.agent-presets（要
 ## 许可证
 
 MIT
+
+

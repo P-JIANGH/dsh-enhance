@@ -111,12 +111,19 @@ export interface Config {
   advisor?: boolean
   /** Independent model for the advisor sub-agent. Undefined → inherit the main route. */
   advisorModel?: string
+  /**
+   * The `ulw` / `ultrawork` deep-work trigger: when the **user's own message**
+   * contains the word, the ultrawork entry contract is injected ahead of that
+   * turn's first step (and then stays in the session). Default on; off leaves
+   * the phrase ordinary text.
+   */
+  ulwTrigger?: boolean
 }
 
 /**
  * Runtime schema for the plugin row.
  *
- * The eight user-facing fields are `volatile()`: the Host's configuration form
+ * The nine user-facing fields are `volatile()`: the Host's configuration form
  * owns them, renders them on the Plugins page (`plugins.row.config`, keyed by
  * `<package>#<row id>`, see `docs/design-web-settings-card.md`), and writes a
  * change back into this profile's patch, which hot-reloads this entry — so a
@@ -133,6 +140,7 @@ export const Config = z.object({
   worktree: z.boolean().default(true).volatile(),
   advisor: z.boolean().default(true).volatile(),
   advisorModel: z.string().volatile(),
+  ulwTrigger: z.boolean().default(true).volatile(),
 })
 
 /** One `volatile()` field as schemastery resolves it: an accessor the settings surface updates in place. */
@@ -165,6 +173,8 @@ export interface ResolvedConfig {
   advisor?: VolatileField<boolean>
   /** @see Config.advisorModel */
   advisorModel?: VolatileField<string>
+  /** @see Config.ulwTrigger */
+  ulwTrigger?: VolatileField<boolean>
 }
 
 /**
@@ -234,6 +244,7 @@ function applyFeatures(ctx: Context, config: ResolvedConfig): void {
   const worktree = fieldValue(config.worktree) ?? true
   const advisor = fieldValue(config.advisor) ?? true
   const advisorModel = fieldValue(config.advisorModel)
+  const ulwTrigger = fieldValue(config.ulwTrigger) ?? true
 
   registerSkillsProvider(ctx)
   if (workRules) registerWorkRules(ctx, workRules)
@@ -256,8 +267,10 @@ function applyFeatures(ctx: Context, config: ResolvedConfig): void {
   // M5: worktree tools (depend on boulder linkage).
   registerWorktreeTools(ctx, workTracking && worktree)
 
-  // §5.4: skill-trigger mode routing (ulw / ultrawork).
-  registerSkillTrigger(ctx, { enabled: true })
+  // §5.4: skill-trigger mode routing (ulw / ultrawork). The contract is
+  // injected once per session, from the human's own words only, and then stays
+  // in that session — so this switch is the only way back out of the mode.
+  registerSkillTrigger(ctx, { enabled: ulwTrigger })
 
   // §advisor: companion-review runtime (the 6th agent / advisor mode).
   registerAdvisorRuntime(ctx, { enabled: advisor, model: advisorModel })
