@@ -1,5 +1,8 @@
 node_modules/
-lib/
+# 构建产物只在仓库**根**的 lib/（package.json 的 files 也只收它）。必须锚定：不写斜杠前缀时
+# `lib/` 会匹配任意深度的同名目录——曾把 `scripts/lib/markdown-links.mjs` 一并忽略，于是"测试
+# 引用了未入库的模块"在本地全绿、到新 clone 就红。
+/lib/
 .env
 *.tgz
 .reasonix/
