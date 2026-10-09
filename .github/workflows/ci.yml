@@ -1,0 +1,40 @@
+# CI：安装（含 prepare 构建）+ 类型检查 + 单测 + 发布载荷形状。
+#
+# 只跑 windows-latest 是**刻意的、诚实的**选择：测试套件里仍有平台假设
+# （qa/dsh-launch 的桌面版 shim 识别与 where.exe、若干 Windows 路径用法），
+# 在 Linux 上会红。改成跨平台是一个已知的 v2 项，见 docs/known-issues.md。
+# 真机验收（qa:pack）不在这里跑：它需要一个真实的 dsh 宿主，而 CI 里没有。
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # `prepare` 会跑 tsc，所以这一步同时验证了构建。
+      - name: Install (builds through prepare)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Packed payload shape
+        run: node scripts/check-pack-payload.mjs

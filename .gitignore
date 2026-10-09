@@ -3,6 +3,7 @@ lib/
 .env
 *.tgz
 .reasonix/
+# 本地运行痕迹（oh-my-dsh 时期的 evidence/notes 等）：属于本机产物，不入库。
 .omd/
 # dsh real-driver evidence + isolated test home (qa discipline: never commit)
 .dsh-enhance/

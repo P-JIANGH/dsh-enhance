@@ -4,7 +4,7 @@
 > 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
 > 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
 >
-> **命名**：包名 `@dsh-enhance/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可。本仓库的 checkout 目录沿用旧名 `F:\oh-my-dsh`，包名已是新名。
+> **命名**：包名 `@dsh-enhance/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可；用 `<checkout>` 指代你本地的仓库目录。
 
 ## 1. 理解背景：profile、bundle 与 patch 层
 
@@ -67,7 +67,7 @@ dsh plugin --profile dsh-enhance add @dsh-enhance/dsh-enhance
 `dsh plugin` 会把相对/`file:`/`link:` 形式的路径规格**锚定到你在哪里调用它的目录**（避免在 profile 目录里被误解析），所以从插件仓库直接装：
 
 ```sh
-# 在插件仓库之外调用，相对或绝对路径均可（<checkout> = 本仓库目录，如 F:/oh-my-dsh）
+# 在插件仓库之外调用，相对或绝对路径均可（<checkout> = 你本地的仓库目录）
 dsh plugin --profile dsh-enhance add <checkout>
 dsh plugin --profile dsh-enhance add file:<checkout>
 dsh plugin --profile dsh-enhance add link:<checkout>
@@ -81,25 +81,24 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 
 ```sh
 # 相对于你调用 dsh plugin 的目录（或给绝对路径）。
-# 本项目作者本机：profile 名 dsh-enhance，checkout 在 F:/oh-my-dsh
-# （目录名沿用旧名，包名是 @dsh-enhance/dsh-enhance）。
-dsh plugin --profile dsh-enhance add link:F:/oh-my-dsh
+# <checkout> = 你本地的仓库目录，例如 D:/code/dsh-enhance。
+dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
 安装成功后 profile 的 `package.json` `dependencies` 里会出现：
 
 ```json
-"@dsh-enhance/dsh-enhance": "link:F:/oh-my-dsh"
+"@dsh-enhance/dsh-enhance": "link:<checkout>"
 ```
 
-而 `node_modules/@dsh-enhance/dsh-enhance` 是指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: F:\oh-my-dsh`）。
+而 `node_modules/@dsh-enhance/dsh-enhance` 是指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: <checkout>`）。
 
 **⚠️ 关键点：链接安装 ≠ 源码即时生效。** dsh 的 loader 解析的是包的 `main` / `exports` 入口，dsh-enhance 指向 `lib/index.js`（**构建产物**）。因此：
 
 1. pnpm 的 `link:` 依赖**不会自动运行** `prepare` 构建脚本（`prepare` 只在从 registry 或 git 源安装时触发，本地链接不发构建）。
 2. 每次修改 `src/` 后，必须在**插件仓库**里手动重新构建：
    ```sh
-   cd F:/oh-my-dsh
+   cd <checkout>
    pnpm build        # 产出到 lib/（main 指向 lib/index.js）
    ```
 3. 然后重启你正在跑的 `dsh --profile dsh-enhance ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
@@ -129,6 +128,9 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 `dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 只列**一个**补丁文件 `cordis.patch.yml`，其中插入插件行 **与** `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。本插件只提供 **Enhance** 一个预设（id `enhance`）；预设菜单里其余条目（`standard` / `ptc` / `minimal` / `cordis`）来自上游 dsh，不由本插件贡献。**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
 
 > **兼容性（必须知道）**：行式预设注册表（`@deepseek-ai/dsh-agent-preset` + `ctx.agentPresets`）只存在于 **dsh ≥ 0.2.0**。老 CLI（如 `0.1.0-rc.6`，机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 **inactive entry**（启动诊断里能看到，给出一条告警），而不是静默生效。本插件**不为此发明条件插入机制**。
+>
+> **预设只在 Web / 桌面面可选**：`agentPresets` 服务由 Web 组合（`@deepseek-ai/dsh-web-app`）提供。纯 headless / acp / sdk 的 profile 启动时会打印
+> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——上游那行预设插件在等它的服务，**不是安装失败**：插件本体在该 profile 里照常工作，只是没有预设菜单。要断言这一条，跑 `pnpm qa:pack`（零 token 的打包安装验收，把这条 pending 钉成"已知且仅此一条"）。
 >
 > 判定 `config.plugins` 语法/可解析性的方式：`dsh --profile <p> --dump-config`，在输出里找 `preset-enhance` 行与它的 `plugins:` 列表。
 

@@ -10,6 +10,8 @@
 
 ## 当前基线
 
+- **2026-10-09 发布收尾轮基线**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **185/185** · `pnpm qa:pack` **21/21**（零 token 打包安装验收）· `pnpm check:pack` PASS（73 个文件，必需项齐备、无陈旧产物）· `git status` 干净。本轮的关键动作是**把 devDeps 从 `0.1.2-alpha.4` 对齐到宿主实际携带的 `@deepseek-ai/*@0.2.0-rc.2`（`cordis@4.0.4`）**——对齐后 `tsc` 当场报出两个真缺陷（P0-10），并连带修掉署名（P0-11）、打包边界（P0-12）与 QA 启动器（P0-13）；新增两道门：`pnpm qa:pack` 与 `tests/host-contract.test.mjs`。
+
 - **2026-10-09 基线（模式段改造）**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。深度工作模式从"关键词触发展开的注入"改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；`skill-trigger` / `ulwTrigger` / `orient` 开场钩子 / 目录式预设投递链（`install-presets`、`/presets`、`postinstall`）一并退役。预设改为 bundle 补丁里的行：`cordis.patch.yml`（插件行 + `preset-enhance`）；同日稍后按用户要求只保留 Enhance 一个预设，`presets/roles.patch.yml`（五个角色预设）已删除——现在只剩 `cordis.patch.yml` 的一条 `preset-enhance`。
 - **2026-09-30 复验**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 194/194。
 - **真机预设验证（2026-10-09）**：官方 `dsh-headless` 一次性 runner **不消费 agent 预设**（源码原话 "which the one-shot runner does not compose"；`agents.create` 不带 preset），所以"用 headless CLI 断言预设会话的系统提示词"这条路径在本版本上不成立——不是预设行的问题。改用一次性探针（`.dsh-enhance/preset-probe`，gitignored）复刻 Web/桌面 surface 的绑定（`agentPresets.resolve` + `setup` 里 `agentPresets.mount`）：六个预设全部 `broken=-`（当时含 5 个角色预设；2026-10-09 用户要求只留 Enhance，故已删除）、`enhance` 为默认，真实会话 `session-454ff36e` 的 system-prompt 含完整 `<enhance-mode>`（26 行）与 persona prefix，且全日志无 `ultrawork`；对照组（headless qa 会话 `session-9dc3f130`，无预设）不含该段。**探针同时抓出两个真实缺陷**（见 P1-14「真机抓出的预设行缺陷」）。
@@ -22,7 +24,7 @@
 - **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：7 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
 - **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §10.5。
 - **~~`ulw` 触发的读入面~~（2026-10-08，P1；2026-10-09 随机制退役关闭）**：`skill-trigger` 原先把 `agent/pre-step` 第一步的**全部** `messages` 当"用户提示词"扫 —— 真机会话日志显示这一步里除用户输入还有 `agent-instructions`（本仓库 AGENTS.md 里就写着 `ulw`）、`skill-catalog`、`runtime-context`、别的 agent 的消息，任何一个含触发词都会把会话静默推进深度工作模式。曾改为只读 `source.kind === 'user'` 并加回归钉；**现整套机制已删除**，读入面不复存在。
-- **~~注入消息的来源署名~~（2026-10-08；2026-10-09 随注入退役）**：v4 会话格式拒绝 `kind:'plugin'`，要求 producer-owned kind（`plugin:<名字>`）。该约束随 `src/shared/provenance.ts` 与两处注入一起退役——现在本插件不再向会话注入用户角色消息。
+- **~~注入消息的来源署名~~（2026-10-08；2026-10-09 随注入退役）**：v4 会话格式拒绝 `kind:'plugin'`，要求 producer-owned kind（`plugin:<名字>`）。该约束随 `src/shared/provenance.ts` 与两处注入一起退役——现在本插件不再向会话注入用户角色消息。**（2026-10-09 更正：后半句是错的。** 同一次退役只删了触发机制与那两处调用，start-work / rules-injector / delivery-gate / advisor 四处**仍在**向会话注入用户角色消息，且全部盖着 `kind: 'user'`。`src/shared/provenance.ts` 已因署名需要恢复，见 **P0-11**。**）**
 - **~~开场引导钩子在 0.2.0 上从未生效~~（2026-10-08，P1；2026-10-09 已按减法退役）**：`agent/session-start` 事件在桌面 0.2.0-rc.2 中不存在，桌面端从未注入过开场引导。**处置：退役该钩子**（而不是改绑 `agent/created`）：入口发现由预设菜单与 `/doctor` 承担，不需要再来一条开场消息。
 
 ---
@@ -68,7 +70,29 @@
 ### ✅ P0-9 advisor 提示词要求用工具核查，但审查调用不提供任何工具
 - 证据（实驱）：advisor 输出了原始工具调用标记（`<||DSML|| calls>…`），`parseAdvisorEmission` 解析为空 → 这条审查被整段丢弃。
 - 根因：`ADVISOR_SYSTEM_PROMPT` 写着"verify doubts with read/grep/glob"，而 `registerAdvisorRuntime` 走的是 `ctx.llm.stream()` **独立单次调用，没有工具面**。
-- 修复：提示词与实际能力对齐——明确"本次调用无工具，只依据增量证据推理；绝不输出工具调用语法；证据不足就 `ADVISOR: NONE`"。同步 `prompts/modes/advisor.md`（中文单源）。
+- 修复：提示词与实际能力对齐——明确"本次调用无工具，只依据增量证据推理；绝不输出工具调用语法；证据不足就 `ADVISOR:NONE`"。同步 `prompts/modes/advisor.md`（中文单源）。
+
+### ✅ P0-10 另外两个默认开启的钩子也绑在 `agent/session-start` 上——在 0.2.x 从未触发
+- 证据：把 devDeps 从 `0.1.2-alpha.4` 对齐到宿主实际携带的 `0.2.0-rc.2` 后，`tsc` 立刻报 `src/hooks/rules-injector.ts(65,17)` 与 `src/hooks/start-work.ts(24,17)`：`'"agent/session-start"' is not assignable to 'keyof Events'`。全树 grep 桌面 0.2.0-rc.2 宿主源码：`agent/session-start` **一次都不存在**；`agent/created` 才是 0.2.0 的创建事件（payload `{ agent, source: 'startup'|'resume'|'clear'|'compact', signal? }`）。
+- 影响面：`workTracking`（start-work：续作上下文注入 + 写令牌认领）与 `guards`（rules-injector：`.dsh-enhance/rules/*.md` 注入）**两个默认开启的能力在 0.2.x 上等于不存在**，而且不报错——这解释了历史上"doctor 说守卫全开，但用户什么都感知不到"。P1-14/上文 P0 里退役 `orient.ts` 时只清了一个钩子，没有清查同事件的其余监听者；`docs/known-issues.md:26` 当时就把该事件记为"不存在"。
+- 修复：两个钩子改绑 `agent/created`，并守住该事件写明的两条契约——① 它**在 agent 创建完成之前被串行 await**（*"A throw or rejection fails creation and skips later listeners"*），所以监听器改成**同步**、整体 try/catch、并显式标注 `(): undefined`（声明返回类型不接受 `void`）；② 它**对子代理也触发**，而 start-work 会认领写令牌，所以先用 `isDelegatedSession`（`origin === 'subagent' || delegationDepth > 0`，`childSessionMeta` 在 in-process 与 fork 两个驱动里都写这两个标记）过滤掉子会话。播种改成幂等的：`hasInjectedText(agent.session.deriveMessages(), text)` 命中同一段文本就不重复注入（含实时状态的 start-work 块在状态变化时仍会重新注入）。
+- 回归钉：`tests/host-contract.test.mjs` —— 把 `src` 里每个 `ctx.on('<ns>/<name>')` 与**已安装上游 typings** 对照（`agent/*` → `dsh-agent`，`tools/*` → `dsh-tools`，`loader/volatile-update` 是宿主供给包的单条白名单）；并自带负控制断言（必须判否 `agent/session-start`），否则"自证式 pin"一文不值（P0-4 的教训）。探针文件实测能让它变红并点名。
+
+### ✅ P0-11 五处注入全部冒名"用户输入"（`source: { kind: 'user' }`）
+- 证据：`src` 里 5 个 `createUserMessage(...)` 调用点（start-work、rules-injector、delivery-gate 的 steer、advisor 的 deliver、advisor 的审查请求）都写 `source: { kind: 'user' }`。而 `@deepseek-ai/dsh-llm` 的 `MessageSourceMap` 文档写得很明确：*"Merge-extensible sum type — each producer declares its own `kind` in its own module; there is no shared catch-all `plugin` kind … **user messages carry any producer's kind**, and consumers fall through unknown kinds."* —— `user` 是一句**具体声明**（"这是人打的"），不是插件注入的默认值。
+- 为什么危险：任何 `switch (source.kind)` 的消费者都会把插件文本读成人类指令。本项目**已经栽过一次**（被注入的 token 让新会话自己进入深度工作模式，见 2026-10-08 的 `ulw` 读入面条目）——当时的修复只覆盖了触发读入面依赖的两处，随机制退役又一起删除，这 5 处从未被覆盖。
+- 运行时边界是**读出来的，不是猜的**：全仓库唯一的消息来源校验是 v4 准入函数（`dsh-session-format-v3-to-v4` 的 `source()`），其文档注释写着 *"Native source admission **preserves unknown attribution** and refuses retired plugin wrappers"*——规则只是"非空字符串 `kind` 且不等于字面量 `'plugin'`"，**没有 kind 注册表、没有注册步骤**；同包的来源转换对直接 kind 原样保留（只重写 `kind: 'plugin'`），所以 resume 回放也不会丢。当前格式包（`dsh-session-format`）与 JSONL 持久化层**从不检查** `source.kind`。
+- 修复：恢复 `src/shared/provenance.ts`（按上游文档声明的合并扩展点声明 `plugin:dsh-enhance`，导出 `CONTEXT_SOURCE_KIND`），5 处全部改盖自己的章；`tests/host-contract.test.mjs` 钉住"`createUserMessage(` 调用数 == `kind: CONTEXT_SOURCE_KIND` 数"与"`src` 里没有 `kind: 'user'`"。
+
+### ✅ P0-12 宿主供给的包被写成 dependency：真装会在 profile 里 hoist 出第二份并遮蔽宿主
+- 证据（宿主源码 `.dsh-enhance/asar-host/.../dsh-app-boot/lib/index.js:477-481`）：*"Pnpm-managed entries in the profile's `node_modules` resolve first. **The runtime resolution supplies packages carried by the installation and selected bundles** to Node's ESM and CommonJS resolvers."* 即 `dsh-llm` / `schemastery` 本来就免费供给插件；自己声明成 dependency 反而会被装进 profile 并**优先解析**。同类项目 `vcxmug/dsh-enhance` 的 README 记录了确切后果（`dsh-tools` 的模块级身份被副本破坏 → 冷启动后每次工具调用死在 `reading 'prepare'`）。
+- 为什么一直没被发现：仓库里所有测试都跑在 `link:` 形态（profile 的 `node_modules/@dsh-enhance/dsh-enhance` 是指向本 checkout 的 junction），解析落到**本 checkout 自己的** `node_modules`——`link:` 安装根本不会把包的依赖装进 profile。这是"测试全绿但仍然会坏"的典型。
+- 修复（收敛到上游一等公民的约定，而不是偏好）：`@deepseek-ai/schemastery` 保持 `dependencies`（一等公民插件也这么声明；它是纯数据库，宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema，跨副本安全），`@deepseek-ai/cordis` 与 `@deepseek-ai/dsh-llm` 是 **optional peer**（前者只做类型导入；后者带模块级身份，只能有宿主那一份）。顺带消掉了 `pnpm` 每次安装都打印的 `missing peer @deepseek-ai/cordis` 告警。
+- 验收：新增 `qa/pack-install-drive.mjs`（`pnpm qa:pack`，**零 token**）——真 `npm pack` → 真装进一次性 profile → 21 条断言：宿主必须 0.2.x、插件是真实目录而非链接、复制进 profile 的只有 `schemastery`/`cosmokit`（**没有任何服务类宿主包**）、安装无 peer 告警、`--dump-config` 里有插件行/`preset-enhance`/`enhance-mode`/四条子代理行且无失败诊断、真启动能解析全部静态 import 且本插件行**处于激活状态**。
+
+### ✅ P0-13 QA 启动器在真机上一直退回 nvm 的旧 CLI（0.1.0-rc.6）
+- 证据：`resolveDsh()` 的 PATH 扫描认不出桌面 shim（`<root>/resources/runtime/cli/bin/dsh.cmd` 边上没有 `lib/bin.js`），于是 `where.exe dsh` 命中的桌面 shim 被跳过，一路退到 nvm 的 `0.1.0-rc.6`；而后者连行式预设注册表都没有——**实驱一直在和与文档不符的运行时说话**。第二个原因更隐蔽：`desktopLaunchFrom` 要求 `<root>/resources/app.asar/…/dsh-desktop-host/lib/cli.js` **作为文件可见**，但真实安装里 `app.asar` 是 **121MB 的文件**，Node 的 `existsSync` 永远看不见里面（ENOTDIR），而 Electron 自己能读。
+- 修复：新增纯函数 `desktopRootFromShims()`（从 PATH 命中里认出桌面布局）并在 `resolveDsh` 的两处 shim 扫描前先试桌面路径；`desktopLaunchFrom` 接受"打包形态"（`app.asar` 是文件即布局成立，与官方 shim 原文调用一致）。`resolveDsh()` 现在返回 `kind: 'desktop'`（`DeepSeek Harness.exe --expose-internals <asar>/…/cli.js`），所有实驱默认跑 0.2.0-rc.2。`tests/qa-launch.test.mjs` +3 例（含打包布局用例）。
 
 ---
 
@@ -186,6 +210,17 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 - **P2-5 QA 退出码**：`worktracking`/`delivery-gate`/`dsh-enhance-drive` 已补非 0；`webbridge-drive.mjs` 是浏览器桥工具而非断言型测试，不适用退出码语义。
 - **P2-7 `.dsh-enhance/test-home/.agent-presets/` 第二份预设副本**：位于 gitignore 的隔离 QA home，属运行痕迹，不入库、不被测试依赖。
 
+### ✅ P1-15 README 与安装文档里三处会直接误导用户的内容（2026-10-09）
+- ① [README.md](../../README.md) 的安装命令写的是**裸名** `dsh plugin add dsh-enhance`，而包名是 `@dsh-enhance/dsh-enhance`——裸名在 npm 上是另一个、与本项目无关的名字（当日 registry 查询：`dsh-enhance` 未被注册），照抄会装不到任何东西。改为 GitHub 源码装（v1 的分发方式）+ 本地路径/链接两种，并明确说明包名与命令的关系。
+- ② 同一节给的是作者本机路径 `link:F:/dsh-enhance`（该路径在本机都不存在，checkout 是 `F:\oh-my-dsh`）。`docs/installing-plugins.md` 另有 7 处作者本机路径，全部改为 `<checkout>` 占位。
+- ③ README 写着"包是 ESM，**零运行时依赖**：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除）"——**错的**：`lib/features/advisor/runtime.js` 等 4 个文件在运行时 `import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'`。改写为一张"声明规则"表（见 P0-12），把依赖面的事实写成可核对的约定。
+- 顺带更正 [docs/design-web-settings-card.md](../design-web-settings-card.md) §D19 的"npm `dsh-enhance` 已被占（0.1.7）"：当日 registry 查询 `dsh-enhance` 与 `@dsh-enhance/dsh-enhance` **均为 404（未注册）**；当日真实的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定：沿用 `dsh-enhance` 名、只发 GitHub 源码安装，npm 留给 v2。历史条目按注记更正，不重写。
+
+### ✅ P1-16 预设行在无 Web 组合的 profile 上每次启动都报一行 pending（2026-10-09）
+- 证据：`dsh --profile qa3`（`dsh-base` + `dsh-headless` + 本插件）输出 `dsh: warning: 1 entry did not activate` / `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`。
+- 根因（不是本插件缺陷）：`agentPresets` 服务由 **Web 组合**提供——`@deepseek-ai/dsh-web-app` 的补丁里就是 *"the agent plane moves behind agent presets"* 那一段；上游那行预设插件 `inject: ['agentPresets']` 于是 pending。预设本来就只在 Web/桌面面可选，headless（含 acp / sdk / sdk-minimal）里没有预设菜单是**正确**行为。
+- 处置：不改机制（无法从补丁静态判断），在 README 与 `docs/installing-plugins.md` 明写这条预期输出，并让 `qa:pack` 把它钉成"未激活名单里**只有**这一条、且原因必须是 `agentPresets`"；其余任何未激活行都会让验收变红。
+
 ---
 
 ## P3 — 已定稿未开工（路线图）
@@ -201,6 +236,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 10 篇提示词的逐条实驱验证 | [docs/prompts-review/README.md](../prompts-review/README.md) |
 | skills 池扩充（浏览器 QA / 发布流水线等） | [docs/prompts-review/README.md](../prompts-review/README.md) |
 | MCP 内置机制确认 | 同上 |
+| **测试套件跨平台化**（当前有 Windows 假设：`qa/dsh-launch.mjs` 的桌面 shim 识别与 `where.exe`、若干 Windows 路径用法。`.github/workflows/ci.yml` 因此只跑 `windows-latest`——这是**刻意的诚实选择**，不是遗漏；改成 Linux 可跑后应扩成矩阵） | 本轮 P0-13 |
+| **npm 发布（v2）**：v1 只做 GitHub 源码安装；若将来发 npm，需要 scoped 名（`@dsh-enhance/dsh-enhance`）与 `publishConfig.access: public`，并重新核对与 GitHub 上同名项目的区隔 | 本轮 D19 更正 |
 
 > **已部分提前落地**：delivery-gate 的 verify **绑定**（§5.2.2-1 的核心机制）已在 P0-7 接入 —— `BoulderWork.verify` 指向脚本、`runVerify` 判定、无绑定记 `unmeasured`。剩余的是模板库、受保护文件 manifest 与报告落盘。
 >
@@ -235,6 +272,9 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-08 | `ulw` 触发器只读人真正的输入 + 注入署名改为 producer-owned kind | 见下一次提交 | 真机双向：写了 `ulw` 的提示词仍注入（`[user\|plugin:dsh-enhance] <ultrawork-mode>`，exit=0），普通提示词不注入；`tests/skill-trigger.test.mjs` 9 例（+5）、`tests/orient.test.mjs` 5 例（+1）；194/194 |
 | 2026-10-09 | `ulwTrigger` 开关（原实现写死为开、README 的「关闭方式」是空栏，即根本没有关闭途径） | `b80e9e9` | 设置页当时的第 8 个开关；`tests/client-contract.test.mjs` 字段集/行数断言同步；194/194。**同日该开关随整套触发机制退役**（见下一行） |
 | 2026-10-09 | P1-14 模式改造（enhance-mode 常驻段）+ 预设改行式投递 + orient/skill-trigger/目录装机链退役；真机抓出并修掉两个预设行缺陷（persona `text`→`prefix`、`workflow-worker-thread`→`workflow-ptc`）+ 补齐 `agent-instructions` | 见下一次提交 | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 176/176；真机（隔离 home + 桌面宿主 CLI）：探针复刻 Web/桌面绑定后六个预设全部可用（当时含 5 个角色预设；2026-10-09 用户要求只留 Enhance，已删除）、`enhance` 默认，会话 `session-454ff36e` 的 system prompt 含 `<enhance-mode>`、全日志无 ultrawork；无预设对照组不含该段 |
-| 2026-10-09 | 按用户要求只保留 Enhance 一个预设（删除 5 个角色预设行 + `presets/roles.patch.yml` + `scripts/sync-presets.mjs` + `sync:presets`） | 见下一次提交 | `node --test` 176/176；`tests/presets-pin.test.mjs` 新增'只准一条 preset 行 / 不得再有 roles.patch.yml'负向钉 |
+| 2026-10-09 | 按用户要求只保留 Enhance 一个预设（删除 5 个角色预设行 + `presets/roles.patch.yml` + `scripts/sync-presets.mjs` + `sync:presets`） | `ecf5587` | `node --test` 176/176；`tests/presets-pin.test.mjs` 新增'只准一条 preset 行 / 不得再有 roles.patch.yml'负向钉 |
+| 2026-10-09 | **devDeps 对齐 `@deepseek-ai/*@0.2.0-rc.2` + `cordis@4.0.4`**（此前一直跑在 `0.1.2-alpha.4` 的另一条大版本上）→ 当场暴露并修掉 P0-10（两个默认开启的钩子绑在不存在的事件上，从未触发）+ P0-11（5 处注入冒名 `user`） | `e6da06c` | `tsc --noEmit` 0（对齐前 2 个错）· `node --test` 183/183（+7 例 `tests/host-contract.test.mjs`，含负控制：探针文件绑 `agent/session-start` 会变红并点名） |
+| 2026-10-09 | P0-12 打包边界（宿主供给的包改成 optional peer）+ P0-13 QA 启动器认出桌面宿主/接受 asar 打包布局 + 新增 `pnpm qa:pack` 零 token 打包安装验收 + `pnpm check:pack` 载荷形状 | `8261683` | `qa:pack` 21/21：真 tarball 装进一次性 profile（`Packages: +1`，profile 里只有 `schemastery`+`cosmokit`，无任何服务类宿主包副本）· 安装无 peer 告警 · `--dump-config` 行齐备 · 真启动解析全部静态 import 且本插件行激活 · 未激活名单只有 `preset-enhance`/`agentPresets`。`node --test` 185/185 |
+
 
 

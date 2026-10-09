@@ -4,6 +4,8 @@
 
 本项目仅称为 **dsh-enhance**。
 
+> English: [README.en.md](README.en.md).
+
 ## 你能获得什么
 
 | 能力 | 作用 | 关闭方式 |
@@ -43,18 +45,17 @@
 需要 `dsh` CLI（npm：`@deepseek-ai/dsh`）。示例使用名为 `dsh-enhance` 的 profile；如有不同可替换为你自己的 profile 名。
 
 ```sh
-# 发布后
-dsh plugin --profile dsh-enhance add dsh-enhance
+# 从 GitHub 源码装（推荐；包通过 `prepare` 自构建）
+dsh plugin --profile dsh-enhance add github:<owner>/dsh-enhance
 
-# 或直接从本 checkout
+# 或直接从本地 checkout 装
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 
-# 或从 git（包通过 `prepare` 自构建）
-dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
-
-# 或作为实时调试链接（指向本 checkout；改 src/ 后执行 `pnpm build`）
-dsh plugin --profile dsh-enhance add link:F:/dsh-enhance
+# 或作为实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
+dsh plugin --profile dsh-enhance add link:<checkout>
 ```
+
+> 包名是 `@dsh-enhance/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面三种装法都由 `dsh plugin` 按路径/仓库解析，不需要包名。
 
 本插件是一个补丁层：它向 profile 中插入一行 `dsh-enhance` 插件。验证方式：
 
@@ -69,6 +70,10 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 `config.plugins` 就是该会话 agent 的**全部**构成（**没有继承**）：Enhance 预设里逐条写明了 persona（`@deepseek-ai/dsh-persona` 的 `prefix`，即 persona 正文）、`agent-instructions`（AGENTS.md 指令链）、工具行、四条受限子代理与 `@dsh-enhance/dsh-enhance/enhance-mode` 段行。这四条子代理（scout / librarian / reviewer / task）是**预设定的一部分**，不再单独出现在预设名册里。
 
 > **兼容性（必须知道）**：`@deepseek-ai/dsh-agent-preset` 只存在于 **dsh ≥ 0.2.0** 的行式预设注册表里。老 CLI（如 nvm 里的 `0.1.0-rc.6`，其机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 inactive entry（启动时给一条告警），**不是**静默生效；本插件不为此发明条件插入机制。
+>
+> **预设只在 Web / 桌面面可选**：提供 `agentPresets` 服务的是 Web 组合（`@deepseek-ai/dsh-web-app`）。因此**纯 headless / acp / sdk 的 profile** 启动时会打印一行
+> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——
+> 这是上游那行预设插件在等它的服务，不是安装失败；插件本体在该 profile 里照常工作（工具、命令、work-rules 段都在），只是没有预设菜单可选。`pnpm qa:pack` 把这条 pending 钉成"已知且仅此一条"。
 
 > 工作模式 C（Advisor 目标回归）需要 `preset-advisor` 与 `prompts/agents/advisor.persona.md`，**尚未实现**（见 `docs/modes.md` §5/§7）；当前 advisor 运行时是通过插件 Config 默认开启的伴随机制，不需要预设。
 
@@ -114,9 +119,19 @@ pnpm build          # tsc → lib/
 pnpm typecheck
 pnpm test           # node --test
 pnpm sync:enhance-preset   # 从 dsh-enhance persona + 子代理行重新生成 cordis.patch.yml
+pnpm qa:pack        # 打包安装验收（零 token）：真 tarball → 一次性 profile → 断言装配与模块加载
 ```
 
-包是 ESM，零运行时依赖：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除），`@deepseek-ai/cordis` 由 harness 作为 peer 提供。
+包是 ESM。**依赖规则**（改 manifest 前先读这条，它是有依据的约定而不是偏好）：
+
+| 包 | 声明 | 为什么 |
+|---|---|---|
+| `@deepseek-ai/schemastery` | `dependencies` | 上游一等公民插件也这么声明。它是**纯数据**库：宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema（`dsh-app-boot` 的 `isNativeConfigSchema`），同版本的副本是安全的。 |
+| `@deepseek-ai/cordis` | `peerDependencies`（optional） | 宿主就是 cordis，profile 永远不会去装它；我们只做**类型**导入，运行时不解析。 |
+| `@deepseek-ai/dsh-llm` | `peerDependencies`（optional） | 我们确实在运行时用它（`createUserMessage` / `BlockAssembler`），但它带**模块级身份**，一个 profile 里只能有宿主那一份。 |
+| 其它 `@deepseek-ai/dsh-*` | 仅 `devDependencies` | 纯类型导入（构建时擦除），版本对齐宿主实际携带的 `0.2.0-rc.2`。 |
+
+**绝不能**把服务类宿主包（`dsh-llm` / `dsh-agent` / `dsh-tools` / `cordis` …）写成 `dependencies`：那会在 profile 里 hoist 出第二份副本并**优先遮蔽**宿主那份，破坏模块级身份。宿主的运行时解析器本来就免费供给它们（`dsh-app-boot` 的 `createRuntimeResolution`：*"The runtime resolution supplies packages carried by the installation and selected bundles"*）。`pnpm qa:pack` 在**真 tarball 安装**上钉住了这条边界——仓库里的 `link:` 形态会掩盖它。
 
 贡献者的工作纪律：先读 `AGENTS.md`；改动 prompts 或 roles 之前先查看 `docs/architecture.md` 与 `docs/roles.md`；persona 文本单源维护在 `prompts/agents/`（绝不手改生成的 `cordis.patch.yml`——字节锁定测试强制这一约定）。
 
@@ -133,14 +148,18 @@ pnpm sync:enhance-preset   # 从 dsh-enhance persona + 子代理行重新生成 
 
 ## 路线图（v2 里程碑）
 
+**v1 的范围就是下面 M1–M6 加界面配置页**：一个装上去就能用的能力包（技能 / 提示词段 / 工具 / 命令 / 守门 / 工作追踪 / worktree / Enhance 预设 / 设置面）。M7 及以下未开工项是 **v2**，不是"v1 没做完"。
+
 - **M1 ✅ 骨架**：`src/` 按能力目录重组；`prompts/agents/` 单源 + 生成 + 字节锁定；persona 预设落地。
 - **M2 ✅ 提示词审查**：所有提示词经审查并中文化；采用 6 角色体系。
 - **M3 ✅ 守卫 + delivery-gate**：write-existing/path-traversal/bash-read 守卫、rules-injector、delivery-gate 状态机 + verify 绑定 + 防篡改 + 完成报告。
 - **M4 ✅ 工作追踪**：boulder（CAS、work 合并）、写令牌、start-work + delivery-gate 钩子。**goal 存储与 `goal_*` 工具已退役**（原生 `ctx.goals` 覆盖，见 `docs/value-assessment.md` §3）。
 - **M5 ✅ worktree**：WorktreeManager（create/list/find/cleanup/reuse）、命名 + 路径校验、boulder 联动、worktree_create/list/cleanup 工具。
 - **M6 ✅ enhance-mode**：深度工作协议改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；关键词触发（`ulw`/`ultrawork`）与目录式预设投递一并退役。
-- **M7 LSP / comment-check**：计划中。
-- **M8 团队模式**：**不建议自研**——上游已有 Agent Teams（成员 / 共享任务板 / 邮箱，见 `docs/value-assessment.md` §3）。
+- **M7 LSP / comment-check（v2）**：计划中。
+- **M8 团队模式（v2）**：**不建议自研**——上游已有 Agent Teams（成员 / 共享任务板 / 邮箱，见 `docs/value-assessment.md` §3）。
+
+v2 候选（已定稿未开工，见 `docs/known-issues.md` 的 P3 表）：模式 B（Planner 预设）、模式 C（Advisor 预设）、delivery-gate 的 verify 模板库、UI 旗舰（Chat Node / turn-tail 状态条）、`playbooks/` 上手层、skills 池扩充、10 篇提示词的逐条实驱验证。
 
 ## 许可证
 

@@ -21,9 +21,9 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - `client/client.js` — the browser half: registers the plugin's configuration page on the built-in Plugins panel (`plugins.row.config`). **Hand-authored, not built** — the module loader takes it verbatim through `exports["./client"]` and only `require`s the host module table (`react`, `react-dom`, `@deepseek-ai/dsh-client-ui-primitives`). Keep it consistent with `package.json` + `cordis.patch.yml`; `tests/client-contract.test.mjs` pins that.
 - `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/enhance-mode.md`, `modes/advisor.md`.
 - `cordis.patch.yml` — the bundle patch: the plugin install row **and** the `preset-enhance` agent-preset row. Also **generated** — never hand-edit.
-- `scripts/` — `sync-dsh-enhance-preset.mjs` (the plugin row + the single Enhance preset row → `cordis.patch.yml`).
-- `qa/` — real-dsh LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). They consume tokens and write evidence under `.dsh-enhance/evidence/`.
-- `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `enhance-mode.test.mjs` (single-source pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`.
+- `scripts/` — `sync-dsh-enhance-preset.mjs` (the plugin row + the single Enhance preset row → `cordis.patch.yml`), `check-pack-payload.mjs` (published-payload shape: required files present, deleted sources' compiled output gone).
+- `qa/` — real-dsh drivers: `pack-install-drive.mjs` (**zero-token** pack-install acceptance) plus the LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). The LLM ones consume tokens; all write evidence under `.dsh-enhance/evidence/`.
+- `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `enhance-mode.test.mjs` (single-source pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`, `host-contract.test.mjs` (event bindings against the installed host typings + injection provenance).
 
 ## Single-source discipline (important)
 
@@ -48,11 +48,16 @@ pnpm install
 pnpm build          # tsc → lib/  (run after any src/ change)
 pnpm typecheck      # tsc --noEmit
 pnpm test           # node --test (all tests)
+pnpm check:pack     # npm pack payload shape (required files present, deleted sources' output gone)
+pnpm qa:pack        # pack-install acceptance, zero tokens: real tarball → throwaway profile → assertions
 pnpm sync:enhance-preset   # regenerate cordis.patch.yml after persona edits
 ```
 
 - **Tools must declare full `output.schema`.** A tool whose `execute` returns fields that `output.schema` does not cover is rejected by the harness ("returned invalid output") and breaks real sessions. When changing a tool's return shape, update the schema and add a case in `tests/tool-output-schema.test.mjs` (it runs the tool against a real schema check).
 - Real-dsh QA scripts need a `DEEPSEEK_API_KEY` (they run true LLM sessions) and a profile linked to this checkout (e.g. `dsh-enhance`). They write evidence to `.dsh-enhance/evidence/` — do not commit transient sandboxes.
+- **Bind only events the target host declares.** `src` is typechecked against the installed `@deepseek-ai/*` typings, and `tests/host-contract.test.mjs` fails when a `ctx.on('<ns>/<name>')` binding is not declared by the owning package's typings. This is not pedantry: two default-on hooks sat on `agent/session-start`, a name the 0.2.0 catalogue does not contain, and had never fired. A listener on a name nobody emits fails silently. When you migrate a binding, honour the event's declared contract — `agent/created`, for instance, is dispatched serially and awaited *before agent creation resolves* ("a throw or rejection fails creation"), and it also fires for delegated children, which `isDelegatedSession` must filter out.
+- **Injected user-role context declares our own producer kind.** Never `source: { kind: 'user' }`: `user` means "the human typed this" in the harness's vocabulary. Use `CONTEXT_SOURCE_KIND` from `src/shared/provenance.ts` (pinned by `tests/host-contract.test.mjs`).
+- **`pnpm test` runs on a `link:` install and therefore cannot see packaging defects.** `link:` makes module resolution land in this checkout's own `node_modules`. Anything about what a *user's* install looks like belongs in `pnpm qa:pack` (real tarball). See the dependency rule in `README.md`: host-supplied service packages are peers, never dependencies.
 
 ## Agent roles (from `docs/roles.md`)
 

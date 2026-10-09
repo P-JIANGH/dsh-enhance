@@ -46,7 +46,7 @@
 | D16 | 安装脚本 = `scripts/install.mjs`（Node 零依赖） | shell 脚本 | 跨平台（Windows/macOS/Linux）；Node 已是 dsh 前置 |
 | D17 | 安装来源三选（`-s`）：`link:`（默认，本地目录链接）/ `github:owner/repo` / npm | 仅 link: | 发布前后一致；link: 开发态实时同步 |
 | D18 | 脚本配套：预设复制到 `~/.dsh/.agent-presets` + `--dump-config` 验证 + 重启提示 | 只包装 add | 对齐 README 现有手动步骤，一次到位（**2026-10-09 更正**：预设已是补丁里的行，不再复制目录，脚本只需 `--dump-config` 验证 + 重启提示） |
-| D19 | **名字冲突处置**：npm `dsh-enhance` 已被占（0.1.7）；实现期默认 `github:` 直装，scoped npm 名（`@omd/dsh-enhance`）留待发布时定 | — | README/文档明确区分 GitHub 8+ 同名仓库（LaplaceYoung 55★ 等）；scoped 名决定会连带 `dsh plugin add` 命令与 README 示例变化 |
+| D19 | **名字冲突处置**：npm `dsh-enhance` 已被占（0.1.7）；实现期默认 `github:` 直装，scoped npm 名（`@omd/dsh-enhance`）留待发布时定 | — | README/文档明确区分 GitHub 8+ 同名仓库（LaplaceYoung 55★ 等）；scoped 名决定会连带 `dsh plugin add` 命令与 README 示例变化。（**2026-10-09 更正**：该"已占"结论与 registry 现状不符——`npm view dsh-enhance` 与 `@dsh-enhance/dsh-enhance` 当日均为 404（未注册，见 `docs/known-issues.md` 的命名条目）；当日实际的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定是"沿用 `dsh-enhance` 名 + 只发 GitHub 源码安装，npm 留给 v2"。） |
 | D20 | 脚本语言 Node（零依赖），禁 shell | bash/sh | Windows 开发环境 + 社区跨平台 |
 
 ## 4. 最终设计
