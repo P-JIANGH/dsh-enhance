@@ -47,8 +47,14 @@ git log --all --oneline -- .env   # 必须为空：.env 从未入库
 
 ## 2. 打标签与发布
 
+**先确认要打的提交 CI 是绿的**——v0.1.0 的第一版 tag 就吃过这个亏：CI 首跑在 Windows 上红了
+（P0-14，CRLF 让全部打包技能消失），而 tag 已经指向那个红提交。宁可多等一次 CI，不要把 tag
+钉在自己都过不了门的提交上。
+
 ```sh
-git tag -a v0.1.0 -m "v0.1.0"
+git push origin master                       # 触发 CI
+# 等 CI 绿（gh api / 网页），再：
+git tag -a v0.1.0 -m "v0.1.0" <green-sha>
 git push origin v0.1.0
 ```
 
@@ -76,6 +82,17 @@ GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应�
 
 结论写进了 README / installing-plugins：**用户首选 tarball**，源码装作为"跟最新 master"的第二选择，
 并把两条摩擦点（放行构建、key 加引号）写在旁边。
+
+### 两条踩过的坑（v0.1.0 实测，别再踩）
+
+1. **不要在同一个 URL 下替换已发布的附件。** v0.1.0 发布 20 分钟后因 P0-14 重打了 tag 并重传了
+   同名附件，结果 pnpm 的按 URL 缓存/lockfile 对不上：再次安装同一 URL 会失败
+   `ERR_PNPM_MISSING_TARBALL_INTEGRITY`（`resolution: {tarball: …}` 没有 integrity 字段）。
+   正确做法是**切版本**（v0.1.1）让 URL 变。这次之所以敢替换：发布仅数分钟、0 下载、0 外部引用。
+   替换后必须核验**字节一致**：`curl -L <asset-url>` 下载回来与本地 `npm pack` 产物的 sha256 相同
+   （v0.1.0 实测两者均为 `7D20FE1B…C6AC`，102,896 B）。
+2. **tag 只钉 CI 绿的提交**（见 §2）。移动 tag 时 GitHub 会把旧 Release 自动转成 **draft**，
+   记得删掉残留 draft，别让同一个 tag 存在两份 Release。
 
 ## 3. 远端布局与本机网络
 

@@ -284,6 +284,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-09 | v1 发布收尾：README 三处修正 + 双语 README + CHANGELOG + GitHub Actions CI + 载荷形状脚本 + 文档链接钉（修掉 16 个坏链接）+ releasing runbook + 全历史密钥扫描（54 提交 0 命中） | `c1fc3a6`…`de2cbd3` | `node --test` 187→190/190 · `check:pack` PASS · 链接扫描 44 条 0 坏 |
 | 2026-10-09 | **建 GitHub 主仓**（`P-JIANGH/dsh-enhance`，public；gitcode 降为 `upstream` 镜像）+ 元数据指向 GitHub + tag `v0.1.0` + Release（附 tarball）+ 两条分发路径真机验收 | `7b4a492` 起 | Release 复核：1 个 asset（101,370B，state=uploaded）· `github:` 装 1m20s（须放行 allowBuilds）· tarball URL 装 9.2s（免构建）· 两者真启动后插件行均激活、未激活名单只有预期的 `preset-enhance`/`agentPresets` |
 | 2026-10-09 | P0-14 CI 首跑抓到 CRLF 让**全部**打包技能消失 → 解析器容忍换行符 + `skills/** eol=lf` + 可注入 skills root + CI 强制 CRLF 回归步骤 | `d77ad77` | 本机把三个 `SKILL.md` 就地改成 CRLF 复现：修复前 `[]`、修复后单测 8/8、全套 192/192 |
+| 2026-10-09 | tag `v0.1.0` 从红提交 `7b4a492`（CI #1 failure）**移到绿提交 `714f1a6`**（CI #3 success），并重传 Release 附件；GitHub 把旧 Release 自动转 draft，已删除残留 | `714f1a6` | 附件与本地构建 sha256 一致（`7D20FE1B…`，102,896B）· 已发布字节装出的包**恰好贡献 3 条技能**（`probe-installed-skills.mjs`）· 真启动插件行激活 · 唯一 Release（draft=false，1 asset）。**代价记录**：同 URL 替换附件会让 pnpm 的 URL 键缓存/lockfile 失配（`ERR_PNPM_MISSING_TARBALL_INTEGRITY`），故 runbook 定为"切版本而不是换附件" |
+
 
 
 
