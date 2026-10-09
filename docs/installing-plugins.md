@@ -124,16 +124,13 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 
 如果装的包**没有** `dsh.bundle` 声明（只是个普通库），它会被当普通依赖装进 profile，**不进** layer 栈，并打印一条提示性 warning（这不影响它被其他 bundle 引用）。
 
-### 3.6 预设不在插件里，要单独装
+### 3.6 预设随 bundle 一起装（无需单独动作）
 
-`dsh plugin add` 只装插件本身。预设是**文件系统发现**的（`$DSH_HOME/.agent-presets`），插件不会替你写家目录 —— 所以装完在预设菜单里看不到「工作模式」是正常的：
+`dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 列了两个补丁文件，`cordis.patch.yml` 插入插件行 **与** `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`），`presets/roles.patch.yml` 插入五个角色预设行。装完预设菜单里就有六个预设，**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
 
-```sh
-pnpm install:presets     # 或 node scripts/install-presets.mjs
-pnpm check:presets       # 只判定：缺装或过期则退出码 1
-```
-
-脚本幂等，覆盖/清理前先整份备份；`--prune-renamed` 用来清理仍指向旧包名 `oh-my-dsh` 的残留。用户预设里的**裸包名**按 harness 自身基准解析（上游 `PresetTree.import()` 有意如此），所以预设目录下**不需要** `node_modules`。详见 README「在 web 中作为可见 persona 启用」。
+> **兼容性（必须知道）**：行式预设注册表（`@deepseek-ai/dsh-agent-preset` + `ctx.agentPresets`）只存在于 **dsh ≥ 0.2.0**。老 CLI（如 `0.1.0-rc.6`，机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 **inactive entry**（启动诊断里能看到，给出一条告警），而不是静默生效。本插件**不为此发明条件插入机制**。
+>
+> 判定 `config.plugins` 语法/可解析性的方式：`dsh --profile <p> --dump-config`，在输出里找 `preset-enhance` 行与它的 `plugins:` 列表。
 
 ## 4. 验证是否生效
 
@@ -145,7 +142,7 @@ dsh --profile dsh-enhance --dump-config
 dsh --profile dsh-enhance --dump-default-config
 ```
 
-在输出中查找 dsh-enhance 的补丁层标记（其 `cordis.patch.yml` 头部注释为 `# dsh-enhance bundle patch ...`，且插入的插件行 id 为 `dsh-enhance`）。所见即所加载——任何一行都可以被你自己更高的补丁层覆盖。
+在输出中查找 dsh-enhance 的补丁层标记（其 `cordis.patch.yml` 头部注释为 `# dsh-enhance bundle patch ...`；插入的插件行 id 为 `dsh-enhance`，预设行 id 为 `preset-enhance`）。所见即所加载——任何一行都可以被你自己更高的补丁层覆盖。预设是否真的被注册，最直接的证据是新建会话后 `dsh_enhance_doctor` 的装配报告与会话日志里的系统提示词段。
 
 实际启动 profile：
 
@@ -165,7 +162,6 @@ dsh --profile dsh-enhance ...
     workRules: |
       # My team's rules
       Always run the full test suite before pushing.
-    orientOnSessionStart: true
     doctorTool: true
 ```
 
@@ -176,13 +172,13 @@ dsh --profile dsh-enhance ...
 | 字段 | 默认 | 含义 |
 |---|---|---|
 | `workRules` | 内置纪律文案 | 系统提示词 sections 正文；设空字符串即移除该 section |
-| `orientOnSessionStart` | `true` | 会话开始时注入一条一次性 orientation 消息 |
 | `doctorTool` | `true` | 注册 `dsh_enhance_doctor` 工具 |
 | `commands` | `true` | 注册人类指令 `/doctor`、`/boulder` 到 UI 指令表（零 token、不进模型历史） |
 
 > 完整字段（`guards` / `workTracking` / `worktree` / `advisor` / `advisorModel`）见 README 的配置表。
+> 已退役、**不要再写**：`orientOnSessionStart`（绑定事件 `agent/session-start` 在 0.2.0 不存在）与 `ulwTrigger`（关键词触发被 Enhance 预设作用域内的常驻段取代）。
 
-**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 9 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：界面写的是"最小增量"（保留该行原有的非 volatile 字段 + 你的 volatile 增量），被省略的字段一律回落到 **schema 默认值**，所以用界面改了就别再手工在补丁里写同一个键（会被覆盖成默认值）；点「恢复默认」会清掉该行覆盖——只剩 `id`/`name` 时整行删除，bundle 自己的 `insert` 行不受影响。机制与真机证据见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 7 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：界面写的是"最小增量"（保留该行原有的非 volatile 字段 + 你的 volatile 增量），被省略的字段一律回落到 **schema 默认值**，所以用界面改了就别再手工在补丁里写同一个键（会被覆盖成默认值）；点「恢复默认」会清掉该行覆盖——只剩 `id`/`name` 时整行删除，bundle 自己的 `insert` 行不受影响。机制与真机证据见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 

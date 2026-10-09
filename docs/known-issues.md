@@ -8,20 +8,22 @@
 > - **P2** — 未接线的能力、死代码、脆弱测试（不降低正确性，但降低可维护性）。
 > - **P3** — 已定稿但未开工的功能（路线图，不在"修 bug"范围）。
 
-## 当前基线（2026-09-30 复验）
+## 当前基线
 
-- `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **194/194** · `git status` 干净。
+- **2026-10-09 基线（模式段改造）**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **176/176** · `git status` 干净。深度工作模式从"关键词触发展开的注入"改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；`skill-trigger` / `ulwTrigger` / `orient` 开场钩子 / 目录式预设投递链（`install-presets`、`/presets`、`postinstall`）一并退役。预设改为 bundle 补丁里的行：`cordis.patch.yml`（插件行 + `preset-enhance`）+ `presets/roles.patch.yml`（五个角色预设）。
+- **2026-09-30 复验**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 194/194。
+- **真机预设验证（2026-10-09）**：官方 `dsh-headless` 一次性 runner **不消费 agent 预设**（源码原话 "which the one-shot runner does not compose"；`agents.create` 不带 preset），所以"用 headless CLI 断言预设会话的系统提示词"这条路径在本版本上不成立——不是预设行的问题。改用一次性探针（`.dsh-enhance/preset-probe`，gitignored）复刻 Web/桌面 surface 的绑定（`agentPresets.resolve` + `setup` 里 `agentPresets.mount`）：六个预设全部 `broken=-`、`enhance` 为默认，真实会话 `session-454ff36e` 的 system-prompt 含完整 `<enhance-mode>`（26 行）与 persona prefix，且全日志无 `ultrawork`；对照组（headless qa 会话 `session-9dc3f130`，无预设）不含该段。**探针同时抓出两个真实缺陷**（见 P1-14「真机抓出的预设行缺陷」）。
 - 实驱：`--dump` PASS；`--llm` PASS；`worktracking-drive` PASS；`delivery-gate-drive` PASS。
-- **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。
-- **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`~/.dsh/.agent-presets/` 已装 6 个预设（`--check` 通过），`omd` 旧名残留已备份清理。
-- **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩迁移用途（`LEGACY_PACKAGE_NAMES`/`--prune-renamed`）与历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
+- **运行时矩阵（2026-09-30）**：以上实驱同时在 **nvm dsh 0.1.0-rc.6** 与 **桌面版 dsh 0.2.0-rc.2**（隔离 `$DSH_HOME` + `qa` profile）上通过。**注意（2026-10-09 起）**：预设行需要 **dsh ≥ 0.2.0** 的行式注册表；0.1.0-rc.6 上 `preset-enhance` 会成为 inactive entry（见 P1-14）。
+- **人可见面（2026-09-30，P1-11）**：新增 `/doctor`、`/boulder` 人类指令；`/presets` 于 2026-10-09 退役（预设随 bundle 声明）。
+- **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
 - **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
-- **预设可感知（2026-10-08）**：主预设对外命名 **「Enhance 模式」**（id 仍是 `dsh-enhance`，保留编排）；新增 `/presets [install [prune] | status]` 人类指令（显式写盘、覆盖前备份）与安装期 `postinstall --if-installed`；装机逻辑抽成单源 `src/features/presets/install.ts`，脚本退化为薄 CLI。
-- **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：9 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
+- **预设可感知（2026-10-08，2026-10-09 重新落地）**：主预设对外命名 **Enhance**（id `enhance`，保留编排）并常驻 enhance-mode 段；投递方式改为 bundle 补丁里的 `preset-enhance` 行（原先的 `/presets install`、`postinstall`、`src/features/presets/install.ts` 均已退役）。
+- **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：7 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
 - **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §10.5。
-- **`ulw` 触发的读入面（2026-10-08，P1 已修）**：`skill-trigger` 原先把 `agent/pre-step` 第一步的**全部** `messages` 当"用户提示词"扫（`decision.messages.map(bodyToText).join()`）。真机会话日志（`session.v4.jsonl.zstd`）显示这一步里除用户输入还有 `agent-instructions`（本仓库 AGENTS.md 里就写着 `ulw`）、`skill-catalog`、`runtime-context`、`time-context`、`dsh-session-title-llm`、以及**别的 agent 发来的 `agent-message`** —— 任何一个含触发词都会把会话静默推进深度工作模式。现改为**只读 `source.kind === 'user'`**（即人真正打的字），并加 5 条回归钉。
-- **注入消息的来源署名（2026-10-08，两个 P1 一起修）**：① 开场引导语原本署名为 `kind:'user'`，等于把自己伪装成用户输入（既会被上面的触发器当下用户提示词，也会被"从人类消息生成会话标题"那条请求当作用户说过的话）；② 更硬的约束来自 v4 会话格式：`@deepseek-ai/dsh-session-format-v3-to-v4` 明文**拒绝** `kind:'plugin'`（v3 的旧包装），要求"producer-owned source kind"，第三方生产者规范形态是 `plugin:<名字>`。真机验证：写成 `plugin:dsh-enhance` 才能落盘（写成 `plugin` 会让启动直接失败：`dsh: format v4 message requires a producer-owned source kind`）。共享常量在 `src/shared/provenance.ts`，用 `MessageSourceMap` 的声明式扩展点声明我们的 kind。
-- **开场引导钩子在 0.2.0 上从未生效（2026-10-08，**未修**，P1）**：`registerSessionStartHook` 监听的是 `agent/session-start`，而该事件在桌面 0.2.0-rc.2 的事件目录中**不存在**，字符串也不出现在 304 个宿主 bundle 里 → 桌面端从来没有注入过开场引导（用户"感知不到"与之一致）。0.2.0 的对应事件是 **`agent/created`**（serial，payload `{agent, source}`，`source: startup|resume|clear|compact`）。待决：改绑 `agent/created`（只看 `startup`）还是按减法退役这个钩子。
+- **~~`ulw` 触发的读入面~~（2026-10-08，P1；2026-10-09 随机制退役关闭）**：`skill-trigger` 原先把 `agent/pre-step` 第一步的**全部** `messages` 当"用户提示词"扫 —— 真机会话日志显示这一步里除用户输入还有 `agent-instructions`（本仓库 AGENTS.md 里就写着 `ulw`）、`skill-catalog`、`runtime-context`、别的 agent 的消息，任何一个含触发词都会把会话静默推进深度工作模式。曾改为只读 `source.kind === 'user'` 并加回归钉；**现整套机制已删除**，读入面不复存在。
+- **~~注入消息的来源署名~~（2026-10-08；2026-10-09 随注入退役）**：v4 会话格式拒绝 `kind:'plugin'`，要求 producer-owned kind（`plugin:<名字>`）。该约束随 `src/shared/provenance.ts` 与两处注入一起退役——现在本插件不再向会话注入用户角色消息。
+- **~~开场引导钩子在 0.2.0 上从未生效~~（2026-10-08，P1；2026-10-09 已按减法退役）**：`agent/session-start` 事件在桌面 0.2.0-rc.2 中不存在，桌面端从未注入过开场引导。**处置：退役该钩子**（而不是改绑 `agent/created`）：入口发现由预设菜单与 `/doctor` 承担，不需要再来一条开场消息。
 
 ---
 
@@ -40,9 +42,10 @@
 - 修复：profile 补 `@deepseek-ai/dsh-headless`（隔离目录、已备份）；新增 `checkProfileApp()` 自检，缺 app 时直接报错而不是静默超时；[docs/testing-plan.md](../testing-plan.md) §6 的错误归因已更正。
 
 ### ✅ P0-4 presets-pin 自证式断言，字节锁定名不副实
-- 证据（实测）：篡改 `presets/planner/preset.yml` 后 `node --test tests/presets-pin.test.mjs` 仍 2/2 通过，标记被 `generate()` 静默覆写，工作树被写。
-- 修复：生成器拆成纯 `render({presetsRoot})` 与 `generate()`；测试改用 `render()` 与磁盘比对，并加两条回归钉（手改必须被发现；`render()` 按 mtime 断言不写盘）。新增 `.gitattributes` 固定 `presets/**`、`prompts/**` 为 LF。
-- 复验：篡改后 pin 测试由"2/2 通过"变为"2 例变红、exit 1"，且篡改保留。
+- 证据（实测）：篡改一个生成的预设文件后 `node --test tests/presets-pin.test.mjs` 仍 2/2 通过，标记被 `generate()` 静默覆写，工作树被写。
+- 修复：生成器拆成纯 `render({...})` 与 `generate()`；测试改用 `render()` 与磁盘比对，并加"手改必须被发现"与"`render()` 按 mtime 断言不写盘"两条回归钉。新增 `.gitattributes` 固定 `presets/**`、`prompts/**`、`cordis.patch.yml` 为 LF。
+- 复验：篡改后 pin 测试由"2/2 通过"变为"变红、exit 1"，且篡改保留。
+- **2026-10-09 更新**：生成物从 `presets/<role>/` 目录改为 `cordis.patch.yml`（插件行 + `preset-enhance`）与 `presets/roles.patch.yml`（五个角色预设行）；篡改检测的对象随之改为这两个文件。
 
 ### ✅ P0-5 advisor 在上下文失活后仍触发审查
 - 证据（实驱）：`[advisor] review FAILED ... cannot get required service "agents" in inactive context`。
@@ -75,7 +78,7 @@
 - 证据（实驱，由主模型自己指出）：启动钩子把会话里 31 个技能（含 `user-agents` 用户池）全列成"打包技能"，而 doctor 只认 3 个 `bundled`。
 - 第一次修复（不完整）：改为按 `summary.source === 'bundled'` 过滤。**真实环境应用后立刻发现这仍然错**——`source` 只是"注册表来源标签"，任何从磁盘根加载技能的 provider 都用它；desktop profile 里 `office-docx/pptx/xlsx`、`diagnose-windows-sandbox-acl` 的 source 同样是 `bundled`，但 provider 不是 dsh-enhance。doctor 实测显示 7 个 `bundled` 技能里只有 3 个是本插件的。
 - 最终修复：改用 **`summary.provider === 'dsh-enhance'`**（`SkillSummary` 同时有 `source` 与 `provider`，provider 才是归属）；`skills-provider.ts` 导出 `PROVIDER` 常量；doctor 报告拆成「本插件打包技能（N）」与「会话内其它来源技能：N 个（非本插件提供）」两行，schema 增加 `provider` 字段。
-- 测试：`tests/orient.test.mjs` 与 `tests/doctor.test.mjs` 都补了"别的 provider 也标 bundled"这一真实回归场景。
+- 测试：`tests/doctor.test.mjs` 补了"别的 provider 也标 bundled"这一真实回归场景（`tests/orient.test.mjs` 曾覆盖同一场景，2026-10-09 随 orient 钩子退役删除）。
 
 ### ✅ P1-9 patch 行用了裸包名 → 按文档装完加载器直接失败（"用不起来"的根因）
 - 证据：真实实驱报 `Cannot find package 'dsh-enhance' imported from …` / `ERR_MODULE_NOT_FOUND`。上游惯例（`dsh-base` / `dsh-web-app` 的 patch）一律写完整包名（`'@deepseek-ai/dsh-*'`），而本仓库的 `cordis.patch.yml` 与预设生成器都写裸名 `dsh-enhance`——Cordis loader 把 `name` 当模块说明符从 profile 目录解析，因此 `dsh plugin add` 装完仍然解析不到，除非 profile 额外挂一个同名别名依赖。
@@ -89,10 +92,10 @@
 
 ### ✅ P1-11 装完插件后 UI 里没有任何属于本包的入口（人可见面缺失）
 - 证据（真实桌面版 0.2.0-rc.2 会话）：`dsh_enhance_doctor` 报「插件已加载：是」、3 个打包技能、守卫/工作追踪/advisor 全开，而用户「除了开场消息里的 `ulw` 之外什么都感知不到」。静态核实：`src/` 内 `commands.register` 出现 **0 次**——DSH 的人类指令面（`@deepseek-ai/dsh-commands` 的 `ctx.commands.register`，由 `dsh-client-ui-commands` 在 `/` 菜单渲染）本包从未使用；技能虽已注册（`dsh-client-ui-skill` 挂 `/` 触发器 + 手打 `/name` 会确定性注入正文），但除开场消息外没有任何提示。
-- 预设证据（同一台机器）：`$DSH_HOME/.agent-presets/` 里只有 6 个**改名前的残留**（`planner/scout/librarian/task/reviewer/omd`，composition 首行 `name: oh-my-dsh`），而 `package.json.bak-preinstall` 证明 desktop profile **从未**依赖过 `oh-my-dsh` → 这 6 项不可解析，选中即挂载失败；仓库自带的 6 个预设（含主编排 `presets/dsh-enhance/`）**一个都没装**。README 只教手工 `cp`，从未被执行。
-- 修复 1（人可见面）：新增 `src/features/commands.ts`，用上游注册表注册两条只读指令 `/doctor`（复用同一份装配报告与渲染器）与 `/boulder`（读 `.dsh-enhance/boulder.json`）；新增 `Config.commands` 开关（默认开），doctor 回显 `人类指令=开/关` 并点名两条指令，orient 开场消息也点名它们。指令结果由 UI adapter 直接渲染 → **零 token、不进模型历史**。名字先核对过上游占用（`compact`/`feedback`/`goal`/`plan`/`export`/`permission`）无冲突（同层重名会在注册时失败）。
-- 修复 2（装机）：新增 `scripts/install-presets.mjs`（幂等、逐字节比对、覆盖/清理前整份备份到目标根**同级**的 `agent-presets-backup-<时间戳>/`，支持 `--dry-run`/`--check`/`--target`/`--prune-renamed`），并接入 `pnpm install:presets` / `pnpm check:presets`。**预演模式在第一次真写之前抓到真 bug**：同名预设同时进了「更新」与「残留清理」两个清单 → 会先装后删；已修（只有不在本包名册里的 id 才算残留）并加回归钉。
-- 解析依据（读上游代码，不是猜测）：`dsh-agent-presets` 的 `PresetTree.import()` 对**裸包名**强制用 harness 自身 base 解析，注释原话是"本地预设位于用户家目录，Node 的上行 `node_modules` 查找永远到不了 harness 的依赖，于是每个 `@deepseek-ai/dsh-*` 行都会 import 失败"——所以预设目录下**不需要** `node_modules`，相对路径才随预设目录走。
+- 预设证据（同一台机器）：`$DSH_HOME/.agent-presets/` 里只有 6 个**改名前的残留**（`planner/scout/librarian/task/reviewer/omd`，composition 首行 `name: oh-my-dsh`），而 `package.json.bak-preinstall` 证明 desktop profile **从未**依赖过 `oh-my-dsh` → 这 6 项不可解析，选中即挂载失败；仓库自带预设**一个都没装**。README 只教手工 `cp`，从未被执行。
+- 修复 1（人可见面）：新增 `src/features/commands.ts`，用上游注册表注册两条只读指令 `/doctor`（复用同一份装配报告与渲染器）与 `/boulder`（读 `.dsh-enhance/boulder.json`）；新增 `Config.commands` 开关（默认开），doctor 回显 `人类指令=开/关` 并点名两条指令（orient 开场消息在 2026-10-09 退役，点名改由 doctor / 预设菜单承担）。指令结果由 UI adapter 直接渲染 → **零 token、不进模型历史**。名字先核对过上游占用（`compact`/`feedback`/`goal`/`plan`/`export`/`permission`）无冲突（同层重名会在注册时失败）。
+- 修复 2（装机，**2026-10-09 已被取代**）：曾新增 `scripts/install-presets.mjs`（幂等、逐字节比对、覆盖/清理前整份备份到目标根**同级**的 `agent-presets-backup-<时间戳>/`，支持 `--dry-run`/`--check`/`--target`/`--prune-renamed`），并接入 `pnpm install:presets` / `pnpm check:presets`。**预演模式在第一次真写之前抓到真 bug**：同名预设同时进了「更新」与「残留清理」两个清单 → 会先装后删；当时已修（只有不在本包名册里的 id 才算残留）并加回归钉。整套目录装机链在 P1-14 中退役：预设现在是 bundle 补丁里的行，不再需要安装动作，也不会再写用户家目录。
+- 解析依据（读上游代码，不是猜测；**0.2.0 起该依据随目录机制一起退役**）：旧 `dsh-agent-presets` 的 `PresetTree.import()` 对**裸包名**强制用 harness 自身 base 解析。现在的行式注册表用 `prepareProfileEntries` + 装载器解析基准，规则不同（见 P1-14）。
 - 复验：`pnpm test` 171/171；对真实家目录执行安装 → 6 个预设就位且 `--check` 通过，`omd` 残留已备份清理（`~/.dsh/agent-presets-backup-2026-09-30-044128` 含 6 份旧副本）。
 
 ### ✅ P1-12 旧包名 `oh-my-dsh` 残留：两个 profile 已装不上插件，安装文档照着做必失败
@@ -125,6 +128,19 @@
 - 已知限制：清单由 work 自己声明，尚未达到架构 §5.2.2 的"最小可知性"（策略侧提供清单、交付时才挂载）——已写进 architecture §5.2.2 与 value-assessment §5 的待办。
 - 测试：`tests/delivery-gate.test.mjs` +3（哈希快照 / 消失也算改动 / `tampered` 优先级）、`tests/delivery-gate-hook.test.mjs` +3（被改、消失、未改照常放行）、`tests/tool-output-schema.test.mjs` 覆盖新字段的实时快照。
 
+### ✅ P1-14 深度工作模式靠"关键词触发"注入：机制不诚实、且与预设语义重复（2026-10-09）
+- 证据：`skill-trigger` 用 `agent/pre-step` + 正则 `\bulw\b|\bultrawork\b` 扫用户输入，命中后 `createUserMessage` 注入 `<ultrawork-mode>` 契约；同一会话只能靠 `ulwTrigger` 开关退出。真机教训两条：① 触发读入面难以诚实界定（见上方「`ulw` 触发的读入面」条目，曾被 AGENTS.md 文本误点燃）；② 0.2.x 已把"一个会话的构成"交给 agent 预设，模式本质上是预设内容，不该在运行时猜。
+- 修复（减法 + 加法）：
+  - 加法：新增 `src/enhance-mode.ts`（`export name` / `export inject = ['systemPrompt']` / `export apply`，在同一作用域注册 `dsh-enhance/enhance-mode` 段落）；`cordis.patch.yml` 的 `preset-enhance` 行在 `config.plugins` 里挂 `{ id: enhance-mode, name: '@dsh-enhance/dsh-enhance/enhance-mode' }`。正文单源 `prompts/modes/enhance-mode.md`（由 `prompts/modes/ultrawork.md` 改名，正文只换标签），`tests/enhance-mode.test.mjs` 逐字 pin。
+  - 减法：删除 `src/features/skill-trigger.ts`、`tests/skill-trigger.test.mjs`、`src/hooks/orient.ts`、`tests/orient.test.mjs`、`src/shared/provenance.ts`、`ulwTrigger` 与 `orientOnSessionStart` 两个配置字段、`src/features/presets/install.ts`、`scripts/install-presets.mjs`、`tests/install-presets.test.mjs`、`/presets` 指令、`presets/<role>/` 目录、`presets/*` 导出与 `install:presets`/`check:presets`/`postinstall` 脚本。
+- 预设投递（同一改动）：改造成 bundle 补丁里的行 —— `scripts/sync-dsh-enhance-preset.mjs` 生成整个 `cordis.patch.yml`（插件行 + `preset-enhance`），`scripts/sync-presets.mjs` 生成 `presets/roles.patch.yml`（五个角色预设行），`package.json` 的 `dsh.bundle.patch` 列这两个文件（与上游 `dsh-web-app` 列 `presets/*.patch.yml` 同一形态；每个文件一个写者）。
+- 兼容性：`@deepseek-ai/dsh-agent-preset` 只存在于 **dsh ≥ 0.2.0**。老 CLI（`0.1.0-rc.6`）上该行是 inactive entry（启动诊断可见），不发明条件插入机制。
+- 测试：新增 `tests/enhance-mode.test.mjs` 5 例；`tests/presets-pin.test.mjs` 重写为钉两个新生成物（含"只有 Enhance 预设挂 enhance-mode"这条负向断言 + 一条**行形态契约**：persona 用 `prefix` 而非 `text`、必须有 `agent-instructions`、delegation 的引擎行是 `workflow-ptc`）；`tests/commands.test.mjs` / `tests/doctor.test.mjs` / `tests/client-contract.test.mjs` 同步字段集与行数（设置页 final = **6 个开关** + `advisorModel`；规格原文写"7 个开关"，与"8 个布尔开关去掉 orient 与 ulw"的算术不符，以实际删除后的 6 为准）。`pnpm test` 176/176。
+- **真机抓出的预设行缺陷（同一次改动，已修）**：探针第一次跑 `preset=enhance broken=persona (...): $.prefix missing required value`，第二次跑 `broken=tool-workflow (...): waiting for workflowEngine`。两处都是**旧生成器形状在新机制下才暴露**的缺陷（目录机制从未加载过这些文件）：
+  1. `@deepseek-ai/dsh-persona` 是 **scope-only** 行，Config = `{ prefix(必填), suffix, complete, includeRuntimeContext }` —— **没有 `text` 键**。旧生成器写 `config: { text: |- <persona> }` → 每个预设挂载即失败。修复：persona 正文作为 `prefix`（块标量），并补 `suffix: Your working directory is {{cwd}}.` 以复述被遮蔽的部署 suffix。
+  2. delegation 隔离域里的引擎行旧写 `@deepseek-ai/dsh-workflow-worker-thread`；上游 `standard`/`ptc` 预设用的是 `@deepseek-ai/dsh-workflow-ptc`。隔离 home 的 `profiles/node_modules` 里还有一份 0.1.0-rc.6 的 worker-thread → 被兼容性预检 disable → `tool-workflow` 永远等 `workflowEngine` → 整个预设 `agent-presets/invalid`（不只是少一个工具）。修复：改用 `workflow-ptc`（与上游一致）。
+  3. 附带补齐：预设原本没有 `agent-instructions` 行（`standard` 有）。Web/桌面 surface 会 disable 宿主平面的该行，缺它等于预设会话丢掉 AGENTS.md 指令链；已按 `standard` 补 `agent-instructions`（maxBytes 65536）。
+
 ### ✅ P1-1 README 自相矛盾 + 幽灵 `presets/advisor`
 移除 `cp -r presets/advisor` 指引并标注模式 C 未实现；修正"三模式共享同一子代理池"（实际只有主预设挂 4 条作用域子代理行）；明确 advisor 是伴随机制而非可选人设预设。
 
@@ -132,7 +148,8 @@
 librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未挂载，不授权）；persona 改为只承诺 `web_search` 并附来源链接。预设已重新生成。
 
 ### ✅ P1-3 `ULTRAWORK_ENTRY` 与单源漂移且无 pin
-按 `prompts/modes/ultrawork.md` 逐字对齐（补回丢失的"列成问题清单请用户确认""上下文/会话记录不一定是事实"与结尾指向 ultrawork-review.md 的一句）；新增 `tests/skill-trigger.test.mjs` 逐字 pin + 关键句回归钉。
+按单源 `prompts/modes/ultrawork.md` 逐字对齐（补回丢失的"列成问题清单请用户确认""上下文/会话记录不一定是事实"与结尾指向 review 文档的一句）；新增 `tests/skill-trigger.test.mjs` 逐字 pin + 关键句回归钉。
+**2026-10-09**：机制改名/改造——单源文件改为 `prompts/modes/enhance-mode.md`，常量改为 `src/enhance-mode.ts` 的 `ENHANCE_MODE_TEXT`，pin 测试改为 `tests/enhance-mode.test.mjs`（旧的 skill-trigger 测试随实现删除）。
 
 ### ✅ P1-4 architecture 与设计文档冲突
 `skillsEnabled` 改为"技能恒定开启，不做开关"；§5.3/§7 的 M7 标注为"最小 LSP 集已被 dsh 原生 `ctx.lsp` 覆盖，仅留 comment-check"；三模式表加落地状态说明。
@@ -144,7 +161,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 去掉重复的 `## 4.7` / `## 5. 风险清单` 标题与重复表头；阶段 0 的自反句改回 `oh-my-dsh → dsh-enhance`。
 
 ### ✅ P1-7 modes.md / architecture 的预设落点标注
-在 `presets/planner`（模式 B）与 `presets/advisor`（模式 C）处显式标注"未实现"。
+在模式 B/C 的预设落点处显式标注"未实现"。
+**2026-10-09**：落点写法随机制改为"补丁里的一条预设行"（`preset-enhance` / `preset-planner` / `preset-advisor`）。
 
 ---
 
@@ -174,8 +192,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 
 | 项 | 来源 |
 |---|---|
-| 模式 B（Planner S1–S7 骨架 persona + `presets/planner/` 增强） | [docs/modes.md](../modes.md) §7 |
-| 模式 C（`prompts/agents/advisor.persona.md` + `presets/advisor/`） | [docs/modes.md](../modes.md) §5 |
+| 模式 B（Planner S1–S7 骨架 persona + `preset-planner` 增强） | [docs/modes.md](../modes.md) §7 |
+| 模式 C（`prompts/agents/advisor.persona.md` + `preset-advisor`） | [docs/modes.md](../modes.md) §5 |
 | delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
 | UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
 | `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](../design-onboarding.md) §7 |
@@ -215,6 +233,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-08 | 设置面浏览器半侧（`client/client.js` → `plugins.row.config`） | 见下一次提交 | `tests/client-contract.test.mjs` 8 例；`npm pack --dry-run` 含 `client/client.js` |
 | 2026-10-08 | 设置面真机验收（桌面端 GUI，set + unset 双向） | 见下一次提交 | 三条独立信号一致：profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来；全程不重启 |
 | 2026-10-08 | `ulw` 触发器只读人真正的输入 + 注入署名改为 producer-owned kind | 见下一次提交 | 真机双向：写了 `ulw` 的提示词仍注入（`[user\|plugin:dsh-enhance] <ultrawork-mode>`，exit=0），普通提示词不注入；`tests/skill-trigger.test.mjs` 9 例（+5）、`tests/orient.test.mjs` 5 例（+1）；194/194 |
-| 2026-10-09 | `ulwTrigger` 开关（原实现写死为开、README 的「关闭方式」是空栏，即根本没有关闭途径） | 见下一次提交 | 设置页第 8 个开关；`tests/client-contract.test.mjs` 字段集/行数断言同步；194/194 |
+| 2026-10-09 | `ulwTrigger` 开关（原实现写死为开、README 的「关闭方式」是空栏，即根本没有关闭途径） | `b80e9e9` | 设置页当时的第 8 个开关；`tests/client-contract.test.mjs` 字段集/行数断言同步；194/194。**同日该开关随整套触发机制退役**（见下一行） |
+| 2026-10-09 | P1-14 模式改造（enhance-mode 常驻段）+ 预设改行式投递 + orient/skill-trigger/目录装机链退役；真机抓出并修掉两个预设行缺陷（persona `text`→`prefix`、`workflow-worker-thread`→`workflow-ptc`）+ 补齐 `agent-instructions` | 见下一次提交 | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` 176/176；真机（隔离 home + 桌面宿主 CLI）：探针复刻 Web/桌面绑定后六个预设全部可用、`enhance` 默认，会话 `session-454ff36e` 的 system prompt 含 `<enhance-mode>`、全日志无 ultrawork；无预设对照组不含该段 |
 
 

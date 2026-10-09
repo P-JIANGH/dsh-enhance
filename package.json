@@ -1,7 +1,7 @@
 {
   "name": "@dsh-enhance/dsh-enhance",
   "version": "0.1.0",
-  "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness (dsh-enhance): packaged skills, work-rule prompt guidance, a session-start orientation hook, and a doctor tool — install and go",
+  "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness (dsh-enhance): packaged skills, work-rule prompt guidance, an Enhance agent preset with a persistent deep-work prompt section, and a doctor tool — install and go",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -10,10 +10,13 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./enhance-mode": {
+      "types": "./lib/enhance-mode.d.ts",
+      "default": "./lib/enhance-mode.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./client": "./client/client.js",
     "./skills/*": "./skills/*",
-    "./presets/*": "./presets/*",
     "./package.json": "./package.json"
   },
   "files": [
@@ -28,16 +31,17 @@
     "prepare": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "sync:presets": "node scripts/sync-presets.mjs",
-    "install:presets": "node scripts/install-presets.mjs",
-    "check:presets": "node scripts/install-presets.mjs --check",
-    "postinstall": "node scripts/install-presets.mjs --if-installed",
+    "sync:enhance-preset": "node scripts/sync-dsh-enhance-preset.mjs",
     "test": "node --test",
     "test:gate": "node --test tests/delivery-gate.test.mjs",
     "qa:gate": "node qa/delivery-gate-drive.mjs"
   },
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": [
+        "./cordis.patch.yml",
+        "./presets/roles.patch.yml"
+      ]
     },
     "client": {
       "inject": [

@@ -11,7 +11,7 @@
    - **U2 可操作节点**：boulder/goal 进度、delivery-gate 回归结果、advisor 建议，作为聊天流自定义 Chat Node（`conversation.chat.node` keyed 节点）。
    - **U3 会话状态可视化**：活跃 boulder、工作模式、守卫状态，以 turn-tail 状态条呈现。
 2. **定位**：把"模型口头报进度/建议"升级为"界面结构化呈现"，命中能力可视化 + 会话内交互。
-3. **给谁用**：用 boulder/ulw/delivery-gate/advisor 的用户。
+3. **给谁用**：用 boulder/enhance-mode/delivery-gate/advisor 的用户。
 4. **P-ADV（强制）**：advisor 建议经 `agent.inject`/`agent.steer` 进上下文影响后续生成——**必须被看见**，带独立标识。只呈现、不自动执行（human-in-the-loop）。
 
 ## 2. 前提（dsh 侧已查证）

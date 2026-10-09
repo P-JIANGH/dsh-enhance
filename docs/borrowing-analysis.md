@@ -10,9 +10,11 @@
 
 lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork、ulw-loop、start-work-continuation、executor-verify、teammode、rules、lsp、codegraph、comment-checker、telemetry、bootstrap…）。三类可直接借鉴：
 
+> **命名说明（2026-10-09）**：本节的 `ultrawork` / `components/ultrawork/` 是 **lazycodex 仓库自己的组件名**（外部事实，不改写）。dsh-enhance 落地的那份协议原名相同，现已改名为 **enhance-mode**（`prompts/modes/enhance-mode.md` + `src/enhance-mode.ts`），文末凡引用本仓库稿件处已按新名更新。
+
 ### 1.1 prompt 单一源 + 生成链 + 字节 pin（A1）
 
-- 源唯一：lazycodex 仓库内 `components/ultrawork/` 的 prompts 源目录（`*.md`）。
+- 源唯一：lazycodex 仓库内 `components/ultrawork/` 的 prompts 源目录（`*.md`，外部组件名）。
 - 生成：`components/ultrawork/scripts/sync-directive.mjs` 把源写入 `directive.md`（423 行），再包 frontmatter 生成 `skills/ultrawork/SKILL.md`。
 - 字节 pin：`test/directive-source.test.ts`（vitest）断言 `directive.md` 与 prompts 源逐字节相等、SKILL.md = frontmatter + 源。
 - 纪律：**不手改生成物，改源再 regenerate**，否则 pin 测试红。
@@ -27,7 +29,7 @@ lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork�
 - 重试预算：3 次受阻后放行（`MAX_ATTEMPTS=3`，state 原子写 tmp+rename）；context-pressure 标记（"context compacted" 等）直接放行；无关 agent/畸形输入静默 exit 0（fail-open）。
 - 白名单：`RECEIPT_ENFORCED_AGENTS` 只约束 worker 类 agent（low/medium/high），只读审查角色不受限。
 
-对 dsh-enhance：若 dsh 有等价 Stop/SubagentStop 事件，可照此实现 evidence 门（收据 + 路径安全 + 重试上限 + 逃生舱），与 M2 审查稿 ultrawork 稿"六、证据与 QA"呼应。
+对 dsh-enhance：若 dsh 有等价 Stop/SubagentStop 事件，可照此实现 evidence 门（收据 + 路径安全 + 重试上限 + 逃生舱），与 M2 审查稿 enhance-mode 稿"六、证据与 QA"呼应。
 
 ### 1.3 文本审计测试（A3）
 
@@ -85,12 +87,12 @@ AGENTS.md 明文：prompts 只在静态 `.md` 文件，用 Handlebars 做动态�
 | advisor 特性 | dsh-enhance 落点 |
 |---|---|
 | peer-shadow 只读监督 + 增量 transcript | reviewer agent（5.7 节）从"一次性审查"升级为**会话级持续监督**（若 dsh 事件面支持增量输入）；只读工具白名单 |
-| nit / concern / blocker 分级 | reviewer 输出分级；blocker 对应 ultrawork 稿"严格审查"条款 |
+| nit / concern / blocker 分级 | reviewer 输出分级；blocker 对应 enhance-mode 稿"严格审查"条款 |
 | 沟通纪律（不重复已知/引用证据/静默优先） | reviewer persona 提示词直接移植（中文精简） |
 | WATCHDOG.yml 名册（model/tools/instructions 按项目配置） | dsh-enhance config 的 agents 参数化（`{{project}}`/`{{stack}}` 等由配置注入，同 10.1 参数化约定） |
 | emission-guard 频率控制 | advisor/审查消息节流（防干扰主循环） |
 
-> 边界注意：advisor prompt 明确"不指示主 agent 去澄清/确认范围"（意图归主 agent）——这与 ultrawork 稿"尽可能多提问"不冲突：前者是监督者纪律，后者是主 agent 执行模式；落地时保持两层职责分离。
+> 边界注意：advisor prompt 明确"不指示主 agent 去澄清/确认范围"（意图归主 agent）——这与 enhance-mode 稿"尽可能多提问"不冲突：前者是监督者纪律，后者是主 agent 执行模式；落地时保持两层职责分离。
 
 ---
 

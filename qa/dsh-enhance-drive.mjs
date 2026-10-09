@@ -66,7 +66,7 @@ const fileSafe = Date.now()
 
 if (args.includes('--llm')) {
   const task = args.slice(args.indexOf('--llm') + 1).join(' ') ||
-    'You are in a diagnostic session. Report: (1) the names of the packaged skills available via the skill tool, and (2) whether the dsh-enhance orientation said the bundle is active. Keep it under 5 lines. Run the doctor tool if it exists.'
+    'You are in a diagnostic session. Report: (1) the names of the packaged skills available via the skill tool, and (2) whether the dsh-enhance prompt sections (work-rules, and enhance-mode if this session runs the Enhance preset) are present. Keep it under 5 lines. Run the doctor tool if it exists.'
   if (!process.env.DEEPSEEK_API_KEY && !process.env.PI_CREDENTIALS) {
     console.warn('未检测到 DEEPSEEK_API_KEY；实驱会失败或取默认凭据。')
   }

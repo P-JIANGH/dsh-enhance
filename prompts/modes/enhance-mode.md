@@ -1,12 +1,8 @@
-# ultrawork（深度工作模式）协议 —— 工作前篇（入口契约）
+# enhance-mode（深度工作模式）协议 —— 预设作用域常驻段
 
-> 性质：dsh-enhance 自有深度工作协议，自主设计，MIT 许可。
-> 素材来源（均非 SUL）：`oh-my-pi`（MIT）agent/task 委派纪律、`lazycodex`（MIT）证据门理念、你的桌面工作流分析（个人材料）、2026-07-09 确认的两条工作准则（事实永远在文件 / 不臆想、不编造、多提问）。
-> 本稿：入口契约，进入 ulw 时执行；交付前回归审查见 `ultrawork-review.md`。
-> 触发：用户输入含 `ultrawork` / `ulw`。激活时第一响应宣布进入深度工作模式，执行本契约。
-> 注：不依赖任一 harness 专属工具名，落地时映射 dsh 实际机制。
+> 本段由 `@dsh-enhance/dsh-enhance/enhance-mode` 作为 system-prompt 段落常驻：只有挂载了那一行的会话（Enhance 预设，id `enhance`）看得到它。没有关键词触发，也没有"进入/退出"动作。
 
-<ultrawork-mode>
+<enhance-mode>
 
 ## 总则
 本模式用于重大任务：先彻底理解，再规划，再执行，全程留下可验证证据。禁止在理解不足时动手。
@@ -31,6 +27,6 @@
 11. 执行严格按计划的波次顺序与并行分组；不得自创顺序或跳过其验证。
 12. 规划 agent 的追问/补充用其 continuation id 续接，不另起新会话（保留上下文、省 token）。
 
-</ultrawork-mode>
+</enhance-mode>
 
-> 进入执行后，只牢记三条最小护栏（避免中段规则混淆）：**一个 in_progress、做完即验证、增量即提交**。完整的证据/QA/零容忍纪律在交付前回归审查时集中核对（见 ultrawork-review.md）。
+> 进入执行后，只牢记三条最小护栏（避免中段规则混淆）：**一个 in_progress、做完即验证、增量即提交**。完整的证据/QA/零容忍纪律在交付前回归审查时集中核对（见 `docs/prompts-review/enhance-mode-review.md`）。

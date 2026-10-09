@@ -1,14 +1,10 @@
-# dsh-enhance bundle patch: one install row.
+# dsh-enhance bundle patch: the plugin install row plus the Enhance agent preset.
 #
-# Mounts the dsh-enhance plugin for any profile that includes this bundle. The
-# plugin contributes packaged skills, the work-rules prompt section, the
-# session-start orientation hook, the doctor tool, work-tracking (boulder/goal)
-# tools, and the advisor companion-review runtime.
-# Note: the 5 agent personas (planner | reviewer | scout | librarian | task)
-# under prompts/agents/ are NOT mounted here, because dsh-base / dsh-web-app
-# already provide the @deepseek-ai/dsh-agent-presets service — mounting it
-# again would double-register the `agentPresets` service and crash the loader
-# ("service agentPresets has been registered").
+# GENERATED FILE — do not hand-edit. Rendered by
+#   node scripts/sync-dsh-enhance-preset.mjs
+# from prompts/agents/dsh-enhance.persona.md (plus the four scoped sub-personas)
+# and the enhance-mode section source; tests/presets-pin.test.mjs pins it
+# byte-for-byte.
 #
 # `name` MUST be the full package name, matching the upstream convention
 # (base/web-app patches reference '@deepseek-ai/dsh-*'). The Cordis loader
@@ -16,6 +12,228 @@
 # `dsh-enhance` would fail with ERR_MODULE_NOT_FOUND unless the profile also
 # carried an extra alias dependency. The row `id` stays short — ids are what
 # user patches target, names are what the loader imports.
+#
+# The `preset-enhance` row is a *declarative* preset: @deepseek-ai/dsh-agent-preset
+# registers `config` into ctx.agentPresets when the row activates. That service
+# is declared by the dsh-web-app / desktop bundles, i.e. it exists on
+# dsh >= 0.2.0 only; on an older CLI (whose preset mechanism is the retired
+# directory scan) this row resolves nowhere and stays an inactive entry rather
+# than breaking the profile.
+#
+# `config.plugins` is the session's ENTIRE composition — there is no
+# inheritance — so it restates the persona (dsh-persona prefix plus the
+# deployment suffix it shadows), the agent-instructions row the Web surface
+# disables on the host plane, the tool plane, the four scoped subagents, this
+# bundle's plugin row, and the enhance-mode section row.
 - insert:
     - id: dsh-enhance
       name: '@dsh-enhance/dsh-enhance'
+
+    - id: preset-enhance
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: enhance
+        name: Enhance
+        description: 开箱即用的增强模式：常驻深度工作提示词段 + 工作纪律 + 打包技能 + 交付门卫，并按需编排 scout/librarian/reviewer/task 子代理。
+        order: 5
+        plugins:
+        - id: dsh-enhance
+          name: '@dsh-enhance/dsh-enhance'
+
+        - id: enhance-mode
+          name: '@dsh-enhance/dsh-enhance/enhance-mode'
+
+        - id: persona
+          name: '@deepseek-ai/dsh-persona'
+          config:
+            prefix: |-
+              你是「Enhance 模式」的工作智能体：dsh-enhance 插件的编排者 persona。一个能编排整套 dsh-enhance 能力的执行型主代理。这个会话已经装载了 dsh-enhance 插件的全部能力（work-rules、技能、doctor、boulder 工作追踪与写令牌、交付门卫、advisor 伴随审核；目标用原生 goal 工具），并且你可以通过 subagent 工具按需派出四个专职子代理来分担工作。不要在不需要时派子代理——能自己直接、经济地做完的就自己做；只有当下述子代理确实更合适时才派。
+              
+              ## 能力总览
+              - 完成用户请求是首要责任。先理解真实意图，再按需规划，再小步实现并验证，如实汇报进度与风险。
+              - 需要独立核查证据（代码、配置、测试）时，先读文件核实，不凭会话记忆臆断。
+              - 使用 work-rules 段与 dsh_enhance_doctor 确认插件装配状态。
+              - 对较大/非平凡任务，用 boulder/goal 工具建立工作项与会话目标，逐步提交。
+              
+              ## 可调用的专职子代理（subagent）
+              当你判断某类工作应交给专职子代理时，调用对应的 subagent 工具：
+              - `subagent_scout`（侦察）：映射仓库结构、盘点文件/模块、给出一份紧凑的工作区上下文（只读，用 read/glob/grep）。
+              - `subagent_librarian`（查证）：定位外部依赖的源码与文档、核实事实（只读）。
+              - `subagent_reviewer`（审查）：以实际代码为依据做代码审查，区分阻塞性意见与改进建议（只读）。
+              - `subagent_task`（执行）：聚焦执行一个明确的小任务（可读写、跑命令、逐步完成）。
+              
+              每次派发时给子代理一个自包含、范围明确的任务说明；拿回结果后整合进主流程并继续。子代理只返回结论/证据，最终交付与质量由你负责。
+              
+              ## 协作纪律
+              - 该派就派，不该派就别派：简单/只需已有上下文的活自己做。
+              - 派发后核实子代理产出再采信，不盲信其"做完了"。
+              - advisor 会在你每个回合结束后伴随审查你的增量并将建议注入回来；遇到有建设性的建议，评估后采纳或说明放弃理由。
+              
+              ## 通用工作动态
+              - 动手前理解需求；需要清理时才清理；不臆测、不编造证据。
+              - 小步验证，做完即验证，增量即提交（能委派则委派）。
+            suffix: Your working directory is {{cwd}}.
+
+        - id: agent-instructions
+          name: '@deepseek-ai/dsh-agent-instructions'
+          config:
+            maxBytes: 65536
+
+        - id: tool-bash
+          name: '@deepseek-ai/dsh-tool-bash'
+          disabled: !!js process.platform === 'win32'
+
+        - id: tool-pwsh
+          name: '@deepseek-ai/dsh-tool-pwsh'
+          disabled: !!js process.platform !== 'win32'
+
+        - id: tool-fs
+          name: '@deepseek-ai/dsh-tool-fs'
+
+        - id: tool-fs-search
+          name: '@deepseek-ai/dsh-tool-fs-search'
+          config:
+            sampleOverCapGlobResults: false
+
+        - id: tool-jobs
+          name: '@deepseek-ai/dsh-tool-jobs'
+
+        - id: skill-filesystem
+          name: '@deepseek-ai/dsh-skill-filesystem'
+
+        - id: tool-skill
+          name: '@deepseek-ai/dsh-tool-skill'
+
+        - id: tool-goal
+          name: '@deepseek-ai/dsh-tool-goal'
+
+        - id: planning
+          name: cordis:group
+          group: true
+          isolate:
+            planMode: true
+          config:
+            - id: plan-mode
+              name: '@deepseek-ai/dsh-plan-mode'
+              config:
+                section: |-
+                      You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation, not execute it.
+
+                      Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                      The tool catalog stays the same across modes for request-cache stability. Do not use todo_write to track this planning phase.
+
+                      When ready, call exit_plan_mode with the complete plan markdown, starting with a # title.
+
+        - id: compaction
+          name: cordis:group
+          group: true
+          isolate:
+            compaction: true
+            toolResultPruner: true
+          config:
+            - id: compaction-basic
+              name: '@deepseek-ai/dsh-compaction-basic'
+
+            - id: command-compact
+              name: '@deepseek-ai/dsh-command-compact'
+
+            - id: tool-result-pruner
+              name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+              config:
+                thresholdChars: 8192
+                headChars: 4096
+                tailChars: 1024
+
+        - id: delegation
+          name: cordis:group
+          group: true
+          isolate:
+            workflowEngine: true
+          config:
+            - id: tool-subagent-control
+              name: '@deepseek-ai/dsh-tool-subagent-control'
+
+            - id: tool-subagent-list-agents
+              name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+
+            - id: tool-subagent
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: spawn
+                toolName: subagent
+                backgroundMode: continuable
+
+            - id: tool-subagent-fork
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: fork
+                toolName: subagent_fork
+                backgroundMode: continuable
+
+            # dsh-enhance-scoped subagent: scout
+            - id: dsh-enhance-subagent-scout
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: spawn
+                toolName: subagent_scout
+                backgroundMode: one-shot
+                persona: |-
+                  你是只读探索智能体（scout）。快速摸清仓库结构与约定，输出带文件路径的事实清单（每文件的职责、关键模式），以压缩上下文形式交接给调用方。不做修改、不写代码、不执行有副作用的操作。
+                toolFilter:
+                  allow: ["read", "glob", "grep"]
+            # dsh-enhance-scoped subagent: librarian
+            - id: dsh-enhance-subagent-librarian
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: spawn
+                toolName: subagent_librarian
+                backgroundMode: one-shot
+                persona: |-
+                  你是查证外部智能体（librarian）。定位外部库/包的源码与文档，回答概念、实现、行为三类问题。本地优先：先查本地安装的源码与缓存；本地不足才用 web_search 检索。结论附来源路径或链接（以文件与工具输出为准，不凭上下文记忆），标注未覆盖的盲区。
+                toolFilter:
+                  allow: ["read", "glob", "grep", "web_search"]
+            # dsh-enhance-scoped subagent: reviewer
+            - id: dsh-enhance-subagent-reviewer
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: spawn
+                toolName: subagent_reviewer
+                backgroundMode: one-shot
+                persona: |-
+                  你是审查专注的智能体。一切判断以实际代码为准：读 diff 与周边上下文、运行相关检查，把阻塞问题与建议分开。引用必须带确切文件与行号。做 PR 审查时使用 code-review 技能。安全审查时以证据支撑漏洞发现，只读核查、不臆断。
+                toolFilter:
+                  allow: ["read", "glob", "grep"]
+            # dsh-enhance-scoped subagent: task
+            - id: dsh-enhance-subagent-task
+              name: '@deepseek-ai/dsh-tool-subagent'
+              config:
+                provider: spawn
+                toolName: subagent_task
+                backgroundMode: one-shot
+                persona: |-
+                  你是通用执行智能体（task/worker）。被委派后超聚焦地按既定计划逐项实现：一次一个待办、保持测试全绿、每步验证。发现计划与文件事实冲突时停下说明，不自作主张偏离；排障时先复现、再定位根因、做最小修复、最后回归，假设必须有证据支撑；信息不足时提问，不猜。进度如实汇报。
+                toolFilter:
+                  allow: ["read", "glob", "grep", "write", "edit", "todo_write"]
+
+            - id: workflow-ptc
+              name: '@deepseek-ai/dsh-workflow-ptc'
+              config:
+                provider: spawn
+
+            - id: tool-workflow
+              name: '@deepseek-ai/dsh-tool-workflow'
+
+        - id: tool-ask-user
+          name: '@deepseek-ai/dsh-tool-ask-user'
+
+        - id: tool-todo
+          name: '@deepseek-ai/dsh-tool-todo'
+          config:
+            allowParallelInProgress: true
+
+        - id: tool-web
+          name: '@deepseek-ai/dsh-tool-web'
+          config:
+            fetch: false
+            searchTimeoutMs: 60000

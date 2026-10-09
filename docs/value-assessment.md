@@ -9,7 +9,7 @@
 |---|---|---|
 | 技能：`/` 触发、手打 `/name` 确定性注入正文、按会话候选 | `dsh-client-ui-skill` + `skill` 工具 | README（`skill.list` RPC + pre-step 手势边界） |
 | 人类指令注册表 + `/` 菜单（模糊匹配、三种派发） | `ctx.commands` + `dsh-client-ui-commands` | 服务目录 + 上游 README |
-| 预设：YAML composition、shipped + 用户根、会话创建时固定 | `dsh-agent-presets` + `dsh-client-ui-agent-preset` | 我读到的 `PresetTree.import()` / `resolvedRoots` |
+| 预设：YAML composition、shipped + 用户根、会话创建时固定 | `dsh-agent-presets` + `dsh-client-ui-agent-preset` | 我读到的 `PresetTree.import()` / `resolvedRoots`（**2026-10-09 更正**：0.2.x 的行式注册表 `@deepseek-ai/dsh-agent-preset` 取代了目录扫描，注册表的 `register/config` 语义见 `cordis.patch.yml`） |
 | 目标：跨轮自动续作 | `goals` 服务 + 工具 `create_goal` / `get_goal` / `update_goal` | **本次工具清单里就有这三个** |
 | 团队：成员、共享任务板、邮箱 | `agentTeams` + `spawn_teammate` / `team_task_*` / `wait_agent` | 工具清单 + 服务目录 |
 | 子代理：spawn / fork，可续作 | `subagents` + `subagent` / `subagent_fork` | 工具清单 |
@@ -27,11 +27,11 @@
 
 **B. 内容级（价值=选品，可替代性高）**
 
-3. 3 个打包技能（`code-review` / `git-workflow` / `tdd`）、`work-rules` 常驻段落、`ulw` 深度工作入口契约、6 个角色 persona/预设。这些是**观点与文案**：任何用户都能用原生技能与预设机制自己写一份。
+3. 3 个打包技能（`code-review` / `git-workflow` / `tdd`）、`work-rules` 常驻段落、enhance-mode 深度工作段（Enhance 预设作用域内常驻）、6 个角色 persona/预设行。这些是**观点与文案**：任何用户都能用原生技能与预设机制自己写一份。
 
 **C. 便利 / 诊断级**
 
-4. `dsh_enhance_doctor` 与 `/doctor`、`/boulder`、orient 开场消息、librarian 的 `web_search` 授权。降低"装了但不知道有没有生效"的成本，天花板低。
+4. `dsh_enhance_doctor` 与 `/doctor`、`/boulder`、librarian 的 `web_search` 授权。降低"装了但不知道有没有生效"的成本，天花板低。（orient 开场消息已退役：绑定事件在 0.2.0 不存在。）
 
 **D. 工程资产（对作者本人的价值可能最高）**
 

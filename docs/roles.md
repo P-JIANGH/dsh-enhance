@@ -98,11 +98,11 @@ dsh-enhance 的 agents 目前是 5 个 persona（planner / reviewer / executor /
 **已完成**：
 1. **重命名/合并**：`docs/prompts-review/explorer.md` → `scout.md`；`executor.md` + `debugger.md` → `task.md`；security 职责并入 `reviewer.md`（`mode: security`）。
 2. **新增**：`librarian.md`（查证外部库）。
-3. **同步**：architecture.md 5.7（6 角色 + 并发纪律）、5.4.1 意图路由、prompts-review/README.md、根 README 已更新。
+3. **同步**：architecture.md 5.7（6 角色 + 并发纪律）、5.4.1（意图路由已退役）、prompts-review/README.md、根 README 已更新。
 
 **剩余项（随 M1 落地）**：
 - advisor 落地形态接线细节待 M1 实驱确认（见 prompts-review/advisor.md）——伴随监督已纳入首批。
-- `presets/` 目录落地 6 角色 persona（当前仅 planner/reviewer），scout/task/librarian/advisor 待加。
+- 角色预设行落地（2026-10-09 更新）：五份角色 persona 已生成成 `presets/roles.patch.yml` 的预设行；模式 C 的 advisor 编排 persona 仍缺。
 
 ---
 

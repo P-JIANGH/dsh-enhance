@@ -6,7 +6,6 @@ import { renderReport, suggestNext } from '../lib/tools/doctor.js'
 function fullConfig() {
   return {
     workRulesChars: 120,
-    orientOnSessionStart: true,
     doctorTool: true,
     guards: true,
     workTracking: true,
@@ -106,13 +105,16 @@ test('[doctor] suggestNext 关闭项给出可执行的开启建议', () => {
   assert.ok(next.some(s => s.includes('工作追踪已关闭')))
   assert.ok(next.some(s => s.includes('worktree 已关闭')))
   assert.ok(next.some(s => s.includes('advisor 已关闭')))
-  // 未关闭的 orient 不应出现在建议里
-  assert.equal(next.some(s => s.includes('会话开场提示已关闭')), false)
+  // 已退役机制（orient 开场钩子、ulw 触发词）不得出现在建议里。
+  assert.equal(next.some(s => /会话开场|ulw|ultrawork|orient/i.test(s)), false)
 })
 
-test('[doctor] suggestNext 关闭 orientOnSessionStart 时提示开启', () => {
-  const next = suggestNext({ ...fullConfig(), orientOnSessionStart: false }, true)
-  assert.ok(next.some(s => s.includes('会话开场提示已关闭')))
+test('[doctor] suggestNext 全开时的就绪提示指向 Enhance 预设，不再指向退出机制', () => {
+  const next = suggestNext(fullConfig(), true)
+  assert.equal(next.length, 1)
+  assert.ok(next[0].includes('一切就绪'))
+  assert.match(next[0], /Enhance/)
+  assert.doesNotMatch(next[0], /ulw|ultrawork|orient|会话开场/i)
 })
 
 test('[doctor] renderReport 点名人类指令（人可见入口），未提供名单时不臆造', () => {

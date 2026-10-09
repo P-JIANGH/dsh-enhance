@@ -2,13 +2,15 @@
 // 且输出是只读状态文本。
 //
 // 触发原因：实机上插件确实加载了（doctor 报「已加载=是」、3 个打包技能、守卫/工作
-// 追踪/advisor 全开），但用户在 UI 里除了开场消息里的 `ulw` 之外感知不到任何属于
-// 本包的入口——本包从不调用 `ctx.commands.register`。这条测试把「必须在 / 菜单里
-// 可见」变成可回归的契约。
+// 追踪/advisor 全开），但用户在 UI 里感知不到任何属于本包的入口——本包从不调用
+// `ctx.commands.register`。这条测试把「必须在 / 菜单里可见」变成可回归的契约。
+//
+// 预设不在这个面上：0.2.x 的预设是 bundle 补丁里的一行，因此 `/presets` 及其
+// 目录安装链已退役（见 docs/installing-plugins.md）。
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerHumanCommands, COMMAND_NAMES, renderBoulderStatus } from '../lib/features/commands.js'
@@ -35,7 +37,6 @@ function captureCtx (skills = []) {
 function fullDoctorConfig (overrides = {}) {
   return {
     workRulesChars: 286,
-    orientOnSessionStart: true,
     doctorTool: true,
     guards: true,
     workTracking: true,
@@ -68,18 +69,17 @@ function registerAll (options = {}) {
   return { ctx, dispose }
 }
 
-test('[commands] 人类指令面注册 /doctor、/boulder 与 /presets', () => {
+test('[commands] 人类指令面注册 /doctor 与 /boulder', () => {
   const { ctx, dispose } = registerAll()
   try {
     assert.deepEqual([...ctx.defs.keys()].sort(), [...COMMAND_NAMES].sort())
+    assert.deepEqual([...COMMAND_NAMES], ['doctor', 'boulder'])
     for (const name of COMMAND_NAMES) {
       const def = ctx.defs.get(name)
       assert.equal(typeof def.description, 'string')
       assert.ok(def.description.length > 0, `${name} 必须有面向人的描述`)
-      // 未声明 input 的指令按 execute 派发（回车即执行）；/presets 要子命令，
-      // 因此声明 input（leadingInput），与上游 /goal 同一形态。
-      if (name === 'presets') assert.equal(typeof def.input?.hint, 'string', 'presets 应声明 input hint')
-      else assert.equal(def.input, undefined, `${name} 不应声明 input`)
+      // 两条都不带入参：未声明 input 的指令按 execute 派发（回车即执行）。
+      assert.equal(def.input, undefined, `${name} 不应声明 input`)
     }
   } finally {
     dispose()
@@ -95,8 +95,10 @@ test('[commands] /doctor 输出装配诊断并点名人类指令本身', async (
     assert.match(result.text, /插件已加载：是/)
     assert.match(result.text, /本插件打包技能（1）：tdd/)
     assert.match(result.text, /人类指令=开/)
-    // 用户直接看到自己能用什么：三条指令都被点名。
-    assert.match(result.text, /人类指令（3）：\/doctor、\/boulder、\/presets/)
+    // 用户直接看到自己能用什么：两条指令都被点名。
+    assert.match(result.text, /人类指令（2）：\/doctor、\/boulder/)
+    // 已退役的机制不得在诊断里复活。
+    assert.doesNotMatch(result.text, /ulw|ultrawork|orient|会话开场/i)
   } finally {
     dispose()
   }
@@ -170,10 +172,10 @@ test('[commands] renderBoulderStatus 是纯渲染：不写状态文件', () => {
   }
 })
 
-test('[commands] workTracking 关闭时只注册 /doctor 与 /presets', () => {
+test('[commands] workTracking 关闭时只注册 /doctor', () => {
   const { ctx, dispose } = registerAll({ workTracking: false })
   try {
-    assert.deepEqual([...ctx.defs.keys()], ['doctor', 'presets'])
+    assert.deepEqual([...ctx.defs.keys()], ['doctor'])
   } finally {
     dispose()
   }
@@ -194,97 +196,7 @@ test('[commands] enabled:false 一条都不注册，且 disposer 可安全调用
 
 test('[commands] disposer 注销本次注册的每条指令', () => {
   const { ctx, dispose } = registerAll()
-  assert.equal(ctx.defs.size, 3)
+  assert.equal(ctx.defs.size, 2)
   dispose()
   assert.equal(ctx.defs.size, 0)
-})
-
-// ---- /presets：显式动作的预设装机（插件不在启动时写用户家目录） ----
-
-/** 造一个临时预设源 + 目标根，供 /presets 单测注入。 */
-function presetDirs () {
-  const base = mkdtempSync(join(tmpdir(), 'dsh-enhance-presets-cmd-'))
-  const source = join(base, 'src')
-  mkdirSync(join(source, 'enhance'), { recursive: true })
-  writeFileSync(join(source, 'enhance', 'agent.cordis.yml'), "- id: dsh-enhance\n  name: '@dsh-enhance/dsh-enhance'\n")
-  writeFileSync(join(source, 'enhance', 'preset.yml'), 'name: Enhance 模式\n')
-  return { base, source, target: join(base, 'target') }
-}
-
-test('[commands] /presets 默认报状态，指出来源、目标与未安装项', async () => {
-  const { base, source, target } = presetDirs()
-  try {
-    const { ctx, dispose } = registerAll({ presetsSource: source, presetRoot: target })
-    try {
-      const result = await invoke(ctx.defs.get('presets'), fakeAgent('/repo'))
-      assert.equal(result.kind, 'success')
-      assert.match(result.text, /预设源：/)
-      assert.match(result.text, /增强|预设目标：/)
-      assert.match(result.text, /- enhance：未安装/)
-      assert.match(result.text, /\/presets install/)
-      assert.equal(existsSync(target), false, '只看状态不写盘')
-    } finally {
-      dispose()
-    }
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
-})
-
-test('[commands] /presets install 装机后可复判为最新（幂等，先备份）', async () => {
-  const { base, source, target } = presetDirs()
-  try {
-    const { ctx, dispose } = registerAll({ presetsSource: source, presetRoot: target })
-    try {
-      const first = await invoke(ctx.defs.get('presets'), fakeAgent('/repo'), 'install')
-      assert.equal(first.kind, 'success')
-      assert.match(first.text, /完成：新增 1/)
-      assert.equal(existsSync(join(target, 'enhance', 'preset.yml')), true)
-
-      const second = await invoke(ctx.defs.get('presets'), fakeAgent('/repo'), 'install')
-      assert.match(second.text, /已是最新 1/)
-      assert.match(second.text, /完成：新增 0/)
-
-      const status = await invoke(ctx.defs.get('presets'), fakeAgent('/repo'), 'status')
-      assert.match(status.text, /- enhance：已是最新/)
-    } finally {
-      dispose()
-    }
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
-})
-
-test('[commands] /presets 未知子命令 → error 结果并给出用法', async () => {
-  const { base, source, target } = presetDirs()
-  try {
-    const { ctx, dispose } = registerAll({ presetsSource: source, presetRoot: target })
-    try {
-      const result = await invoke(ctx.defs.get('presets'), fakeAgent('/repo'), 'nope')
-      assert.equal(result.kind, 'error')
-      assert.match(result.text, /用法：\/presets/)
-    } finally {
-      dispose()
-    }
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
-})
-
-test('[commands] /doctor 追加一行预设状态（用户不必猜装没装）', async () => {
-  const { base, source, target } = presetDirs()
-  try {
-    const { ctx, dispose } = registerAll({ presetsSource: source, presetRoot: target })
-    try {
-      const before = await invoke(ctx.defs.get('doctor'), fakeAgent('/repo'))
-      assert.match(before.text, /预设：1\/1 个未安装或已过期/)
-      await invoke(ctx.defs.get('presets'), fakeAgent('/repo'), 'install')
-      const after = await invoke(ctx.defs.get('doctor'), fakeAgent('/repo'))
-      assert.match(after.text, /预设：1 个已就绪/)
-    } finally {
-      dispose()
-    }
-  } finally {
-    rmSync(base, { recursive: true, force: true })
-  }
 })

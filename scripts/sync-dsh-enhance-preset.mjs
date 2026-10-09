@@ -1,23 +1,26 @@
 /**
- * sync-dsh-enhance-preset: render the dsh-enhance MAIN preset (the orchestrating persona)
- * from its single-source persona file, including the four subagent tool
- * instances used to dispatch the focused sub-personas (scout / librarian /
- * reviewer / task) as in-process subagents here.
+ * sync-dsh-enhance-preset: render this bundle's whole `cordis.patch.yml` —
+ * the plugin install row **and** the `preset-enhance` agent-preset row.
  *
- * Single-source discipline mirrors scripts/sync-presets.mjs: edit
- * `prompts/agents/dsh-enhance.persona.md` (main) and the `<role>.persona.md`
- * sources, then re-run this script. Output goes to
- * `presets/dsh-enhance/<agent.cordis.yml|preset.yml>`.
+ * Why the patch file is the artifact: on dsh 0.2.x an agent preset is a
+ * *plugin row*, not a directory. `@deepseek-ai/dsh-agent-preset` takes
+ * `{ id, name, description, order, plugins }` and registers it into
+ * `ctx.agentPresets` when the row activates; the retired directory mechanism
+ * (`$DSH_HOME/.agent-presets/<id>/`) is not scanned any more. So the preset
+ * must ship as a row inside the same bundle patch that installs the plugin —
+ * exactly how the built-in `standard` / `ptc` / `minimal` / `cordis` presets
+ * ship inside `dsh-web-app`'s `presets/*.patch.yml`. Generating the whole
+ * `cordis.patch.yml` (rather than a fragment some hand-written file includes)
+ * keeps one writer per file and one artifact the byte-pin test can lock.
  *
- * The dsh-enhance preset is a FULL agent composition, mirroring the shipped `standard`
- * preset's tool plane (shell / fs / search / jobs / skills / goals / plan /
- * compaction / delegation / ask-user / todo / web) because the Web surface
- * disables every `tool-*` row in the HOST composition and lets each session
- * mount its own tools via its preset. A preset that omits them (as v1 did)
- * leaves the session with no file/shell/todo tools — so the four subagents'
- * `toolFilter` (read/glob/grep/write/edit/todo_write) resolves to unknown
- * global tools and every delegation is rejected. This file's tool skeleton is
- * the invariant contract every session on `dsh-enhance` needs.
+ * The preset's `config.plugins` is the session's **entire** composition —
+ * there is no inheritance — so it restates the persona single-source
+ * (`prompts/agents/dsh-enhance.persona.md`), the tool plane the Web surface
+ * disables on the host plane (mirroring the shipped `standard` preset, so the
+ * scoped subagents' `toolFilter` resolves), the four scoped subagent rows
+ * (scout / librarian / reviewer / task), this bundle's own plugin row, and the
+ * `@dsh-enhance/dsh-enhance/enhance-mode` row that makes the deep-work
+ * contract a permanent system-prompt section of every session on this preset.
  *
  * @module scripts/sync-dsh-enhance-preset
  */
@@ -28,15 +31,19 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const personasRoot = path.join(root, 'prompts', 'agents')
-const presetsRoot = path.join(root, 'presets')
 
-/** Main preset metadata (id = directory name = preset id). Use `dsh-enhance`. */
+/** Where the generated patch file lives, relative to the package root. */
+export const PATCH_FILE = 'cordis.patch.yml'
+
+/** Main preset metadata (`config.id` is the preset identity; the row id is `preset-<id>`). */
 export const MAIN = {
-  id: 'dsh-enhance',
+  id: 'enhance',
+  rowId: 'preset-enhance',
   personaSource: 'dsh-enhance',
-  name: 'Enhance 模式',
-  title: 'Enhance 模式（dsh-enhance 编排者）',
-  description: '开箱即用的增强模式：工作纪律 + 打包技能 + 交付门卫，并按需编排 scout/librarian/reviewer/task 子代理。',
+  name: 'Enhance',
+  title: 'Enhance（dsh-enhance 编排者）',
+  description: '开箱即用的增强模式：常驻深度工作提示词段 + 工作纪律 + 打包技能 + 交付门卫，并按需编排 scout/librarian/reviewer/task 子代理。',
+  order: 5,
 }
 
 /**
@@ -55,17 +62,23 @@ export const SUBAGENTS = [
   { role: 'task', toolName: 'subagent_task', filter: { allow: ['read', 'glob', 'grep', 'write', 'edit', 'todo_write'] } },
 ]
 
+/** Indent of the preset's `plugins:` key and of each plugin row inside it. */
+export const PLUGINS_INDENT = '        '
 /**
- * YAML block-scalar indent for a string under config.text (6 spaces).
- * Exported for the same reason as in scripts/sync-presets.mjs.
+ * Indent of a persona block-scalar line inside `config.plugins`:
+ * a top-level preset row sits at {@link PLUGINS_INDENT}, its `text: |-` key two
+ * levels in, and its content one further. Exported so the byte-pin test
+ * de-indents with the same constant.
  */
-export const SCALAR_INDENT = '      '
-/** Indent of a nested persona scalar (10 spaces: delegation list item → config). */
-export const NESTED_SCALAR_INDENT = '          '
-const LIST_INDENT = '          ' // allow/deny list items under toolFilter
+export const PERSONA_SCALAR_INDENT = PLUGINS_INDENT + '      '
+/**
+ * Indent of a scoped subagent's persona block-scalar line: those rows are
+ * nested one level deeper (inside the `delegation` group's `config`).
+ */
+export const SUBAGENT_PERSONA_INDENT = PLUGINS_INDENT + '          '
 
 /** Render a string as a `|-` scalar with the given indent. */
-function scalar(raw, indent = SCALAR_INDENT) {
+function scalar(raw, indent) {
   return raw.replace(/\n$/, '').split('\n').map(l => indent + l).join('\n')
 }
 
@@ -74,9 +87,12 @@ function flowArray(items) {
   return '[' + items.map(i => JSON.stringify(i)).join(', ') + ']'
 }
 
-/** Build the tool-subagent composition row for one role. */
+/**
+ * Build the tool-subagent composition row for one role. Indented to sit beside
+ * the `delegation` group's other `config` items (the flat renderers here keep
+ * the shape the pre-row generator emitted).
+ */
 export function subagentRow(role, toolName, filter, personaText) {
-  const personaIndent = NESTED_SCALAR_INDENT // 10 spaces: under `config:` (8) inside the delegation list item
   return [
     `    # dsh-enhance-scoped subagent: ${role}`,
     `    - id: dsh-enhance-subagent-${role}`,
@@ -86,7 +102,7 @@ export function subagentRow(role, toolName, filter, personaText) {
     `        toolName: ${toolName}`,
     '        backgroundMode: one-shot',
     '        persona: |-',
-    ...scalar(personaText, personaIndent).split('\n'),
+    ...scalar(personaText, '          ').split('\n'),
     '        toolFilter:',
     `          allow: ${flowArray(filter.allow)}`,
   ].join('\n')
@@ -96,6 +112,7 @@ export function subagentRow(role, toolName, filter, personaText) {
  * The model-facing tool-plane rows every session on `dsh-enhance` needs. Mirrors the
  * shipped `standard` preset's tool skeleton (apps/cli/config/agent-presets/standard).
  * The dsh-enhance-specific subagents are appended inside the delegation group.
+ * Returned flat (0-indent); the caller re-indents the whole block.
  */
 function toolPlane(subagentRows) {
   return [
@@ -201,8 +218,16 @@ function toolPlane(subagentRows) {
     '',
     ...subagentRows,
     '',
-    '    - id: workflow-worker-thread',
-    "      name: '@deepseek-ai/dsh-workflow-worker-thread'",
+    // The workflow engine the delegation realm isolates. The shipped
+    // `standard`/`ptc` presets use `@deepseek-ai/dsh-workflow-ptc` here; the
+    // pre-row generator named `@deepseek-ai/dsh-workflow-worker-thread`, which
+    // is not the shipped row and — as the real-runtime probe found — resolves
+    // to a stale 0.1.x copy in a profile that still carries one, gets disabled
+    // by the compatibility preflight, and leaves `tool-workflow` permanently
+    // waiting for `workflowEngine` (which makes the whole preset unusable:
+    // `agent-presets/invalid`). Mirror the shipped preset instead.
+    '    - id: workflow-ptc',
+    "      name: '@deepseek-ai/dsh-workflow-ptc'",
     '      config:',
     '        provider: spawn',
     '',
@@ -228,66 +253,131 @@ function toolPlane(subagentRows) {
 }
 
 /**
- * Build the full main-preset composition file **without touching the disk**.
- *
- * Splitting render from write is what makes the byte-pin test meaningful: a test
- * that calls a writing `generate()` and then reads the file back only compares
- * the file against what it just wrote, so a hand-edited preset is silently
- * overwritten instead of being reported (`tests/presets-pin.test.mjs` locks this).
- *
- * @returns {Promise<Record<string, string>>} absolute path -> content that should be there.
- * @param options - `presetsRoot` overrides the output root (tests render into a temp dir
- *   so they can prove purity without touching the tracked presets).
+ * Re-indent a flat (0-indent) entry list by `indent`, leaving blank lines
+ * blank. Uniform indentation preserves every nested structure and block
+ * scalar, so the flat renderers above stay readable and testable.
  */
-export async function render({ presetsRoot: outRoot = presetsRoot } = {}) {
+export function indentBlock(block, indent) {
+  return block.split('\n').map(line => (line === '' ? '' : indent + line)).join('\n')
+}
+
+/**
+ * The `config.plugins` entry list, flat (0-indent). Exported so the byte-pin
+ * test can re-indent it with {@link PLUGINS_INDENT} instead of re-deriving it.
+ */
+export async function pluginsBlock() {
   const mainPersona = await readFile(path.join(personasRoot, `${MAIN.personaSource}.persona.md`), 'utf8').catch(() => null)
   if (mainPersona === null) throw new Error(`missing main persona source: ${MAIN.personaSource}.persona.md`)
 
-  const header = `# ${MAIN.name} preset: ${MAIN.title} (persona single-source: prompts/agents/${MAIN.personaSource}.persona.md)`
-  const headerNote = [
-    '#',
-    '# Tool plane mirrors the shipped `standard` preset (apps/cli/config/agent-presets/standard) so a dsh-enhance',
-    '# session mounts fs/shell/todo/web/etc. itself — the Web surface disables every tool-* row in the host',
-    '# composition and a preset that omits them leaves its subagents\' toolFilter (read/glob/grep/write/edit)',
-    '# pointing at unknown global tools, which rejects every delegation.',
-    '',
-  ].join('\n')
-
-  // Build the four scoped subagent rows (indented 4 under the delegation group rows).
   const subagentRows = []
   for (const sub of SUBAGENTS) {
     const personaText = await readFile(path.join(personasRoot, `${sub.role}.persona.md`), 'utf8')
     subagentRows.push(subagentRow(sub.role, sub.toolName, sub.filter, personaText))
   }
 
-  const body = [
-    header,
-    headerNote,
+  return [
     '- id: dsh-enhance',
     "  name: '@dsh-enhance/dsh-enhance'",
-    '  config:',
-    '    orientOnSessionStart: true',
-    '    doctorTool: true',
     '',
+    // The preset-scoped system-prompt section: this row is what makes the
+    // deep-work contract permanent for sessions on this preset only.
+    '- id: enhance-mode',
+    "  name: '@dsh-enhance/dsh-enhance/enhance-mode'",
+    '',
+    // The persona row is SCOPE-ONLY and its schema is `prefix` (required) /
+    // `suffix` / `complete` / `includeRuntimeContext` — there is no `text` key
+    // (the pre-row generator emitted `text`, which dsh-persona rejects with
+    // "$.prefix missing required value"; the directory mechanism never loaded
+    // it, so the defect was latent). The persona prose is the prefix, and the
+    // suffix restates the deployment's `{{cwd}}` line the preset shadows.
     '- id: persona',
     "  name: '@deepseek-ai/dsh-persona'",
     '  config:',
-    '    text: |-',
-    scalar(mainPersona),
+    '    prefix: |-',
+    scalar(mainPersona, '      '),
+    '    suffix: Your working directory is {{cwd}}.',
+    '',
+    // The Web/desktop surface disables the host-plane `agent-instructions` row
+    // and lets each preset mount its own; without this row a session on this
+    // preset would silently lose the AGENTS.md instruction chain. Mirrors the
+    // shipped `standard` preset's row.
+    '- id: agent-instructions',
+    "  name: '@deepseek-ai/dsh-agent-instructions'",
+    '  config:',
+    '    maxBytes: 65536',
     '',
     toolPlane(subagentRows),
-  ].join('\n')
-
-  const agentBody = body.trimEnd() + '\n'
-  const agentPath = path.join(outRoot, MAIN.id, 'agent.cordis.yml')
-  const presetBody = `name: ${MAIN.name}\ndescription: ${MAIN.description}\n`
-  const presetPath = path.join(outRoot, MAIN.id, 'preset.yml')
-
-  return { [agentPath]: agentBody, [presetPath]: presetBody }
+  ].join('\n').trimEnd()
 }
 
 /**
- * Render + write the main preset to `presets/dsh-enhance/`.
+ * The comment header plus the two inserted top-level rows — everything before
+ * the preset's `plugins:` key. Generated here (rather than kept hand-written
+ * around a sentinel) because this file is owned by one writer; the byte-pin
+ * test then locks the whole file.
+ */
+function header() {
+  return `# dsh-enhance bundle patch: the plugin install row plus the Enhance agent preset.
+#
+# GENERATED FILE — do not hand-edit. Rendered by
+#   node scripts/sync-dsh-enhance-preset.mjs
+# from prompts/agents/dsh-enhance.persona.md (plus the four scoped sub-personas)
+# and the enhance-mode section source; tests/presets-pin.test.mjs pins it
+# byte-for-byte.
+#
+# \`name\` MUST be the full package name, matching the upstream convention
+# (base/web-app patches reference '@deepseek-ai/dsh-*'). The Cordis loader
+# resolves this as a module specifier from the profile directory, so a bare
+# \`dsh-enhance\` would fail with ERR_MODULE_NOT_FOUND unless the profile also
+# carried an extra alias dependency. The row \`id\` stays short — ids are what
+# user patches target, names are what the loader imports.
+#
+# The \`preset-enhance\` row is a *declarative* preset: @deepseek-ai/dsh-agent-preset
+# registers \`config\` into ctx.agentPresets when the row activates. That service
+# is declared by the dsh-web-app / desktop bundles, i.e. it exists on
+# dsh >= 0.2.0 only; on an older CLI (whose preset mechanism is the retired
+# directory scan) this row resolves nowhere and stays an inactive entry rather
+# than breaking the profile.
+#
+# \`config.plugins\` is the session's ENTIRE composition — there is no
+# inheritance — so it restates the persona (dsh-persona prefix plus the
+# deployment suffix it shadows), the agent-instructions row the Web surface
+# disables on the host plane, the tool plane, the four scoped subagents, this
+# bundle's plugin row, and the enhance-mode section row.
+- insert:
+    - id: dsh-enhance
+      name: '@dsh-enhance/dsh-enhance'
+
+    - id: ${MAIN.rowId}
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: ${MAIN.id}
+        name: ${MAIN.name}
+        description: ${MAIN.description}
+        order: ${MAIN.order}
+        plugins:
+`
+}
+
+/**
+ * Render the whole `cordis.patch.yml` **without touching the disk**.
+ *
+ * Splitting render from write is what makes the byte-pin test meaningful: a test
+ * that calls a writing `generate()` and then reads the file back only compares
+ * the file against what it just wrote, so a hand-edited patch is silently
+ * overwritten instead of being reported (`tests/presets-pin.test.mjs` locks this).
+ *
+ * @returns {Promise<Record<string, string>>} absolute path -> content that should be there.
+ * @param options - `root` overrides the output root (tests render into a temp dir
+ *   so they can prove purity without touching the tracked patch).
+ */
+export async function render({ root: outRoot = root } = {}) {
+  const content = header() + indentBlock(await pluginsBlock(), PLUGINS_INDENT) + '\n'
+  return { [path.join(outRoot, PATCH_FILE)]: content }
+}
+
+/**
+ * Render + write `cordis.patch.yml`.
  * @param options - forwarded to {@link render}.
  * @returns {Promise<Record<string, string>>} absolute path -> content written.
  */
@@ -304,5 +394,5 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (isMain) {
   const written = await generate()
   const names = Object.keys(written).map(p => path.relative(root, p))
-  console.log(`synced dsh-enhance preset: ${names.length} files\n${names.join('\n')}`)
+  console.log(`synced dsh-enhance bundle patch: ${names.length} file\n${names.join('\n')}`)
 }

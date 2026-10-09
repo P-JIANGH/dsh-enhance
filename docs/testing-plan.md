@@ -11,7 +11,7 @@
 | 测试文件 | 覆盖能力 | 里程碑 | 状态 |
 |---|---|---|---|
 | `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ |
-| `tests/presets-pin.test.mjs` | prompts 单一源 → presets 生成的字节 pin 防漂移；含两条"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1 | ✅ |
+| `tests/presets-pin.test.mjs` | prompts 单一源 → `cordis.patch.yml`（插件行 + `preset-enhance`）与 `presets/roles.patch.yml` 的字节 pin 防漂移；含"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1/M6 | ✅ |
 | `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ |
 | `tests/boulder.test.mjs` | boulder CAS 合并、写令牌（goal 落盘测试随实现一起退役） | M4 | ✅ |
 | `tests/rules.test.mjs` | rules-injector 只读 `.dsh-enhance/rules/`（AGENTS.md 归原生，含负向断言） | M3 | ✅ |
@@ -24,13 +24,11 @@
 | `tests/advisor.test.mjs` | severity 信封、emission guard、`runReviewCall`、注册期捕获 llm + dispose 守卫 | advisor | ✅ |
 | `tests/tool-output-schema.test.mjs` | 工具 `output.schema` 完整性（防 "returned invalid output"） | M3/M4 | ✅ |
 | `tests/doctor.test.mjs` | doctor 中文渲染与下一步建议 | M1 | ✅ |
-| `tests/skill-trigger.test.mjs` | ulw 触发词判定 + `ULTRAWORK_ENTRY` 与 `prompts/modes/ultrawork.md` 逐字一致 | M6 | ✅ |
+| `tests/enhance-mode.test.mjs` | `ENHANCE_MODE_TEXT` 与 `prompts/modes/enhance-mode.md` 逐字一致（改名彻底：正文无 `ulw`/`ultrawork`）+ 段落注册契约（名字/order/effect）+ 模块即可挂载的插件行 | M6 | ✅ |
 | `tests/qa-launch.test.mjs` | QA 启动器解析、profile app 自检、实驱目标解析（隔离优先） | QA | ✅ |
-| `tests/orient.test.mjs` | 开场消息只点名本插件（按 `provider`，不是 `source`）的技能 | M1 | ✅ |
-| `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder`、`/presets`（状态/装机/未知子命令）注册与只读输出、开关与 disposer | M6 | ✅ |
-| `tests/install-presets.test.mjs` | 预设装机脚本：幂等、先备份后覆盖、改名残留清理、`--check`/`--dry-run`、参数解析 | 装机 | ✅ |
+| `tests/commands.test.mjs` | 人类指令面：`/doctor`、`/boulder` 注册与只读输出、开关与 disposer；断言诊断里不复活已退役机制 | M6 | ✅ |
 | `tests/volatile-remount.test.mjs` | 设置面开关**即时生效**的接线契约：首挂同步、收到 `loader/volatile-update` 先卸后挂、连续改动串行、重挂失败只告警不打死条目 | 设置面 | ✅ |
-| `tests/client-contract.test.mjs` | 浏览器半侧跨文件契约：`exports["./client"]`/`dsh.client`、`plugins.row.config` 的 key = `<包名>#<行 id>`（从 `package.json`+`cordis.patch.yml` 推导）、`whileServed` 命名空间、7 开关 + advisorModel 字段集合与布尔往返、样式幂等 | 设置面 | ✅ |
+| `tests/client-contract.test.mjs` | 浏览器半侧跨文件契约：`exports["./client"]`/`dsh.client`、`plugins.row.config` 的 key = `<包名>#<行 id>`（从 `package.json`+`cordis.patch.yml` 推导）、`whileServed` 命名空间、6 开关 + advisorModel 字段集合与布尔往返、样式幂等 | 设置面 | ✅ |
 
 ## 2. dsh 实驱脚本
 
@@ -49,14 +47,15 @@
 | M3 | delivery-gate 在真实会话中的"完成声明→审查→回灌→通过"闭环 | 状态机/声明/verify 单测已实现 | 真实会话触发完成声明 → 拦截并回灌；改受保护文件被 verify 揭穿（`--llm`） |
 | M4 | boulder 跨会话交错写 / 双 execute 串行 | 并发合并单测已实现 | 两个真实会话交错写 → 无丢失更新（`--llm`） |
 | M5 | worktree 内会话续作（真实 worktree 创建） | 单测已实现（见第 1 节 15 例 worktree 测试） | 真实会话在 worktree 内续作 → 上下文正确（`--llm`） |
-| M6 | skill-trigger 意图路由 | 意图分类 / 优先级仲裁 / 误触回退单测 | 多模式命中/误触回退注入实驱 |
+| M6 | 预设作用域常驻模式段（enhance-mode） | `enhance-mode.test.mjs` 单源逐字 pin + `presets-pin.test.mjs` 生成物字节 pin | 真机：Enhance 预设会话的 system prompt 含 `<enhance-mode>`，其它预设/无预设会话不含 |
 | M7 | 最小 LSP 集 + comment-check | LSP 响应解析 | 写后校验实驱 |
 | M8 | team mode（roadmap） | team_* 工具单测 | 多 agent 并行实驱 |
 
 ## 4. 提示词验证（架构 8.4，M2 已审查）
 
-- 每个 agent/模式一次实驱触发，核对行为约束生效。依赖 agents 落地（presets 已就绪 5 角色；advisor 需伴随机制）。
+- 每个 agent/模式一次实驱触发，核对行为约束生效。依赖 agents 落地（`presets/roles.patch.yml` 已就绪 5 个角色预设；advisor 需伴随机制）。
 - 状态：审查稿已定稿（M2）；实驱随各能力落地时由 `qa/dsh-enhance-drive.mjs --llm` 逐步执行。
+- **模式段（M6，2026-10-09）**：enhance-mode 不再是"触发后注入"的文本，而是 Enhance 预设会话的常驻系统提示词段；验证方式是真机会话日志里 system prompt 含 `<enhance-mode>`（见第 6 节）。
 
 ## 5. 证据纪律
 
@@ -76,7 +75,7 @@
 | 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
 | CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
 | CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
-| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 orient/doctor 卡片仍需改进 webbridge 输入注入后复验 |
+| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
 | 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
 | 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@dsh-enhance/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
 

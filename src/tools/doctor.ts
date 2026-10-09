@@ -31,7 +31,6 @@ export interface DoctorReport {
   /** The active plugin configuration. */
   config: {
     workRulesChars: number
-    orientOnSessionStart: boolean
     doctorTool: boolean
     guards: boolean
     workTracking: boolean
@@ -84,7 +83,6 @@ export function renderReport(
     `插件已加载：${report.pluginLoaded ? '是' : '否'}`,
     `工作准则段落：${report.workRulesSection}`,
     '生效配置：' +
-      `会话开场提示=${report.config.orientOnSessionStart ? '开' : '关'} ` +
       `doctor 工具=${report.config.doctorTool ? '开' : '关'} ` +
       `工作准则长度=${report.config.workRulesChars} 字 ` +
       `守卫=${report.config.guards ? '开' : '关'} ` +
@@ -129,8 +127,7 @@ export function suggestNext(config: DoctorReport['config'], advisorEnabled: bool
   if (!config.worktree) out.push('worktree 已关闭：开启后可为每项工作建立独立工作区。')
   if (!config.commands) out.push('人类指令已关闭：开启后可在输入框打 / 直接调用 /doctor、/boulder。')
   if (!advisorEnabled) out.push('advisor 已关闭：开启后每轮结束有伴随审查建议。')
-  if (!config.orientOnSessionStart) out.push('会话开场提示已关闭：开启后每次会话有入场引导。')
-  if (out.length === 0) out.push('一切就绪：可用 /doctor 看装配、/boulder 看工作追踪，或输入 ulw 进入深度工作模式。')
+  if (out.length === 0) out.push('一切就绪：可用 /doctor 看装配、/boulder 看工作追踪；要常驻深度工作纪律就在新建会话时选「Enhance」预设。')
   return out
 }
 
@@ -184,14 +181,13 @@ export function registerDoctorTool(
             type: 'object',
             properties: {
               workRulesChars: { type: 'number' },
-              orientOnSessionStart: { type: 'boolean' },
               doctorTool: { type: 'boolean' },
               guards: { type: 'boolean' },
               workTracking: { type: 'boolean' },
               worktree: { type: 'boolean' },
               commands: { type: 'boolean' },
             },
-            required: ['workRulesChars', 'orientOnSessionStart', 'doctorTool', 'guards', 'workTracking', 'worktree', 'commands'],
+            required: ['workRulesChars', 'doctorTool', 'guards', 'workTracking', 'worktree', 'commands'],
             additionalProperties: false,
           },
         },

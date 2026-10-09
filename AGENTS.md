@@ -4,30 +4,34 @@ Guidance for agents and humans editing this repository. Read this before changin
 
 ## What this repo is
 
-`dsh-enhance` (short form **dsh-enhance**) is an oh-my-zsh-style enhancement bundle for DeepSeek Harness (`dsh`): a single installable plugin that contributes packaged skills, human commands (`/doctor`, `/boulder`, `/presets`), a persistent `dsh-enhance/work-rules` prompt section, a session-start orientation hook, a `dsh_enhance_doctor` diagnostic tool, guard + delivery-gate discipline, boulder work tracking (**goals are native**), worktree tools, the `ulw` deep-work mode, an advisor companion-review runtime, an orchestrating persona (**「Enhance 模式」**) that dispatches four subagent personas, and a browser half that puts the plugin's switches on the built-in Plugins panel.
+`dsh-enhance` (short form **dsh-enhance**) is an oh-my-zsh-style enhancement bundle for DeepSeek Harness (`dsh`): a single installable plugin that contributes packaged skills, human commands (`/doctor`, `/boulder`), a persistent `dsh-enhance/work-rules` prompt section, a `dsh_enhance_doctor` diagnostic tool, guard + delivery-gate discipline, boulder work tracking (**goals are native**), worktree tools, the **Enhance** agent preset (with its persistent `dsh-enhance/enhance-mode` prompt section and four scoped subagents), an advisor companion-review runtime, and a browser half that puts the plugin's switches on the built-in Plugins panel.
 
 Refer to this project only as **dsh-enhance** or **dsh-enhance**.
 
-Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompts-review/README.md`.
+Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompts-review/README.md`, `docs/installing-plugins.md`.
 
 ## Layout
 
 - `src/index.ts` — plugin entry (`apply`), config schema, wiring of every feature.
-- `src/features/` — capability implementations: `skills-provider`, `commands` (the human `/doctor` + `/boulder` + `/presets` surface), `presets/` (the shared preset installer behind the CLI, `/presets` and `postinstall`), `skill-trigger` (ulw), `boulder/` (work tracking), `worktree/`, `delivery-gate/`, `advisor/` (runtime, prompt, severity, emission-guard).
-- `src/hooks/` — prompt/hook wiring: `work-rules`, `orient`, `rules-injector`, `start-work`, `delivery-gate`.
+- `src/enhance-mode.ts` — `@dsh-enhance/dsh-enhance/enhance-mode`: the deep-work contract as a **preset-scoped** system-prompt section (only the `preset-enhance` row mounts it).
+- `src/features/` — capability implementations: `skills-provider`, `commands` (the human `/doctor` + `/boulder` surface), `boulder/` (work tracking), `worktree/`, `delivery-gate/`, `advisor/` (runtime, prompt, severity, emission-guard).
+- `src/hooks/` — prompt/hook wiring: `work-rules`, `rules-injector`, `start-work`, `delivery-gate`.
 - `src/features/boulder/` — boulder state (`boulder.json` under `.dsh-enhance/`) + the write token. Goals are **not** here: they are the native `ctx.goals` service.
 - `src/tools/` — model-facing tools: `doctor`, `guards`, `guard-register`, `boulder-tools`, `worktree-tools`. Authored as raw `ToolDefinition`s with complete `output.schema` (see below).
 - `client/client.js` — the browser half: registers the plugin's configuration page on the built-in Plugins panel (`plugins.row.config`). **Hand-authored, not built** — the module loader takes it verbatim through `exports["./client"]` and only `require`s the host module table (`react`, `react-dom`, `@deepseek-ai/dsh-client-ui-primitives`). Keep it consistent with `package.json` + `cordis.patch.yml`; `tests/client-contract.test.mjs` pins that.
-- `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/ultrawork.md`, `modes/advisor.md`.
-- `presets/` — **generated** agent presets. Never hand-edit; regenerate (see "Single-source discipline").
-- `scripts/` — `sync-presets.mjs` (5 role presets), `sync-dsh-enhance-preset.mjs` (main orchestrator preset + subagent tool rows), `install-presets.mjs` (thin CLI over `src/features/presets/install.ts`: idempotent install of `presets/` into `$DSH_HOME/.agent-presets`, with backup, `--status`, `--check`, `--dry-run`, `--prune-renamed`, `--if-installed` for the `postinstall` hook).
+- `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/enhance-mode.md`, `modes/advisor.md`.
+- `presets/` — the **generated** role-preset patch fragment (`presets/roles.patch.yml`). Never hand-edit; regenerate (see "Single-source discipline").
+- `cordis.patch.yml` — the bundle patch: the plugin install row **and** the `preset-enhance` agent-preset row. Also **generated** — never hand-edit.
+- `scripts/` — `sync-presets.mjs` (the 5 role preset rows → `presets/roles.patch.yml`), `sync-dsh-enhance-preset.mjs` (the plugin row + Enhance preset → `cordis.patch.yml`).
 - `qa/` — real-dsh LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). They consume tokens and write evidence under `.dsh-enhance/evidence/`.
-- `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`.
+- `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `enhance-mode.test.mjs` (single-source pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`.
 
 ## Single-source discipline (important)
 
-- Edit the persona text only in `prompts/agents/<role>.persona.md`; the generated `presets/<role>/agent.cordis.yml` + `preset.yml` are **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks `tests/presets-pin.test.mjs` (byte-for-byte), which is intentional.
-- The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `node scripts/sync-dsh-enhance-preset.mjs`.
+- Agent presets are **plugin rows**, not directories: on dsh 0.2.x `@deepseek-ai/dsh-agent-preset` registers `{ id, name, description, order, plugins }` into `ctx.agentPresets`, and the retired `$DSH_HOME/.agent-presets/<id>/` scan is gone. The rows are generated from the persona single sources and pinned byte-for-byte by `tests/presets-pin.test.mjs`.
+- Edit the persona text only in `prompts/agents/<role>.persona.md`; `cordis.patch.yml` and `presets/roles.patch.yml` are **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks the byte-pin test, which is intentional.
+- The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `pnpm sync:enhance-preset` (and `pnpm sync:presets` for the role rows).
+- The enhance-mode prose is single-sourced in `prompts/modes/enhance-mode.md` and mirrored as `ENHANCE_MODE_TEXT` in `src/enhance-mode.ts`; `tests/enhance-mode.test.mjs` pins the two together.
 - Keep `docs/prompts-review/*.md` consistent when you change a persona's constraints.
 
 ## Settings surface（改配置面之前必读）
@@ -45,8 +49,7 @@ pnpm install
 pnpm build          # tsc → lib/  (run after any src/ change)
 pnpm typecheck      # tsc --noEmit
 pnpm test           # node --test (all tests)
-node scripts/sync-presets.mjs ; node scripts/sync-dsh-enhance-preset.mjs   # regenerate presets after persona edits
-pnpm install:presets ; pnpm check:presets   # install presets/ into $DSH_HOME/.agent-presets, then verify
+pnpm sync:presets ; pnpm sync:enhance-preset   # regenerate the preset patch files after persona edits
 ```
 
 - **Tools must declare full `output.schema`.** A tool whose `execute` returns fields that `output.schema` does not cover is rejected by the harness ("returned invalid output") and breaks real sessions. When changing a tool's return shape, update the schema and add a case in `tests/tool-output-schema.test.mjs` (it runs the tool against a real schema check).
@@ -54,7 +57,7 @@ pnpm install:presets ; pnpm check:presets   # install presets/ into $DSH_HOME/.a
 
 ## Agent roles (from `docs/roles.md`)
 
-Six roles: five persona presets **planner / scout / librarian / task / reviewer**, plus **advisor** (a per-session companion-review mechanism, not a selectable persona). The orchestrator preset (`dsh-enhance`) makes scout/librarian/reviewer/task dispatchable as scoped subagents, each with a `toolFilter` limiting its surface.
+Six roles: five persona presets **planner / scout / librarian / task / reviewer**, plus **advisor** (a per-session companion-review mechanism, not a selectable persona). The orchestrator preset (**Enhance**, id `enhance`) makes scout/librarian/reviewer/task dispatchable as scoped subagents, each with a `toolFilter` limiting its surface, and is the only preset that mounts the `enhance-mode` prompt section.
 
 ## Non-goals（刻意不做 —— 加功能前先读这一节）
 

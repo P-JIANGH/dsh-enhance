@@ -3,6 +3,8 @@
 > 日期：2026-07（d414a86 之后的工作树）
 > 审查判据：与 M2 中文定稿（`docs/prompts-review/*.md`）一致 + 可执行/建设性措辞 + 无行话；不重新设计产品文案。
 > 状态：**已修复**（本文件与 `src/` 修复同步落盘；见各节「状态」与第 7 节验证）。
+>
+> **2026-10-09 后记（读本文件前必看）**：本文件是**历史审查记录**，其中"orient 开场消息"与"`ulw` / `ultrawork` 触发契约"两条能力面**已退役**——前者绑定的事件在 0.2.0 不存在，后者被 Enhance 预设作用域内的常驻段 `enhance-mode` 取代。下文相关条目按原样保留（不改写历史），现状以 `README.md` 与 `docs/architecture.md` §5.4 为准。
 
 ## 1. 结论摘要
 
@@ -54,11 +56,13 @@ M1–M6 的能力面已全部实现，但「直接渲染给最终用户」的文
 | `worktree_create/list/cleanup` description | 英文 | 同上 | 中 | description 中文化 |
 | worktree 名称/路径校验错误（`src/features/worktree/validation.ts`） | 英文 | 内部校验，仅在错误输入时抛 | 低 | **保持英文**（见 §7） |
 
-### M6 · skill-trigger（ulw / ultrawork）
+### M6 · skill-trigger（ulw / ultrawork）—— 2026-10-09 已退役
+
+> 本节记录当时的审查结论。该机制（关键词触发注入 `<ultrawork-mode>` 契约）已被 **Enhance 预设作用域内的常驻段** `enhance-mode` 取代：正文单源 `prompts/modes/enhance-mode.md`，常量 `src/enhance-mode.ts` 的 `ENHANCE_MODE_TEXT`，pin 测试 `tests/enhance-mode.test.mjs`。下表按历史原样保留。
 
 | 用户可见面 | 现状 | 问题 | 严重度 | 修复动作 |
 |---|---|---|---|---|
-| `ULTRAWORK_ENTRY`（`src/features/skill-trigger.ts`） | 中文 ✅（与 `prompts/modes/ultrawork.md` 一致） | 无 | — | — |
+| `ULTRAWORK_ENTRY`（原 `src/features/skill-trigger.ts`） | 中文 ✅（与 `prompts/modes/ultrawork.md` 一致） | 无 | — | — |
 
 ### 会话开场（跨里程碑）
 

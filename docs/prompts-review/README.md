@@ -2,7 +2,7 @@
 
 > 范围：M2 提示词审查（架构文档第 6 节）。
 > 结构：自 2026-08 起，每个提示词一份独立审查稿（源材料 + 中文稿 + 映射表 + 校验 + 实驱状态），本文件为索引与公共内容（流程、评审结论、桌面对齐）。
-> 说明：hyperplan/team 模式因 team-mode 延后实现（roadmap，见架构文档 M8）而暂不移植；search/analyze 模式中文稿见 search-analyze.md（源材料：桌面工作流分析提示词 1，用户已确认起草）。ultrawork 已拆分为**工作前（入口契约）**与**交付前（回归审查）**两篇，应对中后段规则混淆问题（见 ultrawork.md / ultrawork-review.md）。
+> 说明：hyperplan/team 模式因 team-mode 延后实现（roadmap，见架构文档 M8）而暂不移植；search/analyze 模式中文稿见 search-analyze.md（源材料：桌面工作流分析提示词 1，用户已确认起草）。**原 ultrawork 稿已改名为 enhance-mode**，仍拆为**工作前（入口契约）**与**交付前（回归审查）**两篇（见 enhance-mode.md / enhance-mode-review.md）；2026-10-09 起它不再靠关键词触发，而是 Enhance 预设作用域内的常驻系统提示词段（单源 `prompts/modes/enhance-mode.md`）。
 > 评审：6 项待确认问题已答复（1/2/3/4/6 通过，5 为信息查询），结论见「评审结论」与「桌面对齐·用户确认」。
 
 ---
@@ -11,10 +11,10 @@
 
 | # | 提示词 | 文件 | 状态 |
 |---|---|---|---|
-| 1 | ultrawork 工作前篇 | [ultrawork.md](ultrawork.md) | 稿就绪（入口契约，13 条） |
-| 1b | ultrawork 交付前回归审查 | [ultrawork-review.md](ultrawork-review.md) | 稿就绪（交付回归核对清单，可交 reviewer 执行） |
+| 1 | enhance-mode 工作前篇 | [enhance-mode.md](enhance-mode.md) | 稿就绪（入口契约，13 条；现为预设常驻段） |
+| 1b | enhance-mode 交付前回归审查 | [enhance-mode-review.md](enhance-mode-review.md) | 稿就绪（交付回归核对清单，可交 reviewer 执行） |
 | 2 | work-rules | [work-rules.md](work-rules.md) | 稿就绪（原 5 条 + 用户准则 2 条） |
-| 3 | orient 会话开场 | [orient.md](orient.md) | 稿就绪（3 句 → 2 段） |
+| 3 | ~~orient 会话开场~~ | [orient.md](orient.md) | **已退役（2026-10-09）**：绑定事件在 0.2.0 不存在，稿件保留作历史 |
 | 4 | planner persona | [planner.md](planner.md) | 稿就绪（保留；可 spawns scout） |
 | 5 | reviewer persona | [reviewer.md](reviewer.md) | 稿就绪（并入 security 口径，6 句） |
 | 6 | scout persona（原 explorer） | [scout.md](scout.md) | 稿就绪（roles.md 重命名） |
@@ -33,10 +33,10 @@
 
 | 对象 | 原稿规模 | 本稿规模 | 达标（≤50%） |
 |---|---|---|---|
-| ultrawork 工作前篇 | 339 行 | 13 条入口契约 | ✅ |
-| ultrawork 交付前回归审查 | 339 行 | 交付核对清单（可交 reviewer） | ✅ |
+| enhance-mode 工作前篇 | 339 行 | 13 条入口契约 | ✅ |
+| enhance-mode 交付前回归审查 | 339 行 | 交付核对清单（可交 reviewer） | ✅ |
 | work-rules | 8 行 | 10 行（原 5 条 + 用户准则 2 条新增） | ✅ |
-| orient | 3 句 | 2 段 | ✅ |
+| ~~orient~~ | 3 句 | 2 段 | 已退役 |
 | planner | 4 句英文 | 4 句中文（可 spawns scout） | ✅ |
 | reviewer | 5 句英文 | 6 句中文（并入 security 口径） | ✅ |
 | scout（原 explorer） | 4 句中文 | 4 句中文（add 交接语义） | ✅ |
@@ -47,7 +47,8 @@
 
 ## 实驱验证状态
 
-- 待做（标注在代码落地后执行）：ultrawork 工作前触发 → 第一响应宣布 + 入口契约生效；交付前触发（deliver 意图）→ 注入 ultrawork-review 回归审查；6 角色 persona（planner/scout/librarian/task/reviewer/advisor）在 dsh 会话中加载；work-rules/orient 注入可见；librarian 的 web_search 工具在 dsh 下的可用性实驱。advisor 需 M1 实驱确认 3 个接线点（见 advisor.md）。
+- 待做（标注在代码落地后执行）：6 角色 persona（planner/scout/librarian/task/reviewer/advisor）在 dsh 会话中加载；work-rules 注入可见；librarian 的 web_search 工具在 dsh 下的可用性实驱。advisor 需 M1 实驱确认 3 个接线点（见 advisor.md）。
+- **已落地（2026-10-09）**：enhance-mode 不再是"触发后注入"——它是 Enhance 预设作用域内的**常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）。审查稿（enhance-mode.md）保留为正文的约束映射；触发相关的待做项作废。
 - dsh CLI 已安装（@deepseek-ai/dsh@0.1.1-rc.2，仓库已更新核实），隔离 $DSH_HOME 实驱脚本留待 M1 骨架重构后随代码一起做（6.2 流程第 5 步）。
 
 ---
@@ -58,7 +59,7 @@
 2. ✅ 认可：goal 注册条款暂缓，M4 goal 工具落地后补。
 3. ✅ 认可：planner/reviewer/executor/explorer/debugger 五个 persona 维持现状。（**后覆写**：2026-08-25 用户确认改为 roles.md 6 角色体系——见下条 7。）
 4. ✅ 修正：team mode 不是排除，而是 roadmap 延后实现（架构文档 M8）；hyperplan/team 模式因此暂不移植（非排除）。
-5. ✅ 修正：新增两条工作准则注入各提示词——「事实永远在文件」（上下文/会话记录不一定是事实，关键事实以文件为准）+「不臆想、不编造、多提问」；已注入 work-rules 第 6/7 条、ultrawork 一.1、planner/executor、search/analyze。
+5. ✅ 修正：新增两条工作准则注入各提示词——「事实永远在文件」（上下文/会话记录不一定是事实，关键事实以文件为准）+「不臆想、不编造、多提问」；已注入 work-rules 第 6/7 条、enhance-mode（原 ultrawork）一.1、planner/executor、search/analyze。
 6. ✅ 通过（2026-08-25）：**全部提示词审查通过**。1–9 已在更早评审通过；advisor（#10）本次完成——确认源材料为 omp 伴随审核模型，补中文可执行约束清单与精简校验，定为定稿（随 omp M4/M1 移植时执行，dsh 可行性已核实）。reviewer 原稿句数计数校正为 5 句。各提示词的实驱验证仍待代码落地后执行（README 第 7 节统一状态）。
 7. ✅ 角色体系定稿（2026-08-25）：按 roles.md 采用 6 角色体系（planner/scout/librarian/task/reviewer/advisor）。执行：explorer→scout 重命名、executor→task 重命名、debugger 并入 task、security 并入 reviewer（`mode: security`）、新增 librarian、advisor 纳入首批（伴随监督）。审查稿已同步（scout.md / task.md / librarian.md 新增，旧 explorer/executor/debugger 稿删除）。
 
@@ -67,7 +68,7 @@
 ## 桌面工作流分析对齐（opencode-workflows-analysis.md，2026-07-09）
 
 > 来源：`D:\Desktop\opencode-workflows-analysis.md`（用户 OpenCode 实际工作流分析，298 行）。
-> 定位：不只参考 ultrawork——作为 dsh-enhance 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
+> 定位：不只参考 enhance-mode（原 ultrawork）——作为 dsh-enhance 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
 
 ### 文件概要
 - 12 种开发模式：元工作流审计、CRUD 骨架、ERP 集成管道、预警推送模板、企业后端、移动端 H5、设计审查管道、浏览器测试、发布工作流、安全感知、多格式文档、知识库管理。
@@ -80,8 +81,8 @@
 | 桌面文件内容 | dsh-enhance 落点 | 状态 |
 |---|---|---|
 | `[search-mode]`：并行 explore/librarian agents + rg/sg 直接工具，挖掘到穷尽 | **mode 提示源材料**：落地为 skill-trigger 的 search 模式中文精简稿 | 已起草（search-analyze.md） |
-| `[analyze-mode]`：先并行收集上下文（explore/librarian/LSP），融合发现再下手；复杂问题找专家 | 同上：analyze 模式中文精简稿；与 ultrawork 稿"一、动手前确认 + 三、技能与委派"同源 | 已起草（search-analyze.md） |
-| 提示词 5（Sisyphus 编排）：意图判断→并行 explore→todo→delegate（run_in_background）→verify→保留 task_id 续接→完成清理 | 印证 ultrawork 稿"四、规划 + 五、任务执行纪律"；**TASK/EXPECTED OUTCOME/REQUIRED TOOLS/MUST DO/MUST NOT DO/CONTEXT 六要素**可作 agent 委派 prompt 模板，进 agents 落地 | 参考 |
+| `[analyze-mode]`：先并行收集上下文（explore/librarian/LSP），融合发现再下手；复杂问题找专家 | 同上：analyze 模式中文精简稿；与 enhance-mode 稿"一、动手前确认 + 三、技能与委派"同源 | 已起草（search-analyze.md） |
+| 提示词 5（Sisyphus 编排）：意图判断→并行 explore→todo→delegate（run_in_background）→verify→保留 task_id 续接→完成清理 | 印证 enhance-mode 稿"四、规划 + 五、任务执行纪律"；**TASK/EXPECTED OUTCOME/REQUIRED TOOLS/MUST DO/MUST NOT DO/CONTEXT 六要素**可作 agent 委派 prompt 模板，进 agents 落地 | 参考 |
 | 提示词 6（安全操作）：远程脚本先下载审查、token 不明文、安全替代、风险枚举、guard 模式 | 印证 M3 守卫 hooks（path-traversal / 危险命令确认）；落地时并入 guard 设计 | 参考 |
 | 12 种开发模式（CRUD 骨架/ERP 集成/企业后端/移动 H5/设计审查/浏览器 QA/发布/文档/知识库…） | **skills 池扩充候选**：优先覆盖用户高频模式（CRUD 骨架、ERP 集成、设计审查、浏览器 QA、发布流水线、知识库）；内置评估见下 | 待确认优先级 |
 | 特征：Delegate-heavy / Skill-first / Pipe-driven | 印证设计原则 1/2（人是发起者、Skill→Tool→Hook 层级）；支持 5.4 技能优先 + 5.7 委派设计 | 已一致 |

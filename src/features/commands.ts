@@ -19,17 +19,9 @@ import type {} from '@deepseek-ai/dsh-commands'
 import { collectDoctorReport, renderReport, type DoctorReport } from '../tools/doctor.js'
 import { readBoulder } from './boulder/store.js'
 import { readWriteToken } from './boulder/write-token.js'
-import {
-  PRESETS_SOURCE,
-  defaultPresetRoot,
-  installPresets,
-  planPresetInstall,
-  renderInstallReport,
-  renderPresetStatus,
-} from './presets/install.js'
 
 /** 本包注册的指令名（不含前导斜杠）。 */
-export const COMMAND_NAMES: readonly string[] = ['doctor', 'boulder', 'presets']
+export const COMMAND_NAMES: readonly string[] = ['doctor', 'boulder']
 
 /** 人可见指令面的选项。 */
 export interface HumanCommandOptions {
@@ -41,10 +33,6 @@ export interface HumanCommandOptions {
   doctorConfig: DoctorReport['config']
   /** advisor 是否开启：`/doctor` 的「下一步建议」需要它。 */
   advisorEnabled: boolean
-  /** 预设源目录（默认本包打包的 `presets/`；供单测注入）。 */
-  presetsSource?: string
-  /** 预设目标根（默认 `$DSH_HOME/.agent-presets`；供单测注入）。 */
-  presetRoot?: string
 }
 
 /** 取会话仓库根：优先会话自身 cwd，缺失时退回进程 cwd。 */
@@ -88,37 +76,14 @@ export function renderBoulderStatus(repoRoot: string): string {
   return lines.join('\n')
 }
 
-/** 预设安装与状态共用的源/目标解析（单测可注入）。 */
-function presetArgs(options: HumanCommandOptions): { sourceRoot: string; targetRoot: string } {
-  return {
-    sourceRoot: options.presetsSource ?? PRESETS_SOURCE,
-    targetRoot: options.presetRoot ?? defaultPresetRoot(),
-  }
-}
-
-/** 计算预设计划（纯读）。 */
-function presetPlan(options: HumanCommandOptions, pruneRenamed = false) {
-  return planPresetInstall({ ...presetArgs(options), pruneRenamed })
-}
-
-/** `/doctor` 用的一行预设状态：用户不必猜"预设到底装没装"。 */
-function presetSummaryLine(options: HumanCommandOptions): string {
-  try {
-    const plan = presetPlan(options)
-    const missing = plan.entries.filter(entry => entry.action !== 'up-to-date').length
-    return missing === 0
-      ? `预设：${plan.entries.length} 个已就绪（目标 ${plan.targetRoot}）`
-      : `预设：${missing}/${plan.entries.length} 个未安装或已过期 —— 执行 /presets install（目标 ${plan.targetRoot}）`
-  } catch (error) {
-    return `预设：状态读取失败（${error instanceof Error ? error.message : String(error)}）`
-  }
-}
-
 /**
  * 注册人可见指令（`/doctor`、`/boulder`）。
  *
  * 两条都是纯读：`/doctor` 复用模型侧诊断的同一份报告与渲染器，`/boulder` 读
  * `.dsh-enhance/boulder.json`。注册为**全局**（apply 的普通 ctx），任何会话都可用。
+ *
+ * 预设不在这个面上：0.2.x 的预设是补丁里的一行（`cordis.patch.yml` 的
+ * `preset-enhance`），由 bundle 声明，不再需要安装动作。
  *
  * @param ctx - 具备 `commands` 服务的上下文。
  * @param options - 开关与回显配置。
@@ -132,8 +97,7 @@ export function registerHumanCommands(ctx: Context, options: HumanCommandOptions
       description: '诊断 dsh-enhance 装配状态：插件加载、打包技能、工作准则段落与生效配置（只读，不进入模型历史）',
       async handler() {
         const report = await collectDoctorReport(ctx, options.doctorConfig)
-        const text = renderReport(report, options.advisorEnabled, COMMAND_NAMES)
-        return { kind: 'success', text: `${text}\n${presetSummaryLine(options)}` }
+        return { kind: 'success', text: renderReport(report, options.advisorEnabled, COMMAND_NAMES) }
       },
     }),
   ]
@@ -146,27 +110,5 @@ export function registerHumanCommands(ctx: Context, options: HumanCommandOptions
       },
     }))
   }
-  // 预设装机是「显式动作」：插件不会在启动时暗中写用户家目录（写盘的另一半是
-  // 安装期的 postinstall，见 scripts/install-presets.mjs --if-installed）。
-  disposers.push(ctx.commands.register({
-    name: 'presets',
-    description: '查看或安装 dsh-enhance 的 Agent 预设（「Enhance 模式」+ 5 个角色预设）：把包内 presets/ 幂等地装进 $DSH_HOME/.agent-presets，覆盖或清理前先备份',
-    input: { hint: '[install [prune] | status]' },
-    handler(invocation) {
-      const sub = String(invocation.rawInput ?? '').trim().toLowerCase()
-      try {
-        if (sub === '' || sub === 'status') {
-          return { kind: 'success', text: renderPresetStatus(presetPlan(options)) }
-        }
-        if (sub === 'install' || sub === 'install prune' || sub === 'prune') {
-          const result = installPresets({ ...presetArgs(options), pruneRenamed: sub.includes('prune') })
-          return { kind: 'success', text: renderInstallReport(result) }
-        }
-        return { kind: 'error', text: `未知子命令「${sub}」。用法：/presets [install [prune] | status]` }
-      } catch (error) {
-        return { kind: 'error', text: `预设操作失败：${error instanceof Error ? error.message : String(error)}` }
-      }
-    },
-  }))
   return () => { for (const dispose of disposers) dispose() }
 }

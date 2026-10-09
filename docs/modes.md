@@ -2,7 +2,7 @@
 
 > 状态：**设计定稿（设计评审稿，2026-08-26）**。本文把 dsh-enhance 的智能体能力整理为三种可选的**工作模式（mode / preset）**——dsh-enhance 万能、Planner 计划实施、Advisor 目标回归。三者共享同一套底层能力基底（一个 tool plane + 4 个专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal 工作追踪），差异只在**编排层**：谁主导、按什么流程推进、如何处理"完成"。
 > 关联文档：[roles.md](roles.md)（6 角色来源）、[architecture.md](architecture.md)（能力实现）、prompts-review/（各 persona/模式提示词稿）。
-> 本文是**设计说明**；触发词/预设落点/QA 的验收口径由下文给出，落地以 M1 已产出的 `presets/dsh-enhance/` 与各 persona 为准。
+> 本文是**设计说明**；预设落点/QA 的验收口径由下文给出，落地以生成的 `cordis.patch.yml`（模式 A）与 `presets/roles.patch.yml`（角色预设）为准。
 
 ---
 
@@ -15,7 +15,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 - **共享同一套运行时纪律**（work-rules 注入、guards + delivery-gate、boulder/goal 追踪、advisor 伴随审查、worktree/写令牌并发纪律）；
 - 唯一改变的是**当前会话装配哪份 orchestrator persona**，决定"主模型如何编排它的子 agent 与流程"。
 
-> 结论：三种模式是**同一插件、同一预设基底**上的三种 persona 装配，而非三套独立代码。这也解释了为什么现有 `presets/dsh-enhance/` 已经承担了"万能模式"角色——它天然就是基底 + 主编排。
+> 结论：三种模式是**同一插件、同一预设基底**上的三种 persona 装配，而非三套独立代码。这也解释了为什么现有 `preset-enhance` 已经承担了"万能模式"角色——它天然就是基底 + 主编排。
 
 | 模式 | 主模型身价 | 编排风格 | 产出 | 何时选 |
 |---|---|---|---|---|
@@ -37,12 +37,12 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
    - `subagent_task`（读写：read/glob/grep/write/edit/todo_write）—— 聚焦执行一个明确小任务。
    - 通用 `subagent` / `subagent_fork`（fork 用于并行背景写者）也在 delegation 组内可用。
 3. **运行时刻律**：
-   - work-rules 系统段 + orient 开场注入；
-   - guards（write-existing / path-traversal / bash-read）+ rules-injector（AGENTS.md / `.dsh-enhance/rules/`）；
+   - work-rules 系统段（+ 模式 A 的 enhance-mode 常驻段）；
+   - guards（write-existing / path-traversal / bash-read）+ rules-injector（`.dsh-enhance/rules/`）；
    - **delivery-gate**（完成声明拦截 → 双层回归审查 → 未过压缩上下文重注入契约）；
    - boulder/goal 工作追踪 + 写令牌并发纪律 + worktree 隔离；
    - **advisor 伴随审查**（turn-stopping 增量 → `ctx.llm.stream` 独立审查 → nit/concern/blocker 回注）。
-4. **编排 person persona**：本文件三种模式各有一份编排 persona（单源在 `prompts/agents/`，由 sync 脚本生成到 `presets/<mode>/`）。
+4. **编排 persona**：本文件三种模式各有一份编排 persona（单源在 `prompts/agents/`，由 sync 脚本生成成补丁里的一条预设行）。
 
 > **旁注（已实证，非设计假设）**：advisor 用了 `ctx.agents.create()` 的影子子会话**无法被旁路唤醒驱动**（`answerLen=0`、turn 空转无 `step/start`），故落地为 `ctx.llm.stream()` 直接独立审查调用；四个专职 subagent 之所以可用，正是因为它们走显式 tool-call 委派驱动（见 prompts-review/advisor.md 实施修订）。
 
@@ -50,9 +50,9 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 3. 模式 A：dsh-enhance 万能（dsh-enhance — orchestrating universal doer）
 
-- **预设 / persona 源**：`presets/dsh-enhance/` ← `prompts/agents/dsh-enhance.persona.md`（M1 已实现，即现有默认 orchestrator）。
+- **预设 / persona 源**：`preset-enhance`（`cordis.patch.yml` 生成物）← `prompts/agents/dsh-enhance.persona.md`（M1 已实现，即现有默认 orchestrator），另挂 `enhance-mode` 段行。
 - **定位**：默认模式。直接实施，通用能力强，**根据用户意图**按需调用子 agent（scout / librarian / reviewer），task 自成执行单元（可委派或主模型直接做）。
-- **编排风格**：意图驱动的按需委派。主 persona 先理解意图 → 需要独立核查/侦察/审查时派对应 subagent → 拿结果整合推进。**不强制固定流程**，靠意图判定（skill-trigger 意图路由，architecture 5.4.1）辅助决定"何时委派谁"。
+- **编排风格**：意图驱动的按需委派。主 persona 先理解意图 → 需要独立核查/侦察/审查时派对应 subagent → 拿结果整合推进。**不强制固定流程**，靠主 persona 自己的判断决定"何时委派谁"（架构 5.4.1 的关键词意图路由**已退役**，不再作为辅助机制）。
 - **何时选**：一般开发任务、直接动手、探索型问题、不需要严格出场确认的改动。
 
 ### 3.1 编排流程图
@@ -80,7 +80,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 4. 模式 B：Planner 计划实施（Planner — fixed-skeleton plan-then-execute）
 
-- **预设 / persona 源**：`presets/planner/` ← `prompts/agents/planner.persona.md`（**增强**：从单句 persona 扩为可执行固定骨架编排者）。
+- **预设 / persona 源**：`preset-planner`（`presets/roles.patch.yml` 生成物）← `prompts/agents/planner.persona.md`（**增强**：从单句 persona 扩为可执行固定骨架编排者）。
 - **定位**：**骨架固定、过程动态**的计划者。planner 为主导模型，**按固定工作流顺序**调用 subagent，每个阶段是一个 gate，只有通过才进入下一阶段。
 - **编排风格**：固定骨架 staged workflow。骨架是**常量**（阶段顺序不变），阶段内部过程是**动态**的（据此收集结果、据此提问、据此定计划）。
 - **何时选**：复杂/多步/牵扯面广的任务；需要先对齐目标与方法、用户确认后才动手的改动；风险较高的交付。
@@ -102,7 +102,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 - **骨架是常量、过程是动态**：S1–S7 顺序固定，但"收集到什么、问什么、计划长什么样、任务怎么切"都随任务而异——避免过度固化到不可用，也避免自由发挥丢骨架。
 - **确认闸集中在 S5**：S1–S4 全只读（scout/librarian/reviewer 只读，planner 只规划不写），真正写工作区发生在用户确认（S5）之后的 S6。这与 architecture 5.5.1 的**读写角色分类**一致：plan/explore/审查 = 只读可并行；execute = 写，受令牌/ worktree 纪律。
 - **双审查点**：S4 审"计划"，S7 审"执行结果"。前者防走错方向（改动前修正），后者防交付跑偏（完成前回归）。
-- **接口契约**：S4/S7 都交给 reviewer 时，用 prompts-review/ultrawork-review.md 的回归核对清单 + verify 脚本绑定（architecture 5.2.2），并**去掉"已完成"锚定信号**（反锚定）。
+- **接口契约**：S4/S7 都交给 reviewer 时，用 prompts-review/enhance-mode-review.md 的回归核对清单 + verify 脚本绑定（architecture 5.2.2），并**去掉"已完成"锚定信号**（反锚定）。
 - **完成声明**：S7 通过后，主 persona 的交付仍受 delivery-gate 完成声明拦截兜底，双保险。
 
 ### 4.3 验收口径
@@ -116,7 +116,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 5. 模式 C：Advisor 目标回归（Advisor — goal-driven regression loop）
 
-- **预设 / persona 源**：`presets/advisor/` ← `prompts/agents/advisor.persona.md`（编排 persona，单源）或 `prompts/modes/advisor.md`（伴随审查稿件，用于运行时刻决策）——设计上把 **advisor 伴随运行时 + goal 工作追踪 + delivery-gate** 组合成一个**目标回归编排**。
+- **预设 / persona 源**：`preset-advisor`（计划中）← `prompts/agents/advisor.persona.md`（编排 persona，单源，尚不存在）或 `prompts/modes/advisor.md`（伴随审查稿件，用于运行时刻决策）——设计上把 **advisor 伴随运行时 + goal 工作追踪 + delivery-gate** 组合成一个**目标回归编排**。
 - **定位**：**可设置 goal**；执行过程中 **advisor 持续收集信息/对话/内容，做目的纠正、纠错等回归动作**；结束前 advisor/reviewer 做回归审查；**不通过则压缩上下文后继续，直到达成目标**。
 - **编排风格**：goal 驱动的回归循环。与 dsh-enhance/Planner 的最大差别：**存在一个持续对照目标纠偏的影子（advisor）**，且"完成"由"是否达成 goal"判定，而非"自我声明完成"。
 - **何时选**：目标导向、长/复杂任务；需要持续对齐用户真实目的而非只求交付；容易跑偏/反复返工的任务。
@@ -179,7 +179,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 ## 6. 三模式的统一纪律（不分模式都成立）
 
 1. **人是发起者**：模式是执行编排，不是取代用户决策。Planner 的 S5 确认闸、Advisor 的 goal 由用户设定/确认。
-2. **提示词单源**：三种编排 persona 各自单源在 `prompts/agents/`，由 sync 脚本生成到 `presets/<mode>/`；不手改生成产物（presets-pin 测试锁定）。
+2. **提示词单源**：三种编排 persona 各自单源在 `prompts/agents/`，由 sync 脚本生成成补丁里的预设行；不手改生成产物（presets-pin 测试锁定）。
 3. **委派六要素**：委派 subagent 时用自包含任务说明（任务的 TASK / EXPECTED OUTCOME / REQUIRED TOOLS / MUST DO / MUST NOT DO / CONTEXT，见 prompts-review/README 桌面对齐）。
 4. **读写纪律**：只读角色（scout/librarian/reviewer/planner/advisor）可并行；写角色（task/execute）受写令牌或 worktree 隔离（5.5.1）。
 5. **完成 = 证据**：无论哪个模式，完成声明都过 delivery-gate；verify 绑定 + 反锚定 + 完成报告审计（5.2.2）。
@@ -188,8 +188,8 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 7. 落地与 QA
 
-- **预设落点**：`presets/dsh-enhance/`（已实现，= 模式 A）；`presets/planner/` 增强为模式 B 编排 persona（**未实现**——当前 planner.persona.md 仍是单句）；`presets/advisor/` 新增为模式 C 编排 + 装配（**未实现**——`prompts/agents/advisor.persona.md` 与 `presets/advisor/` 都不存在；advisor 运行时本身已由 Config 默认开启）。各预设投递到 `~/.dsh/.agent-presets/` 供 web 可选。
-- **触发方式**：会话选择对应 preset（web Agent 面板 / headless `--profile` + preset），或通过 skill-trigger 意图路由（ultrawork/search/analyze 之外按模式名触发）。
+- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@dsh-enhance/dsh-enhance/enhance-mode`）；`preset-planner` 增强为模式 B 编排 persona（**未实现**——当前 planner.persona.md 仍是单句）；`preset-advisor` 为模式 C 编排 + 装配（**未实现**——`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
+- **触发方式**：会话创建时选择对应 preset（web Agent 面板 / headless `--profile` + preset）。**没有**意图路由或关键词触发：模式是会话构成的一部分（0.2.x 的预设行），不写进 `plugins` 就没有。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；
   - B：固定骨架顺序（实驱断言 S1→S7 阶段次序）+ 确认闸前无写（文件系统断言）+ 并行 task 不踩踏（worktree/令牌）。

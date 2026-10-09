@@ -42,18 +42,19 @@ dsh-enhance/
 ├── docs/                  # 设计 + 用户文档
 ├── prompts/               # 提示词单源（agents/<role>.persona.md、modes/*.md）
 ├── skills/                # 打包 SKILL.md（静态知识层）
-├── presets/               # dsh-agent-presets 预设目录（生成物；用 scripts/install-presets.mjs 装进 $DSH_HOME/.agent-presets）
+├── presets/               # 生成物：五个角色预设行（presets/roles.patch.yml），由 bundle 补丁层直接声明
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
 │   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema，用户开关带 volatile()）/ apply
-│   ├── hooks/             # 生命周期钩子（work-rules、orient、rules-injector、start-work、delivery-gate）
+│   ├── enhance-mode.ts    # 预设作用域常驻系统提示词段（@dsh-enhance/dsh-enhance/enhance-mode）
+│   ├── hooks/             # 生命周期钩子（work-rules、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
-│   ├── features/          # 特性模块（skills-provider、commands、presets/、skill-trigger、boulder/、worktree/、delivery-gate/、advisor/）
+│   ├── features/          # 特性模块（skills-provider、commands、boulder/、worktree/、delivery-gate/、advisor/）
 │   └── shared/            # 跨模块工具（路径规范化、原子写 + 锁、校验、消息文本）
 ├── client/                # 浏览器半侧（手写、不经构建）：在「插件」面板认领本行的配置页（plugins.row.config）
 ├── qa/                    # 真实 dsh 实驱脚本（隔离 home、证据落盘）
-├── scripts/               # 预设生成（sync-presets / sync-dsh-enhance-preset）与装机（install-presets）
+├── scripts/               # 预设行生成（sync-presets → presets/roles.patch.yml；sync-dsh-enhance-preset → cordis.patch.yml）
 ├── tests/                 # node --test 单测
-└── cordis.patch.yml       # 插件注入补丁
+└── cordis.patch.yml       # 插件注入补丁 + preset-enhance 预设行（生成物）
 └── package.json
 ```
 
@@ -69,18 +70,18 @@ dsh-enhance/
 | 配置 `schemastery` schema | 配置系统 | 插件行 `config` 块，`cordis.patch.yml` 注入 |
 | `ToolRegistry` guard / `ctx.on('agent/pre-step')` | 工具守卫 | dsh ToolRegistry 原生支持 guard waterfall（全局 + 作用域） |
 | `ctx.on('agent/request')` | 意图触发 | 用户输入事件，负载字段实现时核实 |
-| `ctx.on('agent/session-start')` + `agent.inject(...)` | 会话开始注入 | 已在 v1 验证可用 |
+| `ctx.on('agent/session-start')` + `agent.inject(...)` | ~~会话开始注入~~ | **已退役**：该事件在 0.2.0 已不存在（v1 曾用于 orient 开场钩子，桌面端从未真正出现） |
 | `ctx.on('agent/turn-stopping')` | 续作强制 | turn 关闭前注入"继续"或审核建议 |
 | `SystemPrompt.section()` | 系统提示段落 | work-rules 即此机制（v1 已用） |
 | `ctx.skills`（SkillService） | 技能注册 | v1 已验证 `ctx.skills.list({})` |
-| `AgentFactory` / `AgentRegistry` | agent 定义 + 需顾问/子会话 | dsh-agent-presets 模式；`ctx.agents.create()` 可拉起独立子会话（advisor 伴随模型可行性见 prompts-review/advisor.md） |
+| `AgentFactory` / `AgentRegistry` | agent 定义 + 需顾问/子会话 | 0.2.x 的 agent 构成是 **agent 预设行**（`@deepseek-ai/dsh-agent-preset`）；`ctx.agents.create()` 可拉起独立子会话（advisor 伴随模型可行性见 prompts-review/advisor.md） |
 | 事件面 | `agent/created` `agent/session-start` `agent/pre-step` `agent/request` `agent/status` `agent/turn-stopping` `agent/error` `agent/disposed` `session/created` `session/event` | 完整清单见 dsh-agent `runtime-types.d.ts` |
 
 ## 5. 子系统设计
 
 ### 5.1 配置系统
 
-- 插件行 `config`：`workRules` / `orientOnSessionStart` / `doctorTool`（沿用 v1）+ 新增 `guards` / `workTracking` / `worktree` / `advisor` / `advisorModel` 开关组。
+- 插件行 `config`：`workRules` / `doctorTool`（沿用 v1）+ `commands` / `guards` / `workTracking` / `worktree` / `advisor` / `advisorModel` 开关组。已退役：`orientOnSessionStart`（其绑定事件 `agent/session-start` 在 0.2.0 不存在）与 `ulwTrigger`（关键词触发被预设作用域常驻段取代）。
 - 打包技能没有开关：`skills-provider` 恒定注册（技能是零运行时成本的静态知识层，见设计原则 2），不做 `skillsEnabled` 配置——早期草案里提过该字段，实现时按"始终开启"定稿。
 - 每项功能默认开启、可单独关闭（继承 v1 的"Turn it off"表格式习惯）。
 - 不变更 dsh 主配置格式；`cordis.patch.yml` 只负责插入 dsh-enhance 一行。
@@ -104,8 +105,8 @@ dsh-enhance/
 
 | 注入 | 行为 |
 |---|---|
-| `rules-injector` | 会话开始时按工作区发现 AGENTS.md / `.dsh-enhance/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
-| `skill-trigger` | 检测输入意图（ultrawork / search / analyze），注入对应模式提示词 |
+| `rules-injector` | 会话开始时按工作区发现 `.dsh-enhance/rules/`，注入为系统段落（自建 finder/matcher，缓存 + 距离计算） |
+| ~~`skill-trigger`~~ | **已退役**：关键词触发（`ulw`/`ultrawork`）被"预设作用域常驻段"取代（`src/enhance-mode.ts` + `cordis.patch.yml` 的 `preset-enhance` 行）；未选 Enhance 预设的会话看不到那段 |
 | `work-rules` | v1 已有，保留 |
 
 **C. 会话续作（Continuation）** —— 挂在 `agent/turn-stopping` / `agent/session-start`：
@@ -118,28 +119,28 @@ dsh-enhance/
 
 ### 5.2.1 交付门卫（delivery-gate）状态机
 
-把 ultrawork 拆成"工作前 + 交付前"两篇的真正目的是应对**中后段规则混淆**：工作前只注入少而关键的入口契约，完整证据/QA 纪律留到交付前集中回归核验。二者由交付门卫串成闭环：
+把 enhance-mode 拆成"工作前 + 交付前"两篇的真正目的是应对**中后段规则混淆**：工作前只留少而关键的入口契约（作为预设常驻段），完整证据/QA 纪律留到交付前集中回归核验。二者由交付门卫串成闭环：
 
 ```
-[入口契约] --(执行)--> [agent 宣称完成/交付]
+[enhance-mode 常驻段] --(执行)--> [agent 宣称完成/交付]
                              │
                   ┌──────────▼──────────┐
-         不通过    │ 回归审查 ultrawork-  │  通过
-       ┌──────────┤ review（核对证据）   ├─────────► 交付完成
+         不通过    │ 回归审查 enhance-    │  通过
+       ┌──────────┤ mode-review（核对证据）├─────────► 交付完成
        │          └──────────┬──────────┘
        │                     │
        ▼                     │ 未过
   [压缩上下文] ◄────────────┘
-  + 重新注入入口契约
+  + 回注入口契约
   → 回到执行
 ```
 
 **规则**：
 
 1. **触发点**：`agent/turn-stopping` 拦截到 agent 的"完成/交付/可以了"声明（而非用户输入）。匹配信号：陈述句带完成语态、调用提交/结束工具、显式说"完成了"。
-2. **执行**：交付回归审查 = **双层核对**（见 5.2.2）——先跑该 work 声明的**可执行 verify 脚本**（可观测事实断言），再按 `ultrawork-review.md` 清单核对不可自动化的纪律项。推荐派 `reviewer` agent 独立执行，过滤自我确认偏差与锚定（见 5.2.2-反锚定）。
+2. **执行**：交付回归审查 = **双层核对**（见 5.2.2）——先跑该 work 声明的**可执行 verify 脚本**（可观测事实断言），再按 `enhance-mode-review.md` 清单核对不可自动化的纪律项。推荐派 `reviewer` agent 独立执行，过滤自我确认偏差与锚定（见 5.2.2-反锚定）。
 3. **通过**：全部检查项有真实证据 → 放行交付。
-4. **不通过**：任一检查项无证据 → 不失败退出，而是**压缩上下文（压缩已完成步骤的证据，保留需求/计划/未清事项）→ 重新注入入口契约（ultrawork 工作前篇）→ 继续工作**，回到步骤 1。循环直到通过。
+4. **不通过**：任一检查项无证据 → 不失败退出，而是**压缩上下文（压缩已完成步骤的证据，保留需求/计划/未清事项）→ 回注入口契约（enhance-mode 工作前篇）→ 继续工作**，回到步骤 1。循环直到通过。
    - 压缩是"阶段状态转移"：把已核实的旧证据折叠成摘要，避免上下文膨胀后又进入规则混淆。
    - 每轮入口契约注入的是同一份精简稿，不叠加整段历史。
 5. **幂等/不双启**：同一轮内不重复注入回归审查；上轮已通过的检查项记录为 `verified`，下轮只核对未过项与新增变更。
@@ -149,7 +150,7 @@ dsh-enhance/
 - `delivery-gate` 处理"声称做完了但证据不符"（交付质量门）；
 - 两者都挂在 turn-stopping：原生 goal 仍 open 时本门卫不启动（视作进展汇报），goal complete（或本会话无目标）后才进入完成声明判定。
 
-**提示词来源**：工作前/交付前两篇见 `docs/prompts-review/ultrawork.md` 与 `ultrawork-review.md`。设计意图说明见 `README.md`。
+**提示词来源**：工作前/交付前两篇见 `docs/prompts-review/enhance-mode.md` 与 `enhance-mode-review.md`（单源正文在 `prompts/modes/enhance-mode.md`）。设计意图说明见 `README.md`。
 
 ### 5.2.2 可执行验证绑定与反攻击
 
@@ -158,8 +159,8 @@ dsh-enhance/
 **（1）task→work 级 verify 脚本绑定**
 
 - 每个非平凡 work（boulder work）可声明一组**可执行验证**：`verify` 字段（或在 plan/场景契约里）指向一个 `verify.sh`/DSL 断言脚本，退出码 0 = 该 work 交付物达标。
-- 场景契约（ultrawork 稿"五、证据"）中每个**可自动化断言**都应落为 verify 脚本的一条断言，而不是只在 review 时口头核对。
-- 交付门卫执行顺序：**先跑 verify.sh**（可观测事实，agent 无法假装），**再核对 `ultrawork-review.md` 中不可自动化的纪律项**（需求范围、禁止性声明、清理、提交完整性）。
+- 场景契约（enhance-mode 稿"五、证据"）中每个**可自动化断言**都应落为 verify 脚本的一条断言，而不是只在 review 时口头核对。
+- 交付门卫执行顺序：**先跑 verify.sh**（可观测事实，agent 无法假装），**再核对 `enhance-mode-review.md` 中不可自动化的纪律项**（需求范围、禁止性声明、清理、提交完整性）。
 - 参考契约纪律：verify 脚本对 pristine 状态应为红（未做时失败）、对参考解应为绿（达标时通过）——保证它确实断言"交付达标"而非恒真。
 - **落地状态**：`BoulderWork.verify` + `boulder_start(verify=…)` + `runVerify` 已实现；无绑定记 `unmeasured`（绝不假装通过），失败记 `failed` 且不结算、不释放令牌。
 
@@ -202,58 +203,24 @@ dsh-enhance/
 | `worktree_create` / `worktree_list` / `worktree_cleanup` | 新增 | 见 5.6 |
 | `dsh_enhance_doctor` | v1 已有 | 保留 |
 
-### 5.4 技能体系与触发路由
+### 5.4 技能体系与模式段
 
-- **技能池**：v1 的 `code-review` / `git-workflow` / `tdd` + 新增 `debugging` / `refactoring` / `docs-writing`（README roadmap 已预告）。每个 SKILL.md 遵循 dsh 标准 frontmatter。
-- **触发路由**（skill-trigger）：声明式意图路由，把用户输入映射到对应的 mode 提示词或技能加载建议（见 5.4.1）。
+- **技能池**：`code-review` / `git-workflow` / `tdd`（v1 落地；`debugging` / `refactoring` / `docs-writing` 仍在 roadmap）。每个 SKILL.md 遵循 dsh 标准 frontmatter。
+- **模式段（mode）**：深度工作协议不再走"意图路由 + 关键词触发"，而是**预设作用域内的常驻系统提示词段**：
+  - 单源：`prompts/modes/enhance-mode.md`（正文 = `<enhance-mode>` 标记到文末，逐字）。
+  - 运行时常量：`src/enhance-mode.ts` 的 `ENHANCE_MODE_TEXT`（`tests/enhance-mode.test.mjs` 逐字 pin）。
+  - 挂载：bundle 的 `cordis.patch.yml` 里 `preset-enhance` 行的 `config.plugins` 含一行 `{ id: enhance-mode, name: '@dsh-enhance/dsh-enhance/enhance-mode' }`；该行在预设作用域内注册 `systemPrompt.section({ name: 'dsh-enhance/enhance-mode', order: 1 })`。
+  - 可见性：只有选了 Enhance 预设（id `enhance`）的会话渲染这段；其它预设/无预设的会话完全看不到——作用域段落"同名覆盖全局、跨作用域不可见"由 `dsh-system-prompt` 的 layer 机制保证。
 - **技能自检**：doctor 工具列出当前会话可见技能（v1 已实现 `ctx.skills.list`）。
 
-### 5.4.1 意图路由体系（声明式 + 意图分类）
+### 5.4.1 已退役的意图路由设计（保留作历史）
 
-把"用户输入 → 该做什么"的判定做成显式、可审计、可扩展的路由层，而不是散落的 if/正则。
+早期设计（**未落地**）想在 `agent/request` 上做"意图分类 → mode/skill 路由"，用关键词表把输入映射到模式提示词（`research` / `investigation` / `evaluation` / `implementation` / `fix` 五类意图 + `/skill:` `/mode:` 显式前缀仲裁 + `pattern-rules` 数据表 + `agent.inject` 注入）。0.2.x 的实测结论是这条路线**不该做**：
 
-**两层判定**：
+- 关键词触发的读入面无法诚实界定：`agent/pre-step` 的第一步同时带 `agent-instructions`、skill catalog、runtime context 与别的 agent 的消息；本仓库的 `AGENTS.md` 自己就写着触发词，导致**新会话无条件进入模式**，与用户说了什么无关（见 `docs/known-issues.md`）。
+- "模式"本质上是**会话构成**（提示词段 + 工具面），而 dsh 0.2.x 已把会话构成交给 **agent 预设**（`@deepseek-ai/dsh-agent-preset` 行）。在预设里声明一段常驻段，比在运行时猜意图更确定、可审计，也让"没选这个模式"成为字面事实（不写进 `plugins` 就没有）。
 
-1. **意图分类（第一层）** —— 先把输入归入一个意图维度，据此路由：`ctx.on('agent/request')` 上先做意图分类，把用户消息归入意图之一：
-
-   | 意图 | 语义 | 典型触发词 | 主要落点 |
-   |---|---|---|---|
-   | `research` | 研究/查证 | search/调研/有哪些/怎么用/文档 | scout / librarian / search 模式 |
-   | `investigation` | 调查/定位根因 | 为什么/定位/排查/错误原因是 | task（debugging 纪律） / investigate 流程 |
-   | `evaluation` | 评估/审查/比较 | reviewer/审查/评估/对比/审查代码 | reviewer / analyze 模式 |
-   | `implementation` | 实现/改动 | 实现/添加/修复/重构/写 | ultrawork 工作前或 task worker |
-   | `fix` | 明确排障修复 | 修 bug/修复/解决报错 | task（debugging 纪律） |
-
-2. **意图 → 技能/mode 路由（第二层）** —— 意图判定后再精确匹配到具体 mode / skill：
-
-   - **声明式规则表**：每个触发目标（mode 如 ultrawork/search/analyze，skill 如 code-review/git-workflow/tdd）自带一份**触发规则**（关键词 + 正则 + 1-2 个正例）。规则集中在一个 `pattern-rules` 数据文件，而非散落在各处。
-   - **确定性优先**：显式的 `/skill:foo` 或 `/mode:ultrawork` 调用 > 意图分类 > 模糊关键词。任何显式指令最高优先，rule 不得覆盖。
-
-**匹配优先级（仲裁）** —— 一个输入可能命中多种规则，按此顺序裁决：
-
-1. **显式指令**：`/skill:` `/mode:` 前缀 —— 最高，直接命中，不再做意图分类。
-2. **精确强规则**：紧耦合关键词（`foo` 技能名、`ultrawork`/`ulw` 等专有触发词）。
-3. **意图维度匹配**：落入某个意图后，该意图的默认落点（如 `research`→search）。
-4. 同优先级多条命中时：**输入含专有词的那个优先**；仍并列则不注入（交给主 agent 自己判断）。
-
-**注入方式（不劫持）**：
-
-- 命中 mode → `agent.inject` 注入对应**模式提示词**（如 ultrawork 协议、search/analyze 流程）。
-- 命中 skill → `agent.inject` 注入**"建议加载技能 X"**提示，让主 agent 决定是否 `skill` 工具加载。
-- **只建议、不强制、不重写**：从不替换用户输入、从不静默执行，优先级始终低于显式调用。
-
-**误触回退**：
-
-- 命中但主 agent 判断用户其实真要别的（如 `evaluation` 命中 analyze 但用户其实要 document）：主 agent 直接忽略注入，或用户 `分析` 被误触反义纠正。
-- 每个注入都标注来源（`[skill-trigger:research→search]`），便于审计与撤销。
-- 规则表冲突/命中过多（>3）时 fallback 到不注入，避免噪声。
-
-**规则表的演进（skill 自描述）**：
-
-- 每个 SKILL.md frontmatter 增加可选 `triggers:`（关键词/正则/正例），构建时汇入 `pattern-rules` 集中表。新增技能 = 更新其 SKILL.md，无需改路由代码。
-- 优先命中分析：可记录"命中但被忽略"事件，帮助后续精简规则。
-
-**与 5.4 技能流的关系**：skill-trigger 是"入口"，doctor 的 `ctx.skills.list` 是"出口/自检"，二者配合让技能体系可发现、可触发、可审计。
+因此 `skill-trigger` 整套（含 `ulwTrigger` 开关）与 `orient` 开场钩子已删除；`search` / `analyze` 等模式设想随之搁置（见 `docs/modes.md` §7）。
 
 ### 5.5 Work tracking：boulder 防冲突设计（重点）
 
@@ -328,7 +295,7 @@ features/worktree/
 
 ### 5.7 Agents 体系
 
-dsh 的 agent 通过 `AgentFactory` 注册（dsh-agent-presets 模式，v1 的 `presets/` 已验证）。v2 设计：
+dsh 的 agent 构成由 **agent 预设**声明（0.2.x 是 `@deepseek-ai/dsh-agent-preset` 行，见 5.8）。v2 设计：
 
 - **agent 清单（6 角色，roles.md 定稿）**：`planner`（规划）、`scout`（只读探索，原 explorer）、`librarian`（查证外部库）、`task`（执行/worker，原 executor + debugger 并入）、`reviewer`（审查：质量 + 安全，security 并入其口径）、`advisor`（伴随审核，peer-shadow）。每个 agent 定义 = 中文精简提示词 + 工具白名单 + 模型建议。
 - **提示词审查**：见第 6 节，这是 v2 的重头；角色稿见 prompts-review（scout/task/librarian 已按 roles.md 落地）。
@@ -342,13 +309,13 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 
 | 模式 | 预设 | 编排风格 | 一句话 |
 |---|---|---|---|
-| **A dsh-enhance 万能**（默认） | `presets/dsh-enhance/` | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer |
-| **B Planner 计划实施** | `presets/planner/` | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
-| **C Advisor 目标回归** | `presets/advisor/` | goal 驱动的回归环 | 设 goal；advisor 持续纠偏；结束前回归审查，不过则压缩上下文继续直到达标 |
+| **A dsh-enhance 万能**（默认） | `preset-enhance`（`cordis.patch.yml`） | 意图驱动按需委派 | 主 persona 直接实施，按意图调 scout/librarian/reviewer；并常驻 enhance-mode 段 |
+| **B Planner 计划实施** | `preset-planner`（`presets/roles.patch.yml`） | 固定骨架工作流 | planner 按 S1 侦察→S2 澄清→S3 计划→S4 计划审查→S5 用户确认→S6 执行→S7 执行审查的顺序推进，确认闸后才落地 |
+| **C Advisor 目标回归** | `preset-advisor`（计划中） | goal 驱动的回归环 | 设 goal；advisor 持续纠偏；结束前回归审查，不过则压缩上下文继续直到达标 |
 
-**落地挂载点**：三种模式复用同一份 `agent.cordis.yml` 工具平面（sync-dsh-enhance-preset 产出的 5.4 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "Enabling as a web-visible persona"。
+**落地挂载点**：三种模式复用同一份工具平面（generators 里的 `toolPlane` 骨架），仅替换 orchestrator persona 与（可选）subagent 装配偏置。模式 C 直接复用已有 advisor 运行时与 delivery-gate 状态机，不新增代码路径（modes.md 5.2 给出逐环节映射）。预设投递见 `README.md` "预设（无需安装动作）"。
 
-> **当前落地状态（2026-09-30）**：只有**模式 A** 已实现并实驱。模式 B 的固定骨架 persona（`prompts/agents/planner.persona.md` 目前仍是单句）与模式 C 的 `prompts/agents/advisor.persona.md` + `presets/advisor/` **均未实现**，是 [modes.md](modes.md) §7 的后续实现项。文档中 `presets/advisor/` 一律按"计划中"理解。
+> **当前落地状态（2026-10-09）**：模式 A 已实现并实驱（`preset-enhance`）；模式 B 的固定骨架 persona（`prompts/agents/planner.persona.md` 目前仍是单句）与模式 C 的 `prompts/agents/advisor.persona.md` + `preset-advisor` **均未实现**，是 [modes.md](modes.md) §7 的后续实现项。文档中模式 C 的预设一律按"计划中"理解。
 
 **统一纪律**：无论哪种模式，完成声明都过 delivery-gate；只读角色可并行、写角色受令牌/worktree 约束（5.5.1）；委派用六要素模板；persona 单源 + presets-pin 锁定（modes.md 第 6 节）。
 
@@ -358,10 +325,10 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 
 | 提示词 | 现状 | 审查动作 |
 |---|---|---|
-| ultrawork 模式 | 已拆工作前篇 + 交付前回归审查（见 prompts-review/ultrawork.md、ultrawork-review.md；交付门卫见 5.2.1） | 工作前入口契约 ≤ 100 行；交付前为回归核对清单 |
+| enhance-mode 协议 | 已拆工作前篇 + 交付前回归审查（见 prompts-review/enhance-mode.md、enhance-mode-review.md；交付门卫见 5.2.1） | 工作前入口契约 ≤ 100 行；交付前为回归核对清单 |
 | agents（planner/scout/librarian/task/reviewer/advisor） | 角色体系见 [roles.md](roles.md)，中文稿见 prompts-review/*.md | 按 roles.md 的合并/重命名/新增逐个重写 |
 | work-rules | v1 英文默认文案 | 中文重写 |
-| orient 会话消息 | v1 英文 | 中文重写 |
+| ~~orient 会话消息~~ | **已退役**（绑定事件不存在；改由预设菜单承担入口发现） | — |
 | mode 提示（search/analyze） | 桌面工作流文件 | 中文重写 |
 
 ### 6.2 审查流程（每个提示词走同一套）
@@ -386,7 +353,7 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 | **M3 守卫 hooks** | write-existing-file-guard / path-traversal / output-truncator / rules-injector + **delivery-gate**（交付门卫：完成声明拦截 → 双层回归审查 → 未过压缩上下文重注入入口契约；含 verify 脚本绑定 / 反攻击 / 反锚定 / 轨迹审计，见 5.2.1-5.2.2） | 单测 + dsh 实驱（写未读文件被拒；假完成声明被拦并回灌契约通过；改受保护文件伪造通过被 verify 揭穿）。反向契约见 `tests/delivery-gate.test.mjs`，实驱占位见 `qa/delivery-gate-drive.mjs` |
 | **M4 工作追踪** | boulder（防冲突协议）+ 写令牌 + start-work 续作 + delivery-gate（goal 是原生服务，不再自建） | 并发写冲突单测 + 写令牌抢占/释放单测 + 跨会话续作实驱 + 双 execute 会话串行实驱 |
 | **M5 worktree** | WorktreeManager + 工具 + boulder 联动 | 单测 + 实驱（worktree 内会话续作） |
-| **M6 技能与触发** | 新增 skills + skill-trigger 声明式路由（意图分类 + 规则表 + 仲裁 + 误触回退，见 5.4.1） | 意图分类单测 + 优先级仲裁单测 + 注入实驱（多模式命中/误触回退） |
+| **M6 模式段** | 深度工作协议改为 **Enhance 预设作用域内的常驻系统提示词段**（`src/enhance-mode.ts` + `preset-enhance` 行）；关键词触发（skill-trigger）与 orient 钩子退役（见 5.4/5.4.1） | 单源逐字 pin（`tests/enhance-mode.test.mjs`）+ 生成物字节 pin（`tests/presets-pin.test.mjs`）+ 真机：Enhance 预设会话的 system prompt 含 `<enhance-mode>` |
 | **M7 comment-check** | ~~最小 LSP 集~~（dsh 原生 `ctx.lsp` 已覆盖）+ 写后注释校验 | 实驱 |
 | **M8 Team mode（roadmap）** | 多智能体并行协调：team_* 工具 + 事件处理器，存储布局与成员 eligibility 自建 | 单测 + 多 agent 并行实驱 |
 

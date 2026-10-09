@@ -2,7 +2,7 @@
  * dsh-enhance 的浏览器半侧：内置「插件」面板上本插件那一行的配置页。
  *
  * 契约（全部在本机 desktop 0.2.0-rc.2 上考证，见 docs/design-web-settings-card.md）：
- * - 宿主半侧把 8 个开关标成 `volatile()`，于是 `settings.describe()` 以
+ * - 宿主半侧把 7 个开关标成 `volatile()`，于是 `settings.describe()` 以
  *   `ns: 'dsh-enhance'` 服务这个条目；客户端用 `ctx.configForms.get('dsh-enhance')`
  *   拿到的就是**同一个**共享表单（同一条命名空间只有一个控制器，不存在双写者）。
  * - 页面注册进 `plugins.row.config`（keyed 槽，由 `@deepseek-ai/dsh-client-ui-plugin-manager`
@@ -39,26 +39,22 @@ window.__ModuleLoader__.load({
     /** 本页拥有的字典命名空间。 */
     const LOCALE_NS = 'dsh-enhance.settings'
 
-    /** 8 个开关：字段名 + 字典键。顺序即页面顺序。 */
+    /** 7 个开关：字段名 + 字典键。顺序即页面顺序。 */
     const SWITCHES = [
-      { field: 'orientOnSessionStart', label: 'orientOnSessionStart', hint: 'orientOnSessionStartHint' },
       { field: 'doctorTool', label: 'doctorTool', hint: 'doctorToolHint' },
       { field: 'commands', label: 'commands', hint: 'commandsHint' },
       { field: 'guards', label: 'guards', hint: 'guardsHint' },
       { field: 'workTracking', label: 'workTracking', hint: 'workTrackingHint' },
       { field: 'worktree', label: 'worktree', hint: 'worktreeHint' },
       { field: 'advisor', label: 'advisor', hint: 'advisorHint' },
-      { field: 'ulwTrigger', label: 'ulwTrigger', hint: 'ulwTriggerHint' },
     ]
 
     /** 英文文案。 */
     const en = {
       summary: 'Working discipline, packaged skills and the delivery gate — switch each part on or off here.',
-      orientOnSessionStart: 'Orientation message at session start',
-      orientOnSessionStartHint: 'Names the skills and commands this bundle brings, once per session.',
       doctorTool: 'Register the dsh_enhance_doctor tool',
       doctorToolHint: 'When off, the model cannot see the diagnostic tool.',
-      commands: 'Human commands (/doctor, /boulder, /presets)',
+      commands: 'Human commands (/doctor, /boulder)',
       commandsHint: 'Command output stays in the UI — it spends no model tokens.',
       guards: 'Tool guards and the delivery gate',
       guardsHint: 'Read-before-write, path traversal, bash file reads, and the completion gate.',
@@ -68,8 +64,6 @@ window.__ModuleLoader__.load({
       worktreeHint: 'Requires work tracking.',
       advisor: 'Advisor companion review',
       advisorHint: 'Spawns one shadow sub-agent per session to review increments and steer back.',
-      ulwTrigger: 'Deep-work trigger (ulw / ultrawork)',
-      ulwTriggerHint: 'Typing the word yourself injects the deep-work contract for that session; once injected it stays. Off leaves it ordinary text.',
       advisorModel: 'Advisor model',
       advisorModelHint: 'Leave empty to inherit the main session route.',
       advisorModelPlaceholder: 'e.g. deepseek-flash',
@@ -85,11 +79,9 @@ window.__ModuleLoader__.load({
     /** 简体中文文案。 */
     const zh = {
       summary: '工作纪律、打包技能与交付门卫 —— 在这里逐项开关。',
-      orientOnSessionStart: '会话开始时注入导向消息',
-      orientOnSessionStartHint: '每个会话开头点出本插件带来的技能与命令。',
       doctorTool: '注册 dsh_enhance_doctor 诊断工具',
       doctorToolHint: '关闭后模型看不到这个工具。',
-      commands: '人类命令（/doctor、/boulder、/presets）',
+      commands: '人类命令（/doctor、/boulder）',
       commandsHint: '命令只在界面里回显，不占模型 token。',
       guards: '工具守卫与交付门卫',
       guardsHint: '写前必读、路径越界、bash 读文件，以及交付前的完成门禁。',
@@ -99,8 +91,6 @@ window.__ModuleLoader__.load({
       worktreeHint: '需要先打开工作追踪。',
       advisor: '顾问旁审（advisor）',
       advisorHint: '每个会话派一个影子子代理复核增量并回注建议。',
-      ulwTrigger: '深度工作触发词（ulw / ultrawork）',
-      ulwTriggerHint: '你自己打的字里出现该词时，为那个会话注入深度工作契约；注入后会常驻该会话。关闭后它只是普通词。',
       advisorModel: '顾问模型',
       advisorModelHint: '留空表示沿用主会话的路由。',
       advisorModelPlaceholder: '例如 deepseek-flash',

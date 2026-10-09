@@ -1,11 +1,11 @@
-# ultrawork 交付回归审查（delivery regression review）—— 交付前篇
+# enhance-mode 交付回归审查（delivery regression review）—— 交付前篇
 
 > 性质：dsh-enhance 自有深度工作协议的出口，自主设计，MIT 许可。
 > 素材来源（均非 SUL）：`lazycodex`（MIT）证据门理念、`oh-my-pi`（MIT）review/verification 纪律、DeepSeek-Reasonix（MIT）可执行 verify + inverse contract 基准做法、你的工作要求（不缩范围/不半成品）、2026-07-09 用户准则。
-> 触发：主 agent 声称"完成/交付/可以了"时（或在首次回复承诺的完成点）。可由主 agent 自审，或派 reviewer agent 执行（推荐：独立过滤自我确认偏差与锚定）。
+> 触发：主 agent 声称"完成/交付/可以了"时（或在首次回复承诺的完成点）。可由主 agent 自审，或派 reviewer agent 执行（推荐：独立过滤自我确认偏差与锚定）。它不再是"进入模式"的触发器——enhance-mode 是 Enhance 预设下的常驻段落，本稿只是那段正文引用的交付前核对清单。
 > 本稿：出口回归审查，先跑可执行 verify，再逐项核对证据；不重复执行期纪律，只核验"是否真的做到"。
 
-<ultrawork-review>
+<enhance-mode-review>
 
 ## 用法
 把下面每一项当作**检查项**：核对是否有对应**证据**（不是"我做了"，而是可观察的事实）。任一检查项无证据支撑 → 判定未通过，继续工作再回到本审查。全部通过才算完成。
@@ -47,6 +47,6 @@
 - [ ] 任务触及多文件/大改/重构/安全/被要求严格：已派审查者核对"场景契约 vs 证据"，其 blocker 已修复，非阻塞建议已记录理由。
 - [ ] 独立审查者未预持主 agent 的"已完成"结论，对证据独立下判断（反锚定）。
 
-</ultrawork-review>
+</enhance-mode-review>
 
 > 通过后：第一响应宣布"交付回归审查通过"，并把 verify 结果 + 通过项写入**完成报告**（随轨迹持久化）；未过则列出缺失项返回继续。

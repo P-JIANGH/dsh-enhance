@@ -45,7 +45,7 @@
 | D15 | 风险三维评估：可能性 × 影响面 × 修复难度，分级承接 | 仅"变更可能性" | 影响面与修复难度决定承接力度（见 §5） |
 | D16 | 安装脚本 = `scripts/install.mjs`（Node 零依赖） | shell 脚本 | 跨平台（Windows/macOS/Linux）；Node 已是 dsh 前置 |
 | D17 | 安装来源三选（`-s`）：`link:`（默认，本地目录链接）/ `github:owner/repo` / npm | 仅 link: | 发布前后一致；link: 开发态实时同步 |
-| D18 | 脚本配套：预设复制到 `~/.dsh/.agent-presets` + `--dump-config` 验证 + 重启提示 | 只包装 add | 对齐 README 现有手动步骤，一次到位 |
+| D18 | 脚本配套：预设复制到 `~/.dsh/.agent-presets` + `--dump-config` 验证 + 重启提示 | 只包装 add | 对齐 README 现有手动步骤，一次到位（**2026-10-09 更正**：预设已是补丁里的行，不再复制目录，脚本只需 `--dump-config` 验证 + 重启提示） |
 | D19 | **名字冲突处置**：npm `dsh-enhance` 已被占（0.1.7）；实现期默认 `github:` 直装，scoped npm 名（`@omd/dsh-enhance`）留待发布时定 | — | README/文档明确区分 GitHub 8+ 同名仓库（LaplaceYoung 55★ 等）；scoped 名决定会连带 `dsh plugin add` 命令与 README 示例变化 |
 | D20 | 脚本语言 Node（零依赖），禁 shell | bash/sh | Windows 开发环境 + 社区跨平台 |
 
@@ -109,7 +109,7 @@ export function apply(clientCtx: ClientContext): void {
 | 字段 | 控件 | 说明 |
 |---|---|---|
 | `workRules` | `<textarea>` | 多行文本 |
-| orient/doctor/guards/workTracking/worktree/advisor | `<input type=checkbox>` 样式化 | 布尔 |
+| doctor/commands/guards/workTracking/worktree/advisor | `<input type=checkbox>` 样式化 | 布尔 |
 | `advisorModel` | `<input>` | 单行文本 |
 
 - 读写走 `settingsScope.bind({ namespace: 'dsh-enhance' })`：`set` 存单字段、`unset` 清除回 base、user 层存在 = 被覆盖（提供 reset）。
@@ -129,7 +129,7 @@ export function apply(clientCtx: ClientContext): void {
 1. 检测 dsh CLI：`dsh` 或 `npx @deepseek-ai/dsh`
 2. 选择/创建 profile（`-p`，默认 `web`）
 3. 安装来源（`-s`）：`link`（默认，当前 checkout 目录链接）/ `github:owner/repo` / `npm:@omd/dsh-enhance`（发布后）
-4. 复制 `presets/` 到 `~/.dsh/.agent-presets/`（web persona 启用）
+4. 验证：`dsh --profile <name> --dump-config` 找到 `# == dsh-enhance` 层（预设现在是补丁里的行，**不再**复制 `presets/` 到 `~/.dsh/.agent-presets/`）
 5. 验证：`dsh --profile <name> --dump-config` 找到 `# == dsh-enhance` 层
 6. 提示重启 + 可选 `dsh web` 启动
 
@@ -161,8 +161,8 @@ export function apply(clientCtx: ClientContext): void {
 | 插件行 | `- id/name: oh-my-dsh` | `- id: dsh-enhance` |
 | 模型工具 | `oh_my_dsh_doctor` | `dsh_enhance_doctor`（保长度，用户定） |
 | 提示词段 | `oh-my-dsh/work-rules` | `dsh-enhance/work-rules` |
-| orient 点名 | 包名 | `dsh-enhance` |
-| 预设目录 | `presets/omd/` | `presets/dsh-enhance/` |
+| 开场点名（已退役 2026-10-09） | 包名 | `dsh-enhance` |
+| 预设行 | `presets/omd/` | `cordis.patch.yml` 的 `preset-enhance` + `presets/roles.patch.yml` |
 | 存储目录 | `~/.omd/**` | `~/.dsh-enhance/**`（品牌统一，用户定） |
 | QA/脚本 | `qa/omd-drive.mjs` 等 | `qa/dsh-enhance-drive.mjs` 等 |
 | 文档/测试 | 107 处 `oh-my-dsh`/`oh_my_dsh` | 全量替换 |
@@ -200,14 +200,14 @@ export function apply(clientCtx: ClientContext): void {
 | 2 | Client 半侧：`bridge.ts`、字段映射纯函数 + 卡片、package.json 接入声明 | 卡片渲染 |
 | 3 | 契约测试 + dsh web 实驱 QA（改配置 → settings.yaml → 重启生效） | 实驱证据（`.dsh-enhance/evidence/`） |
 | 4 | `docs/upstream-migration.md` + README 安装段更新 | 文档评审 |
-| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设装机**那一半已由 `scripts/install-presets.mjs` 落地，见 README） |
+| 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设投递**那一半已由 bundle 补丁行落地——`cordis.patch.yml` + `presets/roles.patch.yml`，见 README；目录装机脚本已于 2026-10-09 退役） |
 
 ## 7. 验证策略
 
 - **单测**：settings 三层解析（defaults+entry+user）、字段映射纯函数、桥接层回退逻辑。
 - **契约测试**：R2 断言清单（每个接触点运行时存在性）。
 - **实驱 QA**：隔离 `$DSH_HOME` 起 dsh web——卡片出现 → 编辑保存 → `settings.yaml` 落盘 → 重启 → `doctor` 报新值生效；模拟 loader 失败断言 host 照常。
-- **脚本**：临时 profile 全流程（link: 安装 → 预设装机 `scripts/install-presets.mjs` → dump-config 验证）。
+- **脚本**：临时 profile 全流程（link: 安装 → `--dump-config` 验证插件行与 `preset-enhance` 行；目录装机脚本已于 2026-10-09 退役）。
 
 
 ## 8. 机制实证（2026-10-08）：设置面到底怎么工作
@@ -311,15 +311,15 @@ read-only boot: nothing written
 
 ### 10.3 单一写者与字段范围
 
-- 7 个开关（`orientOnSessionStart` / `doctorTool` / `commands` / `guards` / `workTracking` / `worktree` / `advisor`）+ `advisorModel`；`workRules` **不可**在页面编辑（仍在 profile 补丁里改）。
+- 6 个开关（`doctorTool` / `commands` / `guards` / `workTracking` / `worktree` / `advisor`）+ `advisorModel`；`workRules` **不可**在页面编辑（仍在 profile 补丁里改）。`orientOnSessionStart`（2026-10-09 退役）与 `ulwTrigger`（2026-10-09 随触发机制退役）已从字段面删除。
 - 页面用 `ctx.configForms.get('dsh-enhance')`，与「插件」面板拿到的控制器是同一个 → 不存在两个写者。
 - 写入走 `mutate(ops, revision)`：`set` 单字段、`unset` 恢复组合默认；revision 来自上次 `describe`。
 
 ### 10.4 验收清单（本仓库可复跑）
 
 ```sh
-pnpm typecheck && pnpm build && node --test      # 188/188
-pnpm check:presets                              # 预设装机仍是最新
+pnpm typecheck && pnpm build && node --test      # 176/176（2026-10-09）
+pnpm sync:presets && pnpm sync:enhance-preset && git diff --exit-code -- cordis.patch.yml presets/roles.patch.yml  # 生成物与单源同步
 npm pack --dry-run                              # 含 client/client.js
 ```
 浏览器半侧的**真机验收**：重启桌面端 → 打开「插件」面板 → 本插件那一行应出现「配置」入口；随后可用客户端 Inspect 复核（不必靠肉眼）：
