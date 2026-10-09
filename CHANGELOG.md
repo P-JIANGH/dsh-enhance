@@ -100,4 +100,4 @@ capabilities below are simply there.
   (`preset-enhance … pending (waiting for service: agentPresets)`); the plugin
   itself works there.
 
-[0.1.0]: https://github.com/<owner>/dsh-enhance/releases/tag/v0.1.0
+[0.1.0]: https://github.com/P-JIANGH/dsh-enhance/releases/tag/v0.1.0

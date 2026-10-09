@@ -114,10 +114,22 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 ### 3.4 安装来源三：Git 托管（包通过 `prepare` 自构建）
 
 ```sh
+# 主仓（GitHub）
+dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
+# 等价写法（SSH / HTTPS 显式 URL）
+dsh plugin --profile dsh-enhance add git@github.com:P-JIANGH/dsh-enhance.git
+dsh plugin --profile dsh-enhance add https://github.com/P-JIANGH/dsh-enhance.git
+
+# 镜像（GitCode，内容同步）
 dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ```
 
 > 注意：pnpm ≥10 默认会拦截 git 依赖的 `prepare`（构建）脚本，直到你在 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds` 里放行它。失败时 `dsh plugin` 会在 stderr 打印 pnpm 报出的确切 key，按其提示加白后重跑即可。
+>
+> 网络：在部分网络环境下 `github.com` 需要走代理才可达。git 可以按 URL 定向设代理（只影响 GitHub，不影响其它远端）：
+> ```sh
+> git config --global http.https://github.com.proxy http://127.0.0.1:10809
+> ```
 
 ### 3.5 安装第三方插件为普通依赖（非 bundle）
 

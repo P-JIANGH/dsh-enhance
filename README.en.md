@@ -1,5 +1,7 @@
 # dsh-enhance
 
+[![CI](https://github.com/P-JIANGH/dsh-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/P-JIANGH/dsh-enhance/actions/workflows/ci.yml)
+
 An oh-my-zsh-style enhancement bundle for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 (`dsh`). One install gives you packaged skills, a persistent working-rules prompt
 section, a diagnostic doctor tool, and a growing v2 surface: work tracking
@@ -58,7 +60,7 @@ You need the `dsh` CLI (npm: `@deepseek-ai/dsh`). The examples use a profile nam
 
 ```sh
 # from the GitHub source (the package builds itself through `prepare`)
-dsh plugin --profile dsh-enhance add github:<owner>/dsh-enhance
+dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
 
 # or from a local checkout
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance

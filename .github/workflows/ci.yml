@@ -38,3 +38,15 @@ jobs:
 
       - name: Packed payload shape
         run: node scripts/check-pack-payload.mjs
+
+      # 构建与测试不得在工作树里留下未入库的文件。这条专抓一类陷阱：测试引用了
+      # 一个未被 git 跟踪的模块（例如被过宽的 .gitignore 规则忽略掉的 scripts/lib/），
+      # 本地因为文件就在那儿而全绿，新 clone 上必红。只看未跟踪项，避免换行符差异噪声。
+      - name: No untracked leftovers
+        shell: pwsh
+        run: |
+          $untracked = git status --porcelain | Where-Object { $_ -match '^\?\?' }
+          if ($untracked) {
+            Write-Host $untracked
+            throw "build/test left untracked files in the working tree"
+          }

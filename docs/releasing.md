@@ -7,7 +7,7 @@
 
 - 版本号只在 `package.json` 里改（`version`），并同步 `CHANGELOG.md` 的新小节。
 - `CHANGELOG.md` 遵循 Keep a Changelog；每一条都写"为什么"，不写"改了什么文件"。
-- 仓库的 README/CHANGELOG 里的 `<owner>` 占位必须替换成真实 GitHub 账号/组织后才能发布。
+- **主仓是 GitHub**：`https://github.com/P-JIANGH/dsh-enhance`（2026-10-09 创建，public；同日 `gitcode` 降为镜像）。账号/组织若变更，这四处必须一起改：`package.json` 的 `repository`/`homepage`/`bugs`、`README.md` 与 `README.en.md` 的安装命令与 CI 徽章、`CHANGELOG.md` 底部的版本链接。
 
 ## 1. 发布前必须全绿的门（缺一不可）
 
@@ -62,12 +62,38 @@ GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应�
 - **兼容性一句话**：预设行需要 dsh ≥ 0.2.0；纯 headless profile 会打印一行
   `preset-enhance … pending (waiting for service: agentPresets)`，属预期。
 
-## 3. 发布后
+## 3. 远端布局与本机网络
 
-- 确认 GitHub 上 `master` 与 `v0.1.0` 指向同一提交。
-- 把 GitHub 设为主仓（`gitcode` 保留为镜像）：`git remote rename origin upstream` +
-  `git remote add origin git@github.com:<owner>/dsh-enhance.git`，并把 `package.json` 的
-  `repository` / `homepage` / `bugs` 指到 GitHub。
+主仓 = GitHub（`origin`），镜像 = GitCode（`upstream`）：
+
+```sh
+git remote rename origin upstream                                   # 现在叫 upstream 的是 GitCode
+git remote add origin https://github.com/P-JIANGH/dsh-enhance.git   # GitHub 成为 origin
+git push -u origin master && git push origin v0.1.0
+git push upstream master                                            # 镜像同步
+```
+
+**本机网络事实（2026-10-09 实测）**：直连 `github.com` / `api.github.com` / `ssh git@github.com:22`
+**三条通道全部超时**（无代理环境变量）；本机有一个在听的本地代理 `127.0.0.1:10809`，经它
+`api.github.com` 返回 200、`git ls-remote` 正常。因此 GitHub 相关的操作都要走代理，建议按 URL
+定向设置（只影响 GitHub，不影响 GitCode）：
+
+```sh
+git config --local http.https://github.com.proxy http://127.0.0.1:10809
+```
+
+撤销：`git config --local --unset http.https://github.com.proxy`。
+
+## 4. 发布后
+
+- 确认 GitHub 上 `master` 与 `v0.1.0` 指向同一提交（`git ls-remote origin`），并看一次 CI
+  run 是否通过（`.github/workflows/ci.yml`；推送 `.github/workflows/**` 需要 token 带
+  `workflow` scope）。
+- 用 **GitHub 源码安装**做一次真机闭环（这是分发的真正验收，比 `git ls-remote` 强）：
+  ```sh
+  dsh plugin --profile qa-gh add github:P-JIANGH/dsh-enhance
+  dsh --profile qa-gh --dump-config | Select-String "dsh-enhance|preset-enhance"
+  ```
 - 若要提交到社区插件目录（dshbase / deepseekplugin.org）：它们按 **GitHub 仓库**收录，
   因此这一步必须在主仓推送之后。注意 GitHub 上已有一个同名的
   `vcxmug/dsh-enhance`（另一套 vision / native-web 插件），提交时说明区隔。

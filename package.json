@@ -78,8 +78,12 @@
     "typescript": "^5.9.0"
   },
   "license": "MIT",
+  "homepage": "https://github.com/P-JIANGH/dsh-enhance#readme",
+  "bugs": {
+    "url": "https://github.com/P-JIANGH/dsh-enhance/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@gitcode.com/jiangh_hnr/dsh-enhance.git"
+    "url": "git+https://github.com/P-JIANGH/dsh-enhance.git"
   }
 }

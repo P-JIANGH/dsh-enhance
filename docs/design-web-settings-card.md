@@ -151,7 +151,7 @@ export function apply(clientCtx: ClientContext): void {
 
 **命名碰撞事实**：GitHub 上含 `oh-my-dsh` 的名字仓库共 **35 个**（`like-study1/Oh-My-DSH` 73★、`LaplaceYoung/oh-my-dsh` 55★"700+ 插件生态"等）；npm `oh-my-dsh`（0.1.7）/`omd`/`oh-my-harness` 均被占。品牌区隔为刚需。
 
-**发布路径**：仓库 `git@gitcode.com:jiangh_hnr/dsh-enhance.git`（GitCode）；npm `@dsh-enhance/dsh-enhance`。
+**发布路径**：主仓 `https://github.com/P-JIANGH/dsh-enhance`（GitHub，2026-10-09 起）；镜像 `git@gitcode.com:jiangh_hnr/dsh-enhance.git`（GitCode）；npm 未发布（v1 只走 GitHub 源码安装，见 [releasing.md](releasing.md)）。
 
 **全套标识映射**：
 

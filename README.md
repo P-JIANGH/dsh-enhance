@@ -1,5 +1,7 @@
 # dsh-enhance
 
+[![CI](https://github.com/P-JIANGH/dsh-enhance/actions/workflows/ci.yml/badge.svg)](https://github.com/P-JIANGH/dsh-enhance/actions/workflows/ci.yml)
+
 面向 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）的 oh-my-zsh 风格增强插件。一次安装即可获得：打包的技能、持久的 work-rules 提示词段、doctor 工具，以及不断增长的 v2 能力面：工作追踪（boulder + 写令牌；goal 用**原生**服务）、守卫 + delivery-gate 纪律、worktree、advisor 伴随审核运行时，以及一个把 scout / librarian / reviewer / task 作为子代理派发的编排预设 **Enhance**（id `enhance`）——它还常驻一段深度工作协议（enhance-mode）作为预设作用域内的系统提示词段。
 
 本项目仅称为 **dsh-enhance**。
@@ -46,7 +48,7 @@
 
 ```sh
 # 从 GitHub 源码装（推荐；包通过 `prepare` 自构建）
-dsh plugin --profile dsh-enhance add github:<owner>/dsh-enhance
+dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
 
 # 或直接从本地 checkout 装
 dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
