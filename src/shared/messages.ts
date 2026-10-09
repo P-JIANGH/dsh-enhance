@@ -7,10 +7,14 @@
  * message" would drift, and the claim detector's sensitivity depends on exactly
  * which bytes it sees.
  *
+ * It also answers the inverse question the session-seeding hooks ask: is this
+ * exact injection already in the session surface?
+ *
  * @module dsh-enhance/shared/messages
  */
 
 import type { Message } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_SOURCE_KIND } from './provenance.js'
 
 /** LLM message content block carrying a `text` field (best-effort extraction). */
 interface TextBlock { type?: string; text?: string }
@@ -46,4 +50,22 @@ export function lastAssistantText(msgs: readonly Message[]): string {
     }
   }
   return ''
+}
+
+/**
+ * Whether this bundle has already injected exactly this text into the session.
+ *
+ * Resume replays persisted history and compact rewrites the surface, so a
+ * session-seeding listener runs again over a session that may already carry its
+ * own earlier injection; seeding it a second time buys nothing and burns context.
+ * Comparing the *whole* text (not a marker) is deliberate: a block that reports
+ * live state — the boulder continuation context reports the current write-token
+ * holder — differs when the state changed, and then it must be injected again.
+ *
+ * @param msgs - derived session messages, oldest first.
+ * @param text - the injection body, exactly as it would be written.
+ * @returns true when one message carries this bundle's kind and this exact text.
+ */
+export function hasInjectedText(msgs: readonly Message[], text: string): boolean {
+  return msgs.some(m => m?.source?.kind === CONTEXT_SOURCE_KIND && messageText(m) === text)
 }

@@ -35,6 +35,7 @@ import type {} from '@deepseek-ai/dsh-goal'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mutateBoulderState, readBoulder, type BoulderWork } from '../features/boulder/store.js'
 import { releaseWriteToken } from '../features/boulder/write-token.js'
+import { CONTEXT_SOURCE_KIND } from '../shared/provenance.js'
 import {
   buildReport,
   detectCompletionClaim,
@@ -224,6 +225,6 @@ function steerRegression(
     : `work「${work.id}」声明的完成未通过绑定的 verify（${work.verify}）。请修正后重跑 verify；未通过前不要宣称交付完成。`
   agent.steer(createUserMessage({
     content: [{ type: 'text', text: `交付门卫未放行：${reason}` }],
-    source: { kind: 'user' },
+    source: { kind: CONTEXT_SOURCE_KIND },
   }))
 }

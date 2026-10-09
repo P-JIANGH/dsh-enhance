@@ -26,6 +26,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GenerateOptions, Message, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { messageText as bodyText } from '../../shared/messages.js'
+import { CONTEXT_SOURCE_KIND } from '../../shared/provenance.js'
 import { ADVISOR_SYSTEM_PROMPT } from './prompt.js'
 import { createEmissionGuard } from './emission-guard.js'
 import { parseAdvisorEmission, type AdvisorEmission } from './severity.js'
@@ -174,7 +175,7 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   function deliver(main: Agent, emission: AdvisorEmission): boolean {
     const payload = createUserMessage({
       content: [{ type: 'text', text: `[advisor·${emission.severity}] ${emission.body}` }],
-      source: { kind: 'user' },
+      source: { kind: CONTEXT_SOURCE_KIND },
     })
     try {
       if (emission.severity === 'nit') main.inject(payload)
@@ -238,7 +239,9 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
         model,
         messages: [createUserMessage({
           content: [{ type: 'text', text: reviewPrompt(id, increment) }],
-          source: { kind: 'user' },
+          // One rule for everything this bundle produces: the review prompt is our
+          // text, not the human's, even though it is only ever a request payload.
+          source: { kind: CONTEXT_SOURCE_KIND },
         })],
         system: prompt,
       }
