@@ -36,6 +36,19 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # 换行符回归：把打包技能改写为 CRLF 再跑一次单测。CI 自身可能检出 LF（我们给了
+      # `skills/** text eol=lf`），那样就再也压不到这条路径；而用户在 Windows 上以
+      # core.autocrlf=true 检出（`github:` 安装就是这条路）拿到的正是 CRLF——曾导致
+      # list() 静默返回空、插件一条技能都不贡献。
+      - name: CRLF skill tree regression
+        shell: pwsh
+        run: |
+          Get-ChildItem skills -Recurse -Filter SKILL.md | ForEach-Object {
+            $t = [System.IO.File]::ReadAllText($_.FullName)
+            [System.IO.File]::WriteAllText($_.FullName, $t.Replace("`r`n", "`n").Replace("`n", "`r`n"))
+          }
+          node --test tests/unit.test.mjs
+
       - name: Packed payload shape
         run: node scripts/check-pack-payload.mjs
 

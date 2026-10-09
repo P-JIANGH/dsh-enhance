@@ -62,6 +62,15 @@ capabilities below are simply there.
 
 ### Fixed
 
+- **A CRLF checkout made every packaged skill disappear.** `parseSkillBody` anchored
+  its frontmatter fence with `\n`, so a checkout with `core.autocrlf=true` — git's
+  Windows default, and therefore the `github:` install path on Windows — produced a
+  tree where `list()` returned nothing: the directory existed, the plugin loaded, the
+  doctor said it was fine, and not one skill was contributed. On a fresh repository
+  this was caught by CI's first run, not by the local suite, because the local
+  checkout happened to be LF. The parser now normalises line endings, `skills/**` is
+  pinned to `eol=lf`, and CI rewrites the skills to CRLF and re-runs the tests so the
+  guard no longer depends on how anything is checked out.
 - **Two default-on hooks never fired.** `start-work` (`workTracking`) and the
   rules injector (`guards`) were bound to `agent/session-start`, an event that
   does not exist in the 0.2.0 catalogue — a listener on a name nobody emits fails

@@ -93,6 +93,12 @@
 ### ✅ P0-13 QA 启动器在真机上一直退回 nvm 的旧 CLI（0.1.0-rc.6）
 - 证据：`resolveDsh()` 的 PATH 扫描认不出桌面 shim（`<root>/resources/runtime/cli/bin/dsh.cmd` 边上没有 `lib/bin.js`），于是 `where.exe dsh` 命中的桌面 shim 被跳过，一路退到 nvm 的 `0.1.0-rc.6`；而后者连行式预设注册表都没有——**实驱一直在和与文档不符的运行时说话**。第二个原因更隐蔽：`desktopLaunchFrom` 要求 `<root>/resources/app.asar/…/dsh-desktop-host/lib/cli.js` **作为文件可见**，但真实安装里 `app.asar` 是 **121MB 的文件**，Node 的 `existsSync` 永远看不见里面（ENOTDIR），而 Electron 自己能读。
 - 修复：新增纯函数 `desktopRootFromShims()`（从 PATH 命中里认出桌面布局）并在 `resolveDsh` 的两处 shim 扫描前先试桌面路径；`desktopLaunchFrom` 接受"打包形态"（`app.asar` 是文件即布局成立，与官方 shim 原文调用一致）。`resolveDsh()` 现在返回 `kind: 'desktop'`（`DeepSeek Harness.exe --expose-internals <asar>/…/cli.js`），所有实驱默认跑 0.2.0-rc.2。`tests/qa-launch.test.mjs` +3 例（含打包布局用例）。
+### ✅ P0-14 CRLF 检出让**全部**打包技能消失（CI 第一次跑抓到的真 bug）
+- 证据（GitHub Actions run #1，Windows runner）：`provider lists the three packaged skills` 得到 `[]`（期望 `['code-review','git-workflow','tdd']`），相邻的"skills 目录存在"却通过；本机同一提交全绿。
+- 根因：`parseSkillBody` 的 frontmatter 围栏正则按 `\n` 锚定（`/^---\n([\s\S]*?)\n---\n?/`），而 `core.autocrlf=true`（git-for-Windows 默认，CI 的 Windows runner 亦然）会把 `SKILL.md` 取成 CRLF → 匹配失败 → `name`/`description` 为空 → `list()` 的 `if (!parsed.name || !parsed.description) continue` 把**每一个**技能都跳过。表现极具欺骗性：目录在、插件行激活、doctor 报"插件已加载"，而实贡献为零。
+- 为什么本机看不见：本机工作树恰好是 LF（文件是我们自己写的，属性也没把 skills 钉住）；`npm pack` 出的 tarball 因此也是 LF，**只有 `github:` 源码装在 Windows 上会撞上**——而它正是 v1 的第二条分发路径。
+- 修复：① `parseSkillBody` 先 `raw.replace(/\r\n?/g, '\n')` 再解析（缺陷在解析器，任何给它 CRLF 的来源都该能工作）；② `.gitattributes` 加 `skills/** text eol=lf` 让检出确定化；③ `createSkillsProvider(control, root = SKILLS_ROOT)` 增加可注入 root（只为测试能在**不写工作树**的前提下端到端跑 CRLF 树——项目纪律：测试不得改工作树）；④ CI 增加"把 skills 改写成 CRLF 再跑单测"的步骤，使这条守门不依赖任何人怎么检出。
+- 本机复现：把三个 `SKILL.md` 就地改成 CRLF（blob 与工作树 CR 计数均核对为 0→CRLF），修复后单测 8/8、全套 192/192 通过；修复前同样的字节就是 CI 上的 `[]`。
 
 ---
 
@@ -275,6 +281,10 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-09 | 按用户要求只保留 Enhance 一个预设（删除 5 个角色预设行 + `presets/roles.patch.yml` + `scripts/sync-presets.mjs` + `sync:presets`） | `ecf5587` | `node --test` 176/176；`tests/presets-pin.test.mjs` 新增'只准一条 preset 行 / 不得再有 roles.patch.yml'负向钉 |
 | 2026-10-09 | **devDeps 对齐 `@deepseek-ai/*@0.2.0-rc.2` + `cordis@4.0.4`**（此前一直跑在 `0.1.2-alpha.4` 的另一条大版本上）→ 当场暴露并修掉 P0-10（两个默认开启的钩子绑在不存在的事件上，从未触发）+ P0-11（5 处注入冒名 `user`） | `e6da06c` | `tsc --noEmit` 0（对齐前 2 个错）· `node --test` 183/183（+7 例 `tests/host-contract.test.mjs`，含负控制：探针文件绑 `agent/session-start` 会变红并点名） |
 | 2026-10-09 | P0-12 打包边界（宿主供给的包改成 optional peer）+ P0-13 QA 启动器认出桌面宿主/接受 asar 打包布局 + 新增 `pnpm qa:pack` 零 token 打包安装验收 + `pnpm check:pack` 载荷形状 | `8261683` | `qa:pack` 21/21：真 tarball 装进一次性 profile（`Packages: +1`，profile 里只有 `schemastery`+`cosmokit`，无任何服务类宿主包副本）· 安装无 peer 告警 · `--dump-config` 行齐备 · 真启动解析全部静态 import 且本插件行激活 · 未激活名单只有 `preset-enhance`/`agentPresets`。`node --test` 185/185 |
+| 2026-10-09 | v1 发布收尾：README 三处修正 + 双语 README + CHANGELOG + GitHub Actions CI + 载荷形状脚本 + 文档链接钉（修掉 16 个坏链接）+ releasing runbook + 全历史密钥扫描（54 提交 0 命中） | `c1fc3a6`…`de2cbd3` | `node --test` 187→190/190 · `check:pack` PASS · 链接扫描 44 条 0 坏 |
+| 2026-10-09 | **建 GitHub 主仓**（`P-JIANGH/dsh-enhance`，public；gitcode 降为 `upstream` 镜像）+ 元数据指向 GitHub + tag `v0.1.0` + Release（附 tarball）+ 两条分发路径真机验收 | `7b4a492` 起 | Release 复核：1 个 asset（101,370B，state=uploaded）· `github:` 装 1m20s（须放行 allowBuilds）· tarball URL 装 9.2s（免构建）· 两者真启动后插件行均激活、未激活名单只有预期的 `preset-enhance`/`agentPresets` |
+| 2026-10-09 | P0-14 CI 首跑抓到 CRLF 让**全部**打包技能消失 → 解析器容忍换行符 + `skills/** eol=lf` + 可注入 skills root + CI 强制 CRLF 回归步骤 | `d77ad77` | 本机把三个 `SKILL.md` 就地改成 CRLF 复现：修复前 `[]`、修复后单测 8/8、全套 192/192 |
+
 
 
 
