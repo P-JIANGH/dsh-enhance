@@ -195,6 +195,7 @@ test enforces this).
 
 - `AGENTS.md` — how to work in this repository.
 - `docs/architecture.md` — architecture and the M1–M8 plan.
+- `docs/releasing.md` — the **release runbook** (the gates that must be green, tagging, Release notes, what v1 deliberately does not do).
 - `docs/value-assessment.md` — **why this project exists**: each surface compared
   with the upstream native capability; the conclusion is to position it as a
   "policy package + acceptance scaffolding" and subtract rather than expand.

@@ -21,8 +21,8 @@
 - **旧名清零（2026-09-30，P1-12）**：仓库内 `oh-my-dsh` 只剩历史记录；环境侧 `~/.dsh/profiles/web` 已改 scoped 名，旧 profile `omd` 已迁移为 `dsh-enhance` 后删除（配置备份 `~/.dsh/profile-backups/`）。
 - **按评估做减法（2026-09-30，P1-13）**：goal 存储/工具与 todo-continuation 已退役，`rules-injector` 不再读 `AGENTS.md`；`AGENTS.md` 新增「Non-goals（刻意不做）」一节。
 - **预设可感知（2026-10-08，2026-10-09 重新落地）**：主预设对外命名 **Enhance**（id `enhance`，保留编排）并常驻 enhance-mode 段；投递方式改为 bundle 补丁里的 `preset-enhance` 行（原先的 `/presets install`、`postinstall`、`src/features/presets/install.ts` 均已退役）。
-- **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：7 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
-- **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §10.5。
+- **设置面可管理（2026-10-08，原 P3「Web 设置卡片」）**：7 个用户可见字段标 `volatile()` → 宿主 `SettingsForms` 以 `ns: dsh-enhance` 服务该条目；浏览器半侧 `client/client.js` 注册到内置「插件」面板的 `plugins.row.config`（key `@dsh-enhance/dsh-enhance#dsh-enhance`）。**写→读往返已在真机（桌面宿主 CLI + 隔离 home）四条全过**：describe ✓ / update ✓ / user 层 + revision 前进 ✓ / 二次启动仍生效 ✓ / 过期 revision 被拒 ✓。因 volatile 改动不重挂，功能接线改为收到 `loader/volatile-update` 时先卸后挂。见 [docs/design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+- **设置面真机往返（2026-10-08，桌面端 GUI，双向）**：重启后端侧 occupant 确认（`plugins.row.config` key `@dsh-enhance/dsh-enhance#dsh-enhance`，active）；用户在「插件」面板对 worktree 开关做了一次往返，三条独立信号一致 —— ① 桌面 profile 的 `cordis.patch.yml` 新增/整行删除那行 id 定向覆盖；② `dsh_enhance_doctor` 回显 `worktree` 关→开（其余不变，`工作准则 286 字` 说明 `workRules` 默认未被最小增量清掉）；③ 工具注册表里 `worktree_*` 消失→回来。**全程不需重启**。记录见 [docs/design-web-settings-card.md](design-web-settings-card.md) §10.5。
 - **~~`ulw` 触发的读入面~~（2026-10-08，P1；2026-10-09 随机制退役关闭）**：`skill-trigger` 原先把 `agent/pre-step` 第一步的**全部** `messages` 当"用户提示词"扫 —— 真机会话日志显示这一步里除用户输入还有 `agent-instructions`（本仓库 AGENTS.md 里就写着 `ulw`）、`skill-catalog`、`runtime-context`、别的 agent 的消息，任何一个含触发词都会把会话静默推进深度工作模式。曾改为只读 `source.kind === 'user'` 并加回归钉；**现整套机制已删除**，读入面不复存在。
 - **~~注入消息的来源署名~~（2026-10-08；2026-10-09 随注入退役）**：v4 会话格式拒绝 `kind:'plugin'`，要求 producer-owned kind（`plugin:<名字>`）。该约束随 `src/shared/provenance.ts` 与两处注入一起退役——现在本插件不再向会话注入用户角色消息。**（2026-10-09 更正：后半句是错的。** 同一次退役只删了触发机制与那两处调用，start-work / rules-injector / delivery-gate / advisor 四处**仍在**向会话注入用户角色消息，且全部盖着 `kind: 'user'`。`src/shared/provenance.ts` 已因署名需要恢复，见 **P0-11**。**）**
 - **~~开场引导钩子在 0.2.0 上从未生效~~（2026-10-08，P1；2026-10-09 已按减法退役）**：`agent/session-start` 事件在桌面 0.2.0-rc.2 中不存在，桌面端从未注入过开场引导。**处置：退役该钩子**（而不是改绑 `agent/created`）：入口发现由预设菜单与 `/doctor` 承担，不需要再来一条开场消息。
@@ -41,7 +41,7 @@
 
 ### ✅ P0-3 隔离 QA profile 缺 headless app（"`--llm` 卡死"的真实原因）
 - 证据：`.dsh-enhance/test-home/profiles/dsh-enhance` 的 bundles 只有 `dsh-base` + 本插件；对照组 `~/.dsh/profiles/omd` 含 `@deepseek-ai/dsh-headless`。补上后三个实驱立刻全 PASS。
-- 修复：profile 补 `@deepseek-ai/dsh-headless`（隔离目录、已备份）；新增 `checkProfileApp()` 自检，缺 app 时直接报错而不是静默超时；[docs/testing-plan.md](../testing-plan.md) §6 的错误归因已更正。
+- 修复：profile 补 `@deepseek-ai/dsh-headless`（隔离目录、已备份）；新增 `checkProfileApp()` 自检，缺 app 时直接报错而不是静默超时；[docs/testing-plan.md](testing-plan.md) §6 的错误归因已更正。
 
 ### ✅ P0-4 presets-pin 自证式断言，字节锁定名不副实
 - 证据（实测）：篡改一个生成的预设文件后 `node --test tests/presets-pin.test.mjs` 仍 2/2 通过，标记被 `generate()` 静默覆写，工作树被写。
@@ -110,7 +110,7 @@
 - 复验：把隔离 profile 里的裸名别名依赖与 junction 都删掉、只留 scoped 名，`worktracking-drive` 与 `delivery-gate-drive` 实驱仍全 PASS。
 
 ### ✅ P1-10 boulder 状态落在仓库根，污染用户仓库且与文档不符
-- 证据：[docs/architecture.md](../architecture.md) §5.5 规定 `.dsh-enhance/boulder.json`，但 `readBoulder(storeDir)` 实际是 `join(storeDir,'boulder.json')`，所有调用方传的都是 `session.header.cwd`（仓库根）→ 落在 `<repo>/boulder.json`；而 `.gitignore` 只忽略 `.dsh-enhance/`（goal 走的是对的 `.dsh-enhance/goals/`）。任何用户用一次 boulder 工具，自己仓库根就多一个未跟踪文件。
+- 证据：[docs/architecture.md](architecture.md) §5.5 规定 `.dsh-enhance/boulder.json`，但 `readBoulder(storeDir)` 实际是 `join(storeDir,'boulder.json')`，所有调用方传的都是 `session.header.cwd`（仓库根）→ 落在 `<repo>/boulder.json`；而 `.gitignore` 只忽略 `.dsh-enhance/`（goal 走的是对的 `.dsh-enhance/goals/`）。任何用户用一次 boulder 工具，自己仓库根就多一个未跟踪文件。
 - 修复：store 新增 `STATE_DIR='.dsh-enhance'` 与 `boulderFileFor(repoRoot)`，`readBoulder` 走它（全部生产调用点一次覆盖）；测试与两个驱动改用同一导出而不是写死路径；worktracking 实驱新增断言"仓库根无 boulder.json"。
 - 影响：破坏性（旧位置的状态不会被读取）。v0.1 无外部用户，按 architecture 一次到位。
 
@@ -201,7 +201,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 ### ⛔ 不修（有意不接线，dsh 原生已覆盖）— 已在代码注释与本文件记录理由
 - **P2-1 output-truncator**：dsh 原生 `tool-result-pruner` / spill policy 已封顶工具输出，且预设已挂 `tool-result-pruner`（thresholdChars 8192）；再截断会重复扣预算。`truncateText` 保留为已测纯函数与可选项。
 - **P2-2 bash-file-read 判定 / write-existing 强制**：dsh 的 `fs-observation-policy` 已拥有"先读再写"，再叠一层策略会与之冲突。`guardWriteExisting` 保留为已测决策函数，运行时不强制。
-- 理由已写进 [src/tools/guards.ts](../../src/tools/guards.ts) 模块注释。
+- 理由已写进 [src/tools/guards.ts](../src/tools/guards.ts) 模块注释。
 
 ### ⛔ 不修（有意的 API 面 / 已接受）
 - **P2-3 未调用导出**（`stealWriteToken`、`hasWorktree`、`slugFrom`、`worktreeBranch`、`worktreePathFor`、`keyOf`、`acquireLock`/`forceReleaseLock`）：均为小而纯、有单测覆盖的工具函数，构成模块的显式 API 与扩展点（`acquireLock` 对应架构 §5.5.5 的进程锁路径）。删掉它们会连带删掉有效覆盖，收益为负。
@@ -211,10 +211,10 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 - **P2-7 `.dsh-enhance/test-home/.agent-presets/` 第二份预设副本**：位于 gitignore 的隔离 QA home，属运行痕迹，不入库、不被测试依赖。
 
 ### ✅ P1-15 README 与安装文档里三处会直接误导用户的内容（2026-10-09）
-- ① [README.md](../../README.md) 的安装命令写的是**裸名** `dsh plugin add dsh-enhance`，而包名是 `@dsh-enhance/dsh-enhance`——裸名在 npm 上是另一个、与本项目无关的名字（当日 registry 查询：`dsh-enhance` 未被注册），照抄会装不到任何东西。改为 GitHub 源码装（v1 的分发方式）+ 本地路径/链接两种，并明确说明包名与命令的关系。
+- ① [README.md](../README.md) 的安装命令写的是**裸名** `dsh plugin add dsh-enhance`，而包名是 `@dsh-enhance/dsh-enhance`——裸名在 npm 上是另一个、与本项目无关的名字（当日 registry 查询：`dsh-enhance` 未被注册），照抄会装不到任何东西。改为 GitHub 源码装（v1 的分发方式）+ 本地路径/链接两种，并明确说明包名与命令的关系。
 - ② 同一节给的是作者本机路径 `link:F:/dsh-enhance`（该路径在本机都不存在，checkout 是 `F:\oh-my-dsh`）。`docs/installing-plugins.md` 另有 7 处作者本机路径，全部改为 `<checkout>` 占位。
 - ③ README 写着"包是 ESM，**零运行时依赖**：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除）"——**错的**：`lib/features/advisor/runtime.js` 等 4 个文件在运行时 `import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'`。改写为一张"声明规则"表（见 P0-12），把依赖面的事实写成可核对的约定。
-- 顺带更正 [docs/design-web-settings-card.md](../design-web-settings-card.md) §D19 的"npm `dsh-enhance` 已被占（0.1.7）"：当日 registry 查询 `dsh-enhance` 与 `@dsh-enhance/dsh-enhance` **均为 404（未注册）**；当日真实的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定：沿用 `dsh-enhance` 名、只发 GitHub 源码安装，npm 留给 v2。历史条目按注记更正，不重写。
+- 顺带更正 [docs/design-web-settings-card.md](design-web-settings-card.md) §D19 的"npm `dsh-enhance` 已被占（0.1.7）"：当日 registry 查询 `dsh-enhance` 与 `@dsh-enhance/dsh-enhance` **均为 404（未注册）**；当日真实的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定：沿用 `dsh-enhance` 名、只发 GitHub 源码安装，npm 留给 v2。历史条目按注记更正，不重写。
 
 ### ✅ P1-16 预设行在无 Web 组合的 profile 上每次启动都报一行 pending（2026-10-09）
 - 证据：`dsh --profile qa3`（`dsh-base` + `dsh-headless` + 本插件）输出 `dsh: warning: 1 entry did not activate` / `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`。
@@ -227,21 +227,21 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 
 | 项 | 来源 |
 |---|---|
-| 模式 B（Planner S1–S7 骨架 persona + `preset-planner` 增强；原 `preset-planner` 行已随角色预设于 2026-10-09 退役，若重启需另定预设命名） | [docs/modes.md](../modes.md) §7 |
-| 模式 C（`prompts/agents/advisor.persona.md` + `preset-advisor`） | [docs/modes.md](../modes.md) §5 |
-| delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](../design-delivery-gate-hardening.md) §8 |
-| UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](../design-ui-flagship.md) §7 |
-| `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](../design-onboarding.md) §7 |
-| M7 comment-check 空位 / M8 team mode | [docs/architecture.md](../architecture.md) §7 |
-| 10 篇提示词的逐条实驱验证 | [docs/prompts-review/README.md](../prompts-review/README.md) |
-| skills 池扩充（浏览器 QA / 发布流水线等） | [docs/prompts-review/README.md](../prompts-review/README.md) |
+| 模式 B（Planner S1–S7 骨架 persona + `preset-planner` 增强；原 `preset-planner` 行已随角色预设于 2026-10-09 退役，若重启需另定预设命名） | [docs/modes.md](modes.md) §7 |
+| 模式 C（`prompts/agents/advisor.persona.md` + `preset-advisor`） | [docs/modes.md](modes.md) §5 |
+| delivery-gate 三支柱的剩余部分（verify **模板库**）| [docs/design-delivery-gate-hardening.md](design-delivery-gate-hardening.md) §8 |
+| UI 旗舰（Chat Node / turn-tail 状态条） | [docs/design-ui-flagship.md](design-ui-flagship.md) §7 |
+| `playbooks/` 上手层 + `tests/playbooks.test.mjs` | [docs/design-onboarding.md](design-onboarding.md) §7 |
+| M7 comment-check 空位 / M8 team mode | [docs/architecture.md](architecture.md) §7 |
+| 10 篇提示词的逐条实驱验证 | [docs/prompts-review/README.md](prompts-review/README.md) |
+| skills 池扩充（浏览器 QA / 发布流水线等） | [docs/prompts-review/README.md](prompts-review/README.md) |
 | MCP 内置机制确认 | 同上 |
 | **测试套件跨平台化**（当前有 Windows 假设：`qa/dsh-launch.mjs` 的桌面 shim 识别与 `where.exe`、若干 Windows 路径用法。`.github/workflows/ci.yml` 因此只跑 `windows-latest`——这是**刻意的诚实选择**，不是遗漏；改成 Linux 可跑后应扩成矩阵） | 本轮 P0-13 |
 | **npm 发布（v2）**：v1 只做 GitHub 源码安装；若将来发 npm，需要 scoped 名（`@dsh-enhance/dsh-enhance`）与 `publishConfig.access: public`，并重新核对与 GitHub 上同名项目的区隔 | 本轮 D19 更正 |
 
 > **已部分提前落地**：delivery-gate 的 verify **绑定**（§5.2.2-1 的核心机制）已在 P0-7 接入 —— `BoulderWork.verify` 指向脚本、`runVerify` 判定、无绑定记 `unmeasured`。剩余的是模板库、受保护文件 manifest 与报告落盘。
 >
-> **原 P3「Web 设置卡片」已交付**（2026-10-08）：席位从"自建 `settings.plugins.tab` + 自有 Remote"改为**官方归属的 `plugins.row.config`**，数据通道是 `Config` 字段 `volatile()` + 宿主 `SettingsForms`（旧方案基于的 `settings.register` 在 0.2.0-rc.2 上已不存在）。证据见 [docs/design-web-settings-card.md](../design-web-settings-card.md) §8–§10。
+> **原 P3「Web 设置卡片」已交付**（2026-10-08）：席位从"自建 `settings.plugins.tab` + 自有 Remote"改为**官方归属的 `plugins.row.config`**，数据通道是 `Config` 字段 `volatile()` + 宿主 `SettingsForms`（旧方案基于的 `settings.register` 在 0.2.0-rc.2 上已不存在）。证据见 [docs/design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 ---
 

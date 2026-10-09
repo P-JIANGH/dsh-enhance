@@ -139,6 +139,7 @@ pnpm qa:pack        # 打包安装验收（零 token）：真 tarball → 一次
 
 - `AGENTS.md` — 如何在本仓库工作。
 - `docs/architecture.md` — 架构与 M1–M8 里程碑计划。
+- `docs/releasing.md` — **发布流程 runbook**（发布前必须全绿的门、打标签、Release 要点、明确不做的事）。
 - `docs/value-assessment.md` — **存在价值评估**：逐面与上游原生能力对照，结论是把它定位为「政策包 + 验收脚手架」，长期应做减法而不是扩张。
 - `docs/roles.md` — 6 角色智能体集。
 - `docs/modes.md` — 三种工作模式（dsh-enhance 万能 / Planner 计划实施 / Advisor 目标回归）及它们如何编排这些角色。
