@@ -253,6 +253,33 @@ curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 
 从 GitHub Actions 发布并带 **provenance**（`npm publish --provenance`，需要 `id-token: write` 权限），npm 页面上会显示"由哪个仓库的哪次构建产生"，把"仓库 → 包"的链条变成可验证的。代价是要在仓库 secrets 里放 `NPM_TOKEN`。当前 CI 不发布，只做校验。
 
+### 4.5 备选渠道：GitHub Packages（`npm.pkg.github.com`）
+
+**什么时候考虑它**：`www.npmjs.com` 打不开（例如被 npm 的反机器人门挡住：报错里会写"IP 与网络机器人相同"），或者你没有 npm 账号。它**完全不需要 npmjs.com**，因为认证走 GitHub、组织建在 GitHub。**尚未发布过，以下为已核实的前置条件。**
+
+| 项 | 事实（2026-10-10 实测/官方文档） |
+|---|---|
+| 包名 | 官方文档：*"GitHub Packages only supports scoped npm packages"*，且"names and scopes must only use lowercase letters"。现有名 `@dsh-enhance/dsh-enhance` 已符合 |
+| scope 归属 | 包属于 scope 里的那个 GitHub 账号/组织。要保留现有名，必须存在 **GitHub 组织 `dsh-enhance`**；建组织是**网页操作**（`https://github.com/account/organizations/new`）。用户名 scope（如 `@p-jiangh/…`）不需要组织，但要改名 → 必须切新版本 |
+| 名字可用性 | GitHub 的用户名与组织名**共用一个命名空间**。2026-10-10 探测：`GET /users/dsh-enhance` → 404、`GET /orgs/dsh-enhance` → 404、网页 `https://github.com/dsh-enhance` → 404。**但这只是"很可能可用"，不是证明**——私有组织对非成员同样返回 404，被停用的账号也可能仍占着名字。**以实际创建成功为准**；若建不出来，兜底是发到 `@P-JIANGH/dsh-enhance`（改名 → 切 0.1.1 + `v0.1.1`） |
+| 认证 | 官方文档：npm registry **只支持 classic PAT**（fine-grained 不行）；并且 *"You need an access token to publish, **install**, and delete private, internal, and **public** packages."* → 发布与安装都要 token |
+| 需要勾的 scope | **`repo` + `read:packages` + `write:packages`**（`delete:packages` 可选）。文档给的最小发布集是 `write:packages` **加** `read:packages`，只勾前者仍可能 403 |
+| 改动 scope 的代价 | classic token 的 scope **无法就地修改**，必须 regenerate 或新建；改了之后用 `x-oauth-scopes` 响应头验证（本仓库用 `node .dsh-enhance/gh-api.mjs whoami` 打印它） |
+| `.npmrc`（发布与安装都需要） | `@dsh-enhance:registry=https://npm.pkg.github.com` + `//npm.pkg.github.com/:_authToken=<classic PAT>` |
+| 发布目标 | 也可用 `publishConfig.registry`，但那会改 manifest；**已经 tag 的版本**就用命令行/`.npmrc` 路由，别改树 |
+
+发布步骤与 §4.2 相同（worktree + `core.autocrlf=false` + `pnpm install --offline`），只把最后两步换成：
+
+```sh
+npm publish --dry-run --registry=https://npm.pkg.github.com
+npm publish           --registry=https://npm.pkg.github.com
+```
+
+**消费侧的硬约束（决定它是不是"公开渠道"）**：安装方**必须**有 GitHub token（公开包也一样），并在自己的 `.npmrc` 里写 scope 行。因此：
+
+- **公开分发**仍然用**匿名 tarball URL**（`dsh plugin add https://github.com/…/releases/download/v…/….tgz`）——它不需要任何凭据，且已端到端验收；
+- **GitHub Packages** 适合"我要一个 registry 上的包、且我自己/团队可控"的场景。
+
 ## 5. 明确不做的事（v1）
 
 - **v1 不发 npm**：机制与前置条件见 §4；要发就按 §4 走，别在镜像上发。
