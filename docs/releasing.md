@@ -265,7 +265,20 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 
 ### 5.5 备选渠道：GitHub Packages（`npm.pkg.github.com`）
 
-**什么时候考虑它**：`www.npmjs.com` 打不开（例如被 npm 的反机器人门挡住：报错里会写"IP 与网络机器人相同"），或者你没有 npm 账号。它**完全不需要 npmjs.com**，因为认证走 GitHub、组织建在 GitHub。**尚未发布过，以下为已核实的前置条件。**
+**什么时候考虑它**：`www.npmjs.com` 打不开（例如被 npm 的反机器人门挡住：报错里会写"IP 与网络机器人相同"），或者你没有 npm 账号。它**完全不需要 npmjs.com**，因为认证走 GitHub、scope 就是仓库所有者。
+
+**已发布并验收（2026-10-10，`@p-jiangh/dsh-enhance@0.1.2`）**：
+
+| 环节 | 结果 |
+|---|---|
+| 触发 | `workflow_dispatch`，`ref = v0.1.2`（手动派发也可以用 API：`POST /repos/<slug>/actions/workflows/publish-github-packages.yml/dispatches`，body `{"ref":"v0.1.2"}`） |
+| 运行 | `Publish to GitHub Packages #2` → **success**（`#1` 因测试在 ubuntu 上红而失败，见 §1 的三处平台假设） |
+| 认证 | 工作流自带 `GITHUB_TOKEN`（`permissions: packages: write`），**全程没有用到任何 PAT** |
+| 字节验收 | registry 的 `dist.integrity` = `sha512-W0xXZoQJQii+o5zRUB97c9Pho6F0qixNQf0vr0r5FBe1P+NsZ3AhmcCLlHg9UJwKHmGhVj+w05/sMciaaZ9Muw==`；把 tarball 下载回来与 Release 附件比对：**sha256 完全一致**（`144f4aa0…`，103,627 B）→ 两个渠道同一份字节 |
+| 消费验收 | 从 registry 装进一次性 profile（7.2s）：`dependencies` = `@p-jiangh/dsh-enhance@^0.1.2`、`bundles` 含它、装出来的包**恰好贡献 3 条技能**（code-review / git-workflow / tdd）、`lib`+`client`+`cordis.patch.yml` 齐备；真启动后未激活名单**只有**预期的 `preset-enhance`/`agentPresets` |
+| 读取权限的坑 | 读取/安装需要 classic token 勾 **`read:packages`**。缺它时症状是 `{"error":"Permission permission_denied: The token provided does not match expected scopes."}`——包括"看包列表/读 registry 元数据"也会 403。本仓库开发机上最初那把 token 只有 `gist, repo, workflow`，于是连续几轮排查都指向了错误的方向 |
+
+以下为已核实的前置条件（对**将来**的版本仍然适用）：
 
 | 项 | 事实（2026-10-10 实测/官方文档） |
 |---|---|

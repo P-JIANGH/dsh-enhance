@@ -61,16 +61,23 @@ UI, `headless` for headless use.
 
 ```sh
 # 1) release tarball (recommended: no build step, no allowlist; measured at 9 seconds)
+#    replace the version with the newest one (see the Releases page); the asset name is the
+#    package name without scope symbols, then -<version>.tgz
 dsh plugin --profile <your-profile> add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.2/p-jiangh-dsh-enhance-0.1.2.tgz
 
-# 2) GitHub source (tracks master; the package builds itself through `prepare` — see the note below)
+# 2) GitHub Packages (registry source; 0.1.2 is published there)
+#    needs a classic GitHub token with `read:packages`, plus the scope and auth lines in
+#    ~/.npmrc — see docs/installing-plugins.md §3.2 (not published on npmjs)
+dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
+
+# 3) GitHub source (tracks master; the package builds itself through `prepare` — see the note below)
 dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
 
-# 3) a local checkout
+# 4) a local checkout
 dsh plugin --profile <your-profile> add ./path/to/dsh-enhance
 
-# 4) a live link for debugging (points at your checkout; run `pnpm build` after src/ edits)
+# 5) a live link for debugging (points at your checkout; run `pnpm build` after src/ edits)
 dsh plugin --profile <your-profile> add link:<checkout>
 ```
 
@@ -85,11 +92,11 @@ dsh plugin --profile <your-profile> add link:<checkout>
 > `headless` and profiles you created yourself.
 
 > The package name is `@p-jiangh/dsh-enhance` — **not** the bare name
-> `dsh-enhance`, which is a different, unrelated name on npm. All four forms
+> `dsh-enhance`, which is a different, unrelated name on npm. The five forms
 > resolve by path, URL or repository, so the package name never appears in the
 > command.
 
-> **Two frictions with the source install (form 2)**: pnpm ≥10 blocks a git
+> **Two frictions with the source install (form 3)**: pnpm ≥10 blocks a git
 > dependency's `prepare` build until you add the exact key from `dsh plugin`'s error
 > to the profile's `pnpm-workspace.yaml` under `allowBuilds`; that key contains the
 > **commit**, so it changes with every release, and it contains `:` and `#`, so YAML

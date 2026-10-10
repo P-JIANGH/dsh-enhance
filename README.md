@@ -48,16 +48,22 @@
 
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免额外放行；实测 9 秒装完）
+#    版本号换成最新的那个（见 Releases 页）；附件名 = 包名去 scope 符号 + `-<version>.tgz`
 dsh plugin --profile <your-profile> add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.2/p-jiangh-dsh-enhance-0.1.2.tgz
 
-# 2) GitHub 源码（跟最新 master；包通过 `prepare` 自构建，需要先按下面的说明放行构建脚本）
+# 2) GitHub Packages（registry 来源，已发布 0.1.2）
+#    需要 GitHub classic token 勾 `read:packages`，并在 ~/.npmrc 写 scope 行与鉴权行；
+#    见 docs/installing-plugins.md §3.2（npmjs 上仍未发布）
+dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
+
+# 3) GitHub 源码（跟最新 master；包通过 `prepare` 自构建，需要先按下面的说明放行构建脚本）
 dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
 
-# 3) 本地 checkout
+# 4) 本地 checkout
 dsh plugin --profile <your-profile> add ./path/to/dsh-enhance
 
-# 4) 实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
+# 5) 实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
 dsh plugin --profile <your-profile> add link:<checkout>
 ```
 
@@ -65,9 +71,9 @@ dsh plugin --profile <your-profile> add link:<checkout>
 >
 > **桌面端的 profile 由应用独占管理**：`dsh --profile desktop …` 会被拒绝（`profile "desktop" is managed exclusively by the Electron application`）。给 GUI 装插件要在**应用的插件面板**里做；CLI 只管 `web` / `headless` / 自建 profile。
 
-> 包名是 `@p-jiangh/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面四种装法都由 `dsh plugin` 按路径/URL/仓库解析，不需要在命令里写包名。
+> 包名是 `@p-jiangh/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面**第 2 种**（GitHub Packages）是唯一需要在命令里写包名的；其余四种都由 `dsh plugin` 按路径/URL/仓库解析。
 
-> **源码装（第 2 种）的两点摩擦**：① pnpm ≥10 会拦住 git 依赖的 `prepare` 构建，必须把 `dsh plugin` 报错里给你的那个 key 加进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`；② 该 key 里**带 commit 号**，所以每次升级都要换一行，而且 key 含 `:` 与 `#`，在 YAML 里**必须加引号**：
+> **源码装（第 3 种）的两点摩擦**：① pnpm ≥10 会拦住 git 依赖的 `prepare` 构建，必须把 `dsh plugin` 报错里给你的那个 key 加进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`；② 该 key 里**带 commit 号**，所以每次升级都要换一行，而且 key 含 `:` 与 `#`，在 YAML 里**必须加引号**：
 > ```yaml
 > allowBuilds:
 >   "@p-jiangh/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true

@@ -61,18 +61,34 @@ dsh plugin --profile <name> <pnpm 参数...>
 dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 ```
 
-### 3.2 安装来源一：npm registry —— **当前尚未发布**
+### 3.2 安装来源一：registry —— GitHub Packages **已发布**；npmjs **未发布**
 
-**`@p-jiangh/dsh-enhance` 现在两个 registry 上都还不存在**（2026-10-10 实测：`registry.npmjs.org` 与
-`npm.pkg.github.com` 均返回 404）。所以这一节暂时没有可用的命令，请用 §3.4 的 GitHub 来源（发行版 tarball
-为首选）。发布渠道的前置条件、验收标准与消费侧限制（GitHub Packages 连公开包也要 token）见
-[releasing.md](releasing.md) §5；发布完成后这里再补上 `dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance`。
+**GitHub Packages（`npm.pkg.github.com`）上已有 `@p-jiangh/dsh-enhance@0.1.2`**（2026-10-10 由
+`.github/workflows/publish-github-packages.yml` 发布，认证用工作流自带的 `GITHUB_TOKEN`，不需要 PAT）。
+它与 Release 附件是**同一份字节**：registry 的 `dist.integrity` 为
+`sha512-W0xXZoQJQii+o5zRUB97c9Pho6F0qixNQf0vr0r5FBe1P+NsZ3AhmcCLlHg9UJwKHmGhVj+w05/sMciaaZ9Muw==`，
+下载回来与附件 sha256 一致（103,627 B）。
 
-<!-- 发布后启用：
+**这一条来源需要凭据**（其它来源不需要）：一把 classic token 勾 **`read:packages`**，并在 `~/.npmrc` 写
+
+```ini
+@p-jiangh:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=<你的 classic token>
+```
+
+然后：
+
 ```sh
 dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 ```
--->
+
+> 为什么"公开包也要 token"：GitHub 文档原文 *"You need an access token to publish, install, and delete
+> private, internal, and public packages."* 所以这条来源适合你/团队自控；**公开分发仍以免凭据的发行版
+> tarball 为准**（§3.4）。token 缺 `read:packages` 时症状：
+> `{"error":"Permission permission_denied: The token provided does not match expected scopes."}`。
+
+**npmjs（`registry.npmjs.org`）上仍未发布**（实测 404）：`www.npmjs.com` 被反机器人门挡住，而组织
+scope 只能在网页创建。渠道前置条件与验收标准见 [releasing.md](releasing.md) §5。
 
 ### 3.3 安装来源二：本地 checkout / 本地路径
 
@@ -127,8 +143,9 @@ dsh plugin --profile <your-profile> add link:<checkout>
 
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免 allowBuilds；实测 9 秒）
+#    版本号换成最新的那个；附件名 = 包名去 scope 符号 + `-<version>.tgz`
 dsh plugin --profile <your-profile> add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.2/p-jiangh-dsh-enhance-0.1.2.tgz
 
 # 2) 源码（跟 master；包通过 `prepare` 自构建）
 dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
