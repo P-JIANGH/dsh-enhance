@@ -30,20 +30,24 @@ pnpm qa:pack                     # 打包安装验收（零 token，真 tarball 
 node qa/dsh-enhance-drive.mjs --llm    # 真实会话断言插件加载 / 技能 / doctor
 ```
 
-### 首次公开前的历史扫描（只做一次）
+### 公开面审计（首次公开前，以及每次发布后）
 
-GitHub 一旦公开，**历史**也一起公开——所以密钥检查必须扫全部提交，而不只是工作树：
+"仓库里没有密钥"不等于"公开面没有密钥"。公开面有**四个**，只扫第一个是常见漏洞：
 
-```sh
-# 每个提交扫一遍（本仓库 54 个提交，秒级完成）；命中数必须为 0
-for c in $(git rev-list --all); do
-  git grep -n -E 'sk-[A-Za-z0-9]{16,}|DEEPSEEK_API_KEY\s*=\s*\S|BEGIN [A-Z ]*PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|npm_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' "$c"
-done
-git log --all --oneline -- .env   # 必须为空：.env 从未入库
-```
+| # | 面 | 为什么容易漏 | 怎么查 |
+|---|---|---|---|
+| ① | 当前文件 + **全部历史** blob | 删除过的文件仍在历史里 | 枚举 `git rev-list --objects --all` 的每个 blob，用同一套特征扫描（**不要**用 `git grep -E`：POSIX ERE 不认 `\b`/`\s`/`(?:)`，整层会报错；把报错当成"无命中"就是假绿） |
+| ② | **提交与标签的消息对象** | 消息不在任何 blob 里 | `git log --all --format=%H` + `git cat-file commit <sha>`；标签用 `git for-each-ref refs/tags` + `git cat-file -p` |
+| ③ | GitHub 上的公开文本 | Release 正文 / 仓库描述不在仓库里 | `GET /repos/{slug}/releases/tags/{tag}`（取**完整** body，别用截断输出）+ `GET /repos/{slug}` |
+| ④ | **Release 附件的内容** | 它是构建产物，不是 blob，GitHub 的 secret scanning 也不保证覆盖；一个把本机配置/产物打进去的构建正好从这里漏 | 下载附件 → 解包 → 逐文件扫描（顺带确认没有 `*.map`：source map 会带源码路径） |
 
-2026-10-09 在 v0.1.0 前的实测结论：54 个提交 **0 命中**，`.env` 从未提交，工作树里它由
-`.gitignore` 忽略。
+本机脚本（gitignored，`node .dsh-enhance/<name>`）：`scan-secrets.mjs`（①②，含**非真空守卫**：规模异常即报 ERROR，绝不报 CLEAN）、`scan-public-surface.mjs`（③④）、`control-secret-scan.mjs`（阳性对照：在临时仓库里放一个**只存在于历史**的假密钥，确认扫描器真会报出来）。
+
+2026-10-09 v0.1.0 实测结论：blob 686 个（117 当前 + 569 历史）**0 命中**；63 个提交 + 1 个标签消息 **0 命中**；Release 正文 6.7KB + 仓库描述 **0 命中**；附件 73 个文件 270KB **0 命中、无 source map**。GitHub 侧：Actions secrets 0 · deploy keys 0 · webhooks 0 · 协作者仅 owner · **GitHub 自己的 secret scanning 告警为 0**。唯一的"痕迹"是文档与一条提交消息里作为示例出现的本机代理端口 `127.0.0.1:10809`（非凭据）。
+
+### 本机凭据存放（与公开面无关，但发布前后值得看一眼）
+
+`~/.git-credentials` 里的 GitHub 凭据若是 **classic PAT**（scope 含 `repo`），它等于**你所有仓库的完全写权限**，且明文存盘。建议换成 **fine-grained PAT**（只授权本仓库的 `Contents: RW` + `Workflows: RW`），并把 `credential.helper` 从 `store` 改为 `manager`。这条与"仓库有没有泄密"是两件事：仓库干净，不代表本机那把宽权限 token 值得长期留着。
 
 ## 2. 打标签与发布
 
