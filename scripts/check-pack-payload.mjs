@@ -9,7 +9,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 /** 载荷里必须存在的路径（前缀匹配）。 */
 const REQUIRED = [
@@ -41,34 +41,41 @@ const FORBIDDEN = [
  * @returns `{ cmd, prefix }`。
  */
 function npmArgv() {
+  // 两种安装布局的**前缀**不同：
+  //   Windows 官方安装：`<prefix>\node.exe`            → npm 在 `<prefix>\node_modules\npm\…`
+  //   POSIX（官方 tar / apt / actions/setup-node）：`<prefix>/bin/node` → npm 在 `<prefix>/lib/node_modules/npm/…`
+  // 所以 POSIX 要用 `dirname(dirname(execPath))`，写成 `dirname(execPath)/lib/…` 会多一层 `bin/`
+  // ——2026-10-10 就是这么在 CI 的 ubuntu 腿上又红了一次的。
   const nodeDir = dirname(process.execPath)
+  const prefixDir = resolve(nodeDir, '..')
   const execpath = process.env.npm_execpath
   // `npm_execpath` 只在它**确实是 npm 的 JS 入口**时才可用：在 pnpm 下它指向
   // `@pnpm/exe/pnpm.exe`（本机实测），交给 `node` 会报 `Unknown file extension ".exe"` ——
-  // 于是 `pnpm check:pack` 一直是坏的（这是既有缺陷，2026-10-10 顺手修掉）。
+  // 于是 `pnpm check:pack` 一直是坏的（既有缺陷，2026-10-10 顺手修掉）。
   // 而且这个脚本要检查的是**npm 打出来的载荷**（`npm publish` 用的就是 npm 的打包器），
   // 所以 Node 自带的那份 npm 优先。
   const execpathIsNpmJs =
     typeof execpath === 'string' && /\.(c|m)?js$/i.test(execpath) && /(^|[\\/])npm[\\/][^\\/]*$/.test(execpath)
   const candidates = [
-    join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Windows 布局
-    join(nodeDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // POSIX 布局
+    join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Windows 官方安装
+    join(prefixDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // POSIX 官方安装
+    join(nodeDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // 少数把 node 装在 prefix 根、npm 放 lib/ 的布局
     execpathIsNpmJs ? execpath : undefined,
     join(process.cwd(), 'node_modules', 'npm', 'bin', 'npm-cli.js'), // 本仓库自带
   ].filter(Boolean)
   for (const candidate of candidates) {
-    if (existsSync(candidate)) return { cmd: process.execPath, prefix: [candidate] }
+    if (existsSync(candidate)) return { cmd: process.execPath, prefix: [candidate], shell: false }
   }
-  throw new Error(
-    `check-pack-payload: 找不到 npm 的 CLI 入口。已尝试：\n  ${candidates.join('\n  ')}\n` +
-      '提示：直接 `node scripts/…` 调用时 npm_execpath 不会被设置，所以上面靠的是 Node 安装布局。',
-  )
+  // 最后兜底：PATH 上的 npm。CI 上一定有（发布步骤就是直接跑 `npm publish` 的）。
+  // Windows 直接 spawn `npm.cmd` 会 EINVAL，所以这一条必须过 shell。
+  return { cmd: process.platform === 'win32' ? 'npm.cmd' : 'npm', prefix: [], shell: true }
 }
 
 const npm = npmArgv()
 const packed = spawnSync(npm.cmd, [...npm.prefix, 'pack', '--dry-run', '--json'], {
   encoding: 'utf8',
   cwd: process.cwd(),
+  shell: npm.shell,
 })
 if (packed.error) {
   console.error(`check-pack-payload: npm pack 启动失败：${packed.error.message}`)
