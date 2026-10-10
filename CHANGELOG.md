@@ -30,7 +30,7 @@ unchanged.
   checked-out commit **is** the `v<version>` tag before publishing, which keeps the
   "publish from the tag, never from master" rule enforced by machine rather than by
   discipline.
-- The channel itself is documented in `docs/releasing.md` §4.5, including the part
+- The channel itself is documented in `docs/releasing.md` §5.5, including the part
   that matters to users: GitHub Packages requires an access token to **install**
   packages too, even public ones, so it is an alternative channel and not a
   replacement for the token-free release tarball.

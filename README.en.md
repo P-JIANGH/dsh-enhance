@@ -61,7 +61,7 @@ You need the `dsh` CLI (npm: `@deepseek-ai/dsh`). The examples use a profile nam
 ```sh
 # 1) release tarball (recommended: no build step, no allowlist; measured at 9 seconds)
 dsh plugin --profile dsh-enhance add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) GitHub source (tracks master; the package builds itself through `prepare` — see the note below)
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance

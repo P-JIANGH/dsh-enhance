@@ -49,7 +49,7 @@
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免额外放行；实测 9 秒装完）
 dsh plugin --profile dsh-enhance add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) GitHub 源码（跟最新 master；包通过 `prepare` 自构建，需要先按下面的说明放行构建脚本）
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
@@ -75,7 +75,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 本插件是一个补丁层：它向 profile 中插入一行 `dsh-enhance` 插件。验证方式：
 
 ```sh
-dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
+dsh --profile dsh-enhance --dump-config   # 查找 "# == @p-jiangh/dsh-enhance" 层（层头是包名）
 ```
 
 ### 预设（无需安装动作）

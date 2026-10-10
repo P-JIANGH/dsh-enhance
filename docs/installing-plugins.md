@@ -116,7 +116,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免 allowBuilds；实测 9 秒）
 dsh plugin --profile dsh-enhance add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) 源码（跟 master；包通过 `prepare` 自构建）
 dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance

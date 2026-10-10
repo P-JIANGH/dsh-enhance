@@ -64,16 +64,22 @@ git push origin v0.1.0
 
 GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应小节）：
 
-- **标题**：`v0.1.0`
+- **标题**：`v<version>`
 - **正文**：Added / Changed / Fixed / Removed / Compatibility 五节；把"两个默认开启的钩子
   从未触发"这类修复写清楚（用户需要知道行为变了）。**建议用脚本从 `CHANGELOG.md` 抽对应小节**，
-  避免正文与变更记录漂移（v0.1.0 就是这么生成的）。
-- **附件**：`npm pack` 产出的 `dsh-enhance-dsh-enhance-0.1.0.tgz`。**这是给用户的首选安装来源**
-  （免构建、免 allowBuilds）：
+  避免正文与变更记录漂移（v0.1.0 与 v0.1.1 都是这么生成的）。
+- **附件**：`npm pack` 产出的 tarball。**文件名由包名决定**——去掉 scope 符号、把 `/` 换成 `-`，
+  再接 `-<version>.tgz`：
+  `@p-jiangh/dsh-enhance` → **`p-jiangh-dsh-enhance-<version>.tgz`**
+  （改名前的 `@dsh-enhance/dsh-enhance` 会得到 `dsh-enhance-dsh-enhance-<version>.tgz`，v0.1.0 的附件就是这个名字）。
+  它**是给用户的首选安装来源**（免构建、免 allowBuilds）：
   ```sh
   dsh plugin --profile <p> add \
-    https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+    https://github.com/P-JIANGH/dsh-enhance/releases/download/v<version>/<asset-name>
   ```
+  > 改名后最容易漏的就是这一类 URL：v0.1.1 改名时，README / README.en / installing-plugins
+  > 里的 **三条安装命令**仍指向 v0.1.0 的旧文件名（URL 本身没失效，所以不会报错，但装到的是**改名前的那个包**）。
+  > 发版时把"全仓库还有哪些 v<上一个版本> 的 URL"当作发布后检查的一项。
 - **兼容性一句话**：预设行需要 dsh ≥ 0.2.0；纯 headless profile 会打印一行
   `preset-enhance … pending (waiting for service: agentPresets)`，属预期。
 
@@ -122,13 +128,17 @@ git config --local http.https://github.com.proxy http://127.0.0.1:10809
 
 ## 4. 发布后
 
-- 确认 `v0.1.0` 指向的提交 **CI 是绿的**（`git ls-remote origin` 看 tag 指向；`.github/workflows/ci.yml`；
+- 确认 `v<version>` 指向的提交 **CI 是绿的**（`git ls-remote origin` 看 tag 指向；`.github/workflows/ci.yml`；
   推送 `.github/workflows/**` 需要 token 带 `workflow` scope）。`master` 允许在 tag 之后继续前进——
   发布后的文档提交就该这样；但**任何代码或产物变更都必须切新版本**，不能塞回已发布的 tag。
+- **搜一遍上一个版本的安装 URL**：`git grep -n "releases/download/v<上一个版本>"` 与旧附件名。
+  改成名或切版本时最容易漏的就是这里——**URL 不会失效，所以不会报错**，但照抄 README 的用户
+  装到的是**上一个版本的包**。v0.1.1 改名时正是这样发现 README / README.en / installing-plugins
+  三条安装命令仍指向 v0.1.0 的（`docs/releasing.md` 自己也有一处）。
 - 用**已发布产物**再验一次，不同形态各一条（比 `git ls-remote` 强得多）：
   ```sh
   # ① 产物级：装出来的包必须真的贡献三条技能（无需 LLM）
-  curl -L -o dl.tgz https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.0/dsh-enhance-dsh-enhance-0.1.0.tgz
+  curl -L -o dl.tgz https://github.com/P-JIANGH/dsh-enhance/releases/download/v<version>/<asset-name>
   #    并用 sha256 与本地 npm pack 产物比对；再把它装进一次性 profile，对装出来的
   #    lib/features/skills-provider.js 调 list()，断言 code-review / git-workflow / tdd
   # ② 分发级：从 GitHub 源码装一次并 dump-config
@@ -139,7 +149,7 @@ git config --local http.https://github.com.proxy http://127.0.0.1:10809
   因此这一步必须在主仓推送之后。注意 GitHub 上已有一个同名的
   `vcxmug/dsh-enhance`（另一套 vision / native-web 插件），提交时说明区隔。
 
-## 4. npm 渠道（可选，与 GitHub 并行）
+## 5. npm 渠道（可选，与 GitHub 并行）
 
 v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一份代码、两个分发面）。要走 npm，先把下面几件事做对——**本机 npm 默认指向 `registry.npmmirror.com` 这类镜像，直接 `npm publish` 会发到错的地方**（镜像通常只读），所以远端必须显式指定；`package.json` 里的 `publishConfig` 已经把这件事钉住：
 
@@ -150,7 +160,7 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
 - `access: public` 是 scoped 包的**必需项**：不写，免费账号发布会被拒（scoped 默认 restricted）。
 - `registry` 让 `npm publish` 无视本机 npmrc 直指公共 registry（实测 dry-run 输出 `Publishing to https://registry.npmjs.org … public access`）。
 
-### 4.1 前置条件
+### 5.1 前置条件
 
 1. **占住 scope**。2026-10-10 查询：`@p-jiangh/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）。但"能不能占"取决于你能否打开 npm 网页：
    - **组织 scope `@dsh-enhance`（当前包名）**：**必须用网页创建组织**——npm 10 的 `npm org` 只有 `set` / `rm` / `ls`，**没有 `create`**（实测 `npm org --help` 的输出里只有这三条）。网页不可达时这条路走不通。
@@ -164,9 +174,9 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
    npm login --registry=https://registry.npmjs.org
    ```
    开了 2FA 就准备好一次性验证码（发布时 `--otp=<code>`）；CI 场景用 granular access token（`NPM_TOKEN`）。
-3. **manifest 发布就绪**：`files`（`lib`/`client`/`skills`/`cordis.patch.yml`）、`prepare`（发布时用 tsc 产出 `lib/`，所以 `lib/` 不入库也能发出）、`repository`/`homepage`/`bugs`、`license`、`keywords`、无 `private`。**注意**：`publishConfig`（固定 registry 与 `access: public`）是 2026-10-10 才加进 master 的，**`v0.1.0` 的树里没有**——发布老 tag 时目标与可见性必须走命令行参数（见 §4.2）。
+3. **manifest 发布就绪**：`files`（`lib`/`client`/`skills`/`cordis.patch.yml`）、`prepare`（发布时用 tsc 产出 `lib/`，所以 `lib/` 不入库也能发出）、`repository`/`homepage`/`bugs`、`license`、`keywords`、无 `private`。**注意**：`publishConfig`（固定 registry 与 `access: public`）是 2026-10-10 才加进 master 的，**`v0.1.0` 的树里没有**——发布老 tag 时目标与可见性必须走命令行参数（见 §5.2）。
 
-### 4.2 发布
+### 5.2 发布
 
 **版本纪律（本节的核心）**：npm 的 `X.Y.Z` 必须**从 tag `vX.Y.Z` 的树**发布，内容与该提交一致；**不要从 master 发**——master 上 tag 之后的提交（文档、`keywords`、`publishConfig`）不属于该版本。发布所需的目标/权限用**命令行**传入，而不是为了发布去改那个已经 tag 了的 manifest；真要让 manifest 本身带上 `publishConfig`，就**切新版本**（`0.1.1` + `v0.1.1`），而不是把改动塞回 `0.1.0`。
 
@@ -234,7 +244,7 @@ git worktree prune
 发布后**不要**改已发布版本的内容：npm 只允许 72 小时内 unpublish，且会打断已有使用者；
 出错就 `npm deprecate` 或直接发补丁版。
 
-### 4.3 发布后核验（四件事，缺一不算发完）
+### 5.3 发布后核验（四件事，缺一不算发完）
 
 ```sh
 npm view @p-jiangh/dsh-enhance version dist.tarball dist.integrity
@@ -249,11 +259,11 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 # 4) 真会话（L3）：doctor 报插件已加载 + 3 条打包技能
 ```
 
-### 4.4 更省事的做法（推荐给 v2）
+### 5.4 更省事的做法（推荐给 v2）
 
 从 GitHub Actions 发布并带 **provenance**（`npm publish --provenance`，需要 `id-token: write` 权限），npm 页面上会显示"由哪个仓库的哪次构建产生"，把"仓库 → 包"的链条变成可验证的。代价是要在仓库 secrets 里放 `NPM_TOKEN`。当前 CI 不发布，只做校验。
 
-### 4.5 备选渠道：GitHub Packages（`npm.pkg.github.com`）
+### 5.5 备选渠道：GitHub Packages（`npm.pkg.github.com`）
 
 **什么时候考虑它**：`www.npmjs.com` 打不开（例如被 npm 的反机器人门挡住：报错里会写"IP 与网络机器人相同"），或者你没有 npm 账号。它**完全不需要 npmjs.com**，因为认证走 GitHub、组织建在 GitHub。**尚未发布过，以下为已核实的前置条件。**
 
@@ -278,7 +288,7 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 
 **注意**：`GITHUB_TOKEN` 这条并不要求建组织——它只要求 **scope 与仓库所有者一致**。所以"保名"才需要组织（+转移仓库），"用用户名 scope"则连 PAT 都不用。
 
-发布步骤与 §4.2 相同（worktree + `core.autocrlf=false` + `pnpm install --offline`），只把最后两步换成：
+发布步骤与 §5.2 相同（worktree + `core.autocrlf=false` + `pnpm install --offline`），只把最后两步换成：
 
 ```sh
 npm publish --dry-run --registry=https://npm.pkg.github.com
@@ -290,9 +300,9 @@ npm publish           --registry=https://npm.pkg.github.com
 - **公开分发**仍然用**匿名 tarball URL**（`dsh plugin add https://github.com/…/releases/download/v…/….tgz`）——它不需要任何凭据，且已端到端验收；
 - **GitHub Packages** 适合"我要一个 registry 上的包、且我自己/团队可控"的场景。
 
-## 5. 明确不做的事（v1）
+## 6. 明确不做的事（v1）
 
-- **v1 不发 npm**：机制与前置条件见 §4；要发就按 §4 走，别在镜像上发。
+- **v1 不发 npm**：机制与前置条件见 §5；要发就按 §5 走，别在镜像上发。
 - **不自动写用户家目录**：没有 `postinstall`，插件不在启动时写任何东西；预设是补丁行，
   随 bundle 一起生效。
 - 不带 `--force` 推送、不重写已发布的 tag：历史只追加。
