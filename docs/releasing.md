@@ -167,24 +167,39 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
 **版本纪律（本节的核心）**：npm 的 `X.Y.Z` 必须**从 tag `vX.Y.Z` 的树**发布，内容与该提交一致；**不要从 master 发**——master 上 tag 之后的提交（文档、`keywords`、`publishConfig`）不属于该版本。发布所需的目标/权限用**命令行**传入，而不是为了发布去改那个已经 tag 了的 manifest；真要让 manifest 本身带上 `publishConfig`，就**切新版本**（`0.1.1` + `v0.1.1`），而不是把改动塞回 `0.1.0`。
 
 ```sh
-# 1) 取出 tag 的树（worktree，不碰主工作区）
-git worktree add --detach ../dsh-enhance-v0.1.0 v0.1.0
+# 1) 取出 tag 的树，**创建时就把行尾定成 LF**（不要挪到 install 之后，见下方"顺序别改"）。
+#    v0.1.0 的树还没有仓库级 `* text=auto eol=lf`（那一条 2026-10-10 才进 master），所以这里要 -c；
+#    带该属性的 tag 之后不需要。
+git -c core.autocrlf=false worktree add --detach ../dsh-enhance-v0.1.0 v0.1.0
 cd ../dsh-enhance-v0.1.0
 
-# 2) 装依赖：worktree 是干净树，没有 node_modules，而 prepare 要跑 tsc（实测约 2 秒）
-pnpm install --offline
+# 2) 断言工作树全 LF（应无输出；有输出就别继续）
+git ls-files --eol | grep -v ' w/lf' || true
+#    PowerShell 里等价写法：git ls-files --eol | Where-Object { $_ -notmatch ' w/lf' }
 
-# 3) 行尾必须确定化 —— 否则同一个 tag 在不同检出配置下打出的包**逐字节不同**（见下方实测）
-git -c core.autocrlf=false checkout -- .
-#    v0.1.0 的树还没有仓库级 `* text=auto eol=lf`（那一条 2026-10-10 才进 master），
-#    所以老 tag 必须显式指定；带该属性的 tag 之后不需要这一步。
+# 3) 装依赖（worktree 是干净树，没有 node_modules，而 prepare 要跑 tsc；实测约 2.5 秒）
+pnpm install --offline
 
 # 4) 该 tag 的 manifest 无 publishConfig → 目标与访问级别走命令行
 npm publish --dry-run --registry=https://registry.npmjs.org --access public
 npm publish           --registry=https://registry.npmjs.org --access public   # 有 2FA 加 --otp
 
-cd - && git worktree remove ../dsh-enhance-v0.1.0
+cd -
+rm -rf ../dsh-enhance-v0.1.0 && git worktree prune   # 见下注：不能只靠 worktree remove
 ```
+
+> **顺序别改：行尾必须在任何构建之前定下来。** 曾经写成"先 `pnpm install`（它会跑 `prepare`/tsc）再
+> `checkout` 成 LF"：那样 `lib/` 是在 **CRLF 源码**上构建的，而 `lib/enhance-mode.js`、
+> `lib/features/advisor/prompt.js`、`lib/index.js` 里嵌的模板字面量会跟着带 CRLF；最终 tarball 之所以
+> 正确，只因为 `npm publish` **又跑了一次** `prepare` 重建——一旦有人加 `--ignore-scripts`、改用
+> "只打包不重建"的步骤、或让 `lib/` 被缓存复用，发出去的包就会与附件不同；而版本号不可重发，只能切
+> 新版本，正好破坏本节的验收标准。
+> 2026-10-10 按修正后的顺序实测：worktree 创建即全 LF（`git ls-files --eol` 无 `w/crlf`）→
+> `pnpm install --offline` → 三个嵌入文件 `CR=0` → `npm pack` 与附件**逐字节相同**（`7D20FE1B…`，102,896 B）。
+>
+> **收尾用 `rm -rf` 再 `worktree prune`，而不是只靠 `git worktree remove`**：worktree 里有未跟踪的
+> `node_modules`/`lib`（还有你打出来的 tarball），`remove` 会以 `Directory not empty` 拒绝——实测如此。
+> 直接删目录 + `prune` 才干净；确认 `git worktree list` 里只剩主工作区即可。
 
 > **别用 junction/symlink 把主检出的 `node_modules` 接进 worktree。** 删 worktree 时
 > `Remove-Item -Recurse` 会**穿过 junction** 去删主检出的内容——2026-10-10 实测把
