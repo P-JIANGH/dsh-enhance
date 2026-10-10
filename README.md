@@ -44,22 +44,26 @@
 
 ## 安装
 
-需要 `dsh` CLI（npm：`@deepseek-ai/dsh`）。示例使用名为 `dsh-enhance` 的 profile；如有不同可替换为你自己的 profile 名。
+需要 `dsh` CLI（npm：`@deepseek-ai/dsh`）。**把命令里的 `<your-profile>` 换成你实际在跑的那个 profile**：桌面端 GUI 用 `desktop`，loopback Web 用 `web`，无头用 `headless`。
 
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免额外放行；实测 9 秒装完）
-dsh plugin --profile dsh-enhance add \
+dsh plugin --profile <your-profile> add \
   https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) GitHub 源码（跟最新 master；包通过 `prepare` 自构建，需要先按下面的说明放行构建脚本）
-dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
+dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
 
 # 3) 本地 checkout
-dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
+dsh plugin --profile <your-profile> add ./path/to/dsh-enhance
 
 # 4) 实时调试链接（指向你的 checkout；改 src/ 后执行 `pnpm build`）
-dsh plugin --profile dsh-enhance add link:<checkout>
+dsh plugin --profile <your-profile> add link:<checkout>
 ```
+
+> **profile 名写错的后果（值得先看一眼）**：`dsh plugin` 在 profile 不存在时会**静默新建**一个（无报错）。所以把示例名照抄成 `dsh-enhance` 会真的建出这个 profile——插件"装上了"，但桌面端加载的是 `desktop`，**你在界面上什么也看不到**。先确认名字：`ls $DSH_HOME/profiles`（默认 `~/.dsh/profiles`）。
+>
+> **桌面端的 profile 由应用独占管理**：`dsh --profile desktop …` 会被拒绝（`profile "desktop" is managed exclusively by the Electron application`）。给 GUI 装插件要在**应用的插件面板**里做；CLI 只管 `web` / `headless` / 自建 profile。
 
 > 包名是 `@p-jiangh/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面四种装法都由 `dsh plugin` 按路径/URL/仓库解析，不需要在命令里写包名。
 
@@ -75,7 +79,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 本插件是一个补丁层：它向 profile 中插入一行 `dsh-enhance` 插件。验证方式：
 
 ```sh
-dsh --profile dsh-enhance --dump-config   # 查找 "# == @p-jiangh/dsh-enhance" 层（层头是包名）
+dsh --profile <your-profile> --dump-config   # 找 "# == " 层头；层头用的是 profile 记录的 bundle 名（新装即 @p-jiangh/dsh-enhance）
 ```
 
 ### 预设（无需安装动作）

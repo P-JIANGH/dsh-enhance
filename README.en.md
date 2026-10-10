@@ -55,23 +55,34 @@ Two easy misunderstandings:
 
 ## Install
 
-You need the `dsh` CLI (npm: `@deepseek-ai/dsh`). The examples use a profile named
-`dsh-enhance`; substitute your own name.
+You need the `dsh` CLI (npm: `@deepseek-ai/dsh`). **Replace `<your-profile>` with the
+profile you actually run**: `desktop` for the desktop GUI, `web` for the loopback web
+UI, `headless` for headless use.
 
 ```sh
 # 1) release tarball (recommended: no build step, no allowlist; measured at 9 seconds)
-dsh plugin --profile dsh-enhance add \
+dsh plugin --profile <your-profile> add \
   https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) GitHub source (tracks master; the package builds itself through `prepare` — see the note below)
-dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
+dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
 
 # 3) a local checkout
-dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
+dsh plugin --profile <your-profile> add ./path/to/dsh-enhance
 
 # 4) a live link for debugging (points at your checkout; run `pnpm build` after src/ edits)
-dsh plugin --profile dsh-enhance add link:<checkout>
+dsh plugin --profile <your-profile> add link:<checkout>
 ```
+
+> **A wrong profile name is created silently.** `dsh plugin` creates a profile that
+> does not exist, without complaining, so copying the example name verbatim installs
+> the plugin into a profile the desktop app never loads — it looks installed and does
+> nothing in the UI. Check first with `ls $DSH_HOME/profiles` (default `~/.dsh/profiles`).
+>
+> **The desktop profile is managed exclusively by the Electron application**: the CLI
+> refuses it (`profile "desktop" is managed exclusively by the Electron application`).
+> Install into the GUI profile from the app's plugin panel; the CLI is for `web`,
+> `headless` and profiles you created yourself.
 
 > The package name is `@p-jiangh/dsh-enhance` — **not** the bare name
 > `dsh-enhance`, which is a different, unrelated name on npm. All four forms
@@ -97,7 +108,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 Verify what the profile will actually assemble:
 
 ```sh
-dsh --profile dsh-enhance --dump-config   # look for the "# == @p-jiangh/dsh-enhance" layer
+dsh --profile <your-profile> --dump-config   # look for a "# == " layer header; it carries the bundle name the profile records (@p-jiangh/dsh-enhance on a fresh install)
 ```
 
 ### Presets (no install step)

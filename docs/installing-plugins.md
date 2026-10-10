@@ -4,7 +4,7 @@
 > 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
 > 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
 >
-> **命名**：包名 `@p-jiangh/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可；用 `<checkout>` 指代你本地的仓库目录。
+> **命名**：包名 `@p-jiangh/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `<your-profile>` 作 **profile 名**占位符——换成你实际在跑的那个（桌面端 `desktop`、loopback `web`、无头 `headless`，或你自建的名字）；用 `<checkout>` 指代你本地的仓库目录。**不要照抄某个具体名字**：不存在的 profile 名会被静默创建（见 §3 的坑）。
 
 ## 1. 理解背景：profile、bundle 与 patch 层
 
@@ -30,6 +30,11 @@ dsh --profile <name>
   `dsh.bundle.patch` 指向该 bundle 的补丁文件。
 - 内置 bundle：`@deepseek-ai/dsh-base`（每个 profile 的第一层）、`@deepseek-ai/dsh-web-app`、`@deepseek-ai/dsh-headless`。`web` 和 `headless` 两个 profile 有随附模板，会自动初始化；其他 profile 需用 `dsh plugin` 创建。
 
+> **两个容易踩的坑（都来自"profile 名"）**
+>
+> 1. **不存在的 profile 名会被静默创建**（`dsh plugin` 不报错）。所以把示例名照抄成 `dsh-enhance` 会真的建出这个 profile —— 插件"装上了"，但桌面端加载的是 `desktop`，**界面上什么也看不到**。先确认：`ls $DSH_HOME/profiles`（默认 `~/.dsh/profiles`）；你实际在跑的通常是 `desktop`（GUI）/ `web`（loopback）/ `headless`。
+> 2. **桌面端的 `desktop` profile 由应用独占**：`dsh --profile desktop …` 会被拒绝（`error: profile "desktop" is managed exclusively by the Electron application`）。给 GUI 装插件要在**应用的插件面板**里做，CLI 只管 `web` / `headless` / 自建 profile。
+
 ## 2. 前置条件
 
 - 已安装 `dsh` CLI（npm 包 `@deepseek-ai/dsh`）。
@@ -53,14 +58,21 @@ dsh plugin --profile <name> <pnpm 参数...>
 该 profile 目录不存在时，`dsh plugin` 会自动初始化（无内置模板时以 `@deepseek-ai/dsh-base` 为第一层）、写入 `package.json`、`cordis.patch.yml` 和 `pnpm-workspace.yaml`：
 
 ```sh
-dsh plugin --profile dsh-enhance add @p-jiangh/dsh-enhance
+dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 ```
 
-### 3.2 安装来源一：npm registry（已发布）
+### 3.2 安装来源一：npm registry —— **当前尚未发布**
 
+**`@p-jiangh/dsh-enhance` 现在两个 registry 上都还不存在**（2026-10-10 实测：`registry.npmjs.org` 与
+`npm.pkg.github.com` 均返回 404）。所以这一节暂时没有可用的命令，请用 §3.4 的 GitHub 来源（发行版 tarball
+为首选）。发布渠道的前置条件、验收标准与消费侧限制（GitHub Packages 连公开包也要 token）见
+[releasing.md](releasing.md) §5；发布完成后这里再补上 `dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance`。
+
+<!-- 发布后启用：
 ```sh
-dsh plugin --profile dsh-enhance add @p-jiangh/dsh-enhance
+dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 ```
+-->
 
 ### 3.3 安装来源二：本地 checkout / 本地路径
 
@@ -68,9 +80,9 @@ dsh plugin --profile dsh-enhance add @p-jiangh/dsh-enhance
 
 ```sh
 # 在插件仓库之外调用，相对或绝对路径均可（<checkout> = 你本地的仓库目录）
-dsh plugin --profile dsh-enhance add <checkout>
-dsh plugin --profile dsh-enhance add file:<checkout>
-dsh plugin --profile dsh-enhance add link:<checkout>
+dsh plugin --profile <your-profile> add <checkout>
+dsh plugin --profile <your-profile> add file:<checkout>
+dsh plugin --profile <your-profile> add link:<checkout>
 ```
 
 > 提示：`add .` 若在插件仓库目录直接调用会被重写成该目录的绝对路径，`dsh plugin` 的 `anchorPathSpec` 会保证它指向你的调用目录而不是 profile 目录。
@@ -82,7 +94,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 ```sh
 # 相对于你调用 dsh plugin 的目录（或给绝对路径）。
 # <checkout> = 你本地的仓库目录，例如 D:/code/dsh-enhance。
-dsh plugin --profile dsh-enhance add link:<checkout>
+dsh plugin --profile <your-profile> add link:<checkout>
 ```
 
 安装成功后 profile 的 `package.json` `dependencies` 里会出现：
@@ -101,12 +113,12 @@ dsh plugin --profile dsh-enhance add link:<checkout>
    cd <checkout>
    pnpm build        # 产出到 lib/（main 指向 lib/index.js）
    ```
-3. 然后重启你正在跑的 `dsh --profile dsh-enhance ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
+3. 然后重启你正在跑的 `dsh --profile <your-profile> ...` 进程，改动才会被加载（dsh 的 bundle 树只在启动时装配）。
 
 完整的开发迭代循环是：
 
 ```
-改 src/ → pnpm build → 重启 dsh --profile dsh-enhance → 在 dsh 里验证 →（回到第一步）
+改 src/ → pnpm build → 重启 dsh --profile <your-profile> → 在 dsh 里验证 →（回到第一步）
 ```
 
 > 为什么已经链接了还要 build？因为 `dsh`（和其它 Node 加载器一样）读取的是包入口指向的**已编译 JS**。你要是愿意，可以把 dsh-enhance 的 `main`/`exports` 临时指向 `src/index.ts`，并让 profile 用 tsx 之类的运行时打开 —— 但这不是 dsh 默认的加载方式，日常调试按上面的 build 循环最省事。
@@ -115,16 +127,16 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 
 ```sh
 # 1) 发行版 tarball（推荐：免构建、免 allowBuilds；实测 9 秒）
-dsh plugin --profile dsh-enhance add \
+dsh plugin --profile <your-profile> add \
   https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.1/p-jiangh-dsh-enhance-0.1.1.tgz
 
 # 2) 源码（跟 master；包通过 `prepare` 自构建）
-dsh plugin --profile dsh-enhance add github:P-JIANGH/dsh-enhance
-dsh plugin --profile dsh-enhance add git@github.com:P-JIANGH/dsh-enhance.git
-dsh plugin --profile dsh-enhance add https://github.com/P-JIANGH/dsh-enhance.git
+dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
+dsh plugin --profile <your-profile> add git@github.com:P-JIANGH/dsh-enhance.git
+dsh plugin --profile <your-profile> add https://github.com/P-JIANGH/dsh-enhance.git
 
 # 3) 镜像（GitCode，内容同步）
-dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
+dsh plugin --profile <your-profile> add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ```
 
 > **源码装（第 2 种）必须放行构建脚本**：pnpm ≥10 默认拦截 git 依赖的 `prepare`，`dsh plugin` 会失败并把确切 key 打印出来，例如
@@ -161,9 +173,9 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 查看该 profile 实际启动时会装配成什么样的树（不会真的启动，只打印组成结果）：
 
 ```sh
-dsh --profile dsh-enhance --dump-config
+dsh --profile <your-profile> --dump-config
 # 或只看默认/内置层（不含用户覆盖与 --patch）：
-dsh --profile dsh-enhance --dump-default-config
+dsh --profile <your-profile> --dump-default-config
 ```
 
 在输出中查找 dsh-enhance 的补丁层标记（其 `cordis.patch.yml` 头部注释为 `# dsh-enhance bundle patch ...`；插入的插件行 id 为 `dsh-enhance`，预设行 id 为 `preset-enhance`）。所见即所加载——任何一行都可以被你自己更高的补丁层覆盖。预设是否真的被注册，最直接的证据是新建会话后 `dsh_enhance_doctor` 的装配报告与会话日志里的系统提示词段。
@@ -171,7 +183,7 @@ dsh --profile dsh-enhance --dump-default-config
 实际启动 profile：
 
 ```sh
-dsh --profile dsh-enhance ...
+dsh --profile <your-profile> ...
 ```
 
 ## 5. 配置插件的 config
@@ -207,14 +219,14 @@ dsh --profile dsh-enhance ...
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
 ```sh
-dsh --profile dsh-enhance --patch ./extra.yml ...
+dsh --profile <your-profile> --patch ./extra.yml ...
 ```
 
 ## 6. 启停 / 卸载
 
 - **从 profile 卸载插件**（移除依赖并自动从 `bundles` 列表剔除）：
   ```sh
-  dsh plugin --profile dsh-enhance remove @p-jiangh/dsh-enhance
+  dsh plugin --profile <your-profile> remove @p-jiangh/dsh-enhance
   ```
 - **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`。例如临时禁用 dsh-enhance 主行：
   ```yaml
