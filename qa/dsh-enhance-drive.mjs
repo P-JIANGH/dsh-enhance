@@ -115,7 +115,7 @@ if (args.includes('--llm')) {
       'FAIL：该 profile 的 compose 里没有 dsh-enhance 层。',
       `  实际使用：profile=${PROFILE} · DSH_HOME=${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
       '  排查顺序：',
-      "    1) 该 profile 的 dsh.profile.bundles 是否含 '@dsh-enhance/dsh-enhance'；",
+      "    1) 该 profile 的 dsh.profile.bundles 是否含 '@p-jiangh/dsh-enhance'；",
       '    2) 该 profile 的 node_modules 里是否有它（link/junction 指向本仓库）；',
       "    3) 换目标：$env:DSH_HOME='<隔离 home>' ; $env:DSH_ENHANCE_PROFILE='qa'",
     ].join('\n'))

@@ -188,7 +188,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 7. 落地与 QA
 
-- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@dsh-enhance/dsh-enhance/enhance-mode`；2026-10-09 起本插件唯一的预设行）。原计划把 `preset-planner` 增强为模式 B 编排 persona、`preset-advisor` 作为模式 C 编排 + 装配，两者**均未实现**；2026-10-09 按用户要求只保留 Enhance 一个预设，五个角色预设行（含原计划的 `preset-planner`）连同 `presets/roles.patch.yml` 已退役，persona 文本保留为设计源（当前 `prompts/agents/planner.persona.md` 仍是单句；`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
+- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@p-jiangh/dsh-enhance/enhance-mode`；2026-10-09 起本插件唯一的预设行）。原计划把 `preset-planner` 增强为模式 B 编排 persona、`preset-advisor` 作为模式 C 编排 + 装配，两者**均未实现**；2026-10-09 按用户要求只保留 Enhance 一个预设，五个角色预设行（含原计划的 `preset-planner`）连同 `presets/roles.patch.yml` 已退役，persona 文本保留为设计源（当前 `prompts/agents/planner.persona.md` 仍是单句；`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
 - **触发方式**：会话创建时选择对应 preset（web Agent 面板 / headless `--profile` + preset）。**没有**意图路由或关键词触发：模式是会话构成的一部分（0.2.x 的预设行），不写进 `plugins` 就没有。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；

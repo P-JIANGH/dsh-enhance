@@ -19,7 +19,7 @@
 | **守卫 + delivery-gate** | write-existing / path-traversal / bash-read 守卫、rules 注入器（只读 `.dsh-enhance/rules/`）、完成声明 delivery-gate：绑定 `verify` + **受保护文件 manifest（sha256 快照，改动即 `tampered`）**，原生 goal 未完成时判为进展汇报 | `guards: false` |
 | **工作追踪** | boulder（CAS）+ 写令牌 + start-work / delivery-gate 钩子。**目标（goal）归原生**：`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`（目标未完成自动续轮） | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
-| **增强模式段（enhance-mode）** | 一段深度工作协议，由本包以 `@dsh-enhance/dsh-enhance/enhance-mode` 行贡献，**只挂在 Enhance 预设作用域内**：选了该预设的会话每个都常驻这段系统提示词；没选的会话完全看不到。没有关键词触发，也没有"退出模式"的动作 | 不在预设里，就不出现（`cordis.patch.yml` 的 `preset-enhance` 行） |
+| **增强模式段（enhance-mode）** | 一段深度工作协议，由本包以 `@p-jiangh/dsh-enhance/enhance-mode` 行贡献，**只挂在 Enhance 预设作用域内**：选了该预设的会话每个都常驻这段系统提示词；没选的会话完全看不到。没有关键词触发，也没有"退出模式"的动作 | 不在预设里，就不出现（`cordis.patch.yml` 的 `preset-enhance` 行） |
 | **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
 | **工作模式** | 面向用户的主预设是 **Enhance**（预设 id `enhance`）：常驻深度工作提示词段 + 纪律 + 打包技能 + 交付门卫，且**保留编排**——它把 scout/librarian/reviewer/task 接线为受作用域限制的子代理，因此"一个会话只有一个预设"也能分派专职子代理 | 新建会话时选 **Enhance** |
 | **Agent 预设** | 本插件只出 **1 个**：`Enhance`（id `enhance`，编排者 + 常驻 enhance-mode 段）。预设由 bundle 补丁层声明（`cordis.patch.yml`），**不需要安装动作**；名册里另外那些（standard / ptc / minimal / cordis）是上游自带的 | 见 `docs/modes.md` |
@@ -35,7 +35,7 @@
 | **`/` 菜单里的本包指令** `/doctor`、`/boulder` | 在输入框打 `/` 选择后回车（两条都无入参→回车即执行） | `commands: true`（默认） |
 | **预设**：**Enhance**（id `enhance`，编排者 + 常驻 enhance-mode 段） | 新建会话时用会话标题旁的预设菜单选择；或在设置的预设名册区块里设为默认。预设由 bundle 补丁声明，装好插件就在 | 插件已挂载（预设行随 bundle 一起生效） |
 | **模型侧工具** `dsh_enhance_doctor`、`boulder_*`、`worktree_*`（目标用原生的 `create_goal`/`get_goal`/`update_goal`） | 让模型使用即可（也可以直接说「跑一下 dsh_enhance_doctor」） | 对应开关（默认全开） |
-| **本插件的配置页** | 侧边栏「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」 | 桌面端 / loopback Web（浏览器半侧随包发布） |
+| **本插件的配置页** | 侧边栏「插件」面板 → `@p-jiangh/dsh-enhance` 包 → 它那一行的「配置」 | 桌面端 / loopback Web（浏览器半侧随包发布） |
 
 两个容易误解的点：
 
@@ -61,12 +61,12 @@ dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
-> 包名是 `@dsh-enhance/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面四种装法都由 `dsh plugin` 按路径/URL/仓库解析，不需要在命令里写包名。
+> 包名是 `@p-jiangh/dsh-enhance`：**不是**裸名 `dsh-enhance`（那在 npm 上是另一个、与本项目无关的名字）。上面四种装法都由 `dsh plugin` 按路径/URL/仓库解析，不需要在命令里写包名。
 
 > **源码装（第 2 种）的两点摩擦**：① pnpm ≥10 会拦住 git 依赖的 `prepare` 构建，必须把 `dsh plugin` 报错里给你的那个 key 加进 profile 的 `pnpm-workspace.yaml` 的 `allowBuilds`；② 该 key 里**带 commit 号**，所以每次升级都要换一行，而且 key 含 `:` 与 `#`，在 YAML 里**必须加引号**：
 > ```yaml
 > allowBuilds:
->   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+>   "@p-jiangh/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
 > ```
 > 嫌麻烦就用第 1 种（tarball 里已经带了构建产物 `lib/`）。
 >
@@ -82,7 +82,7 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 
 预设由 bundle 的补丁层声明，**不是目录**：`cordis.patch.yml` 插入本插件行与 `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。profile 挂上本 bundle，**Enhance** 就出现在预设名册里（本插件只出这一个），没有 `/presets install`、没有 `postinstall`、插件绝不在启动时写你的家目录。
 
-`config.plugins` 就是该会话 agent 的**全部**构成（**没有继承**）：Enhance 预设里逐条写明了 persona（`@deepseek-ai/dsh-persona` 的 `prefix`，即 persona 正文）、`agent-instructions`（AGENTS.md 指令链）、工具行、四条受限子代理与 `@dsh-enhance/dsh-enhance/enhance-mode` 段行。这四条子代理（scout / librarian / reviewer / task）是**预设定的一部分**，不再单独出现在预设名册里。
+`config.plugins` 就是该会话 agent 的**全部**构成（**没有继承**）：Enhance 预设里逐条写明了 persona（`@deepseek-ai/dsh-persona` 的 `prefix`，即 persona 正文）、`agent-instructions`（AGENTS.md 指令链）、工具行、四条受限子代理与 `@p-jiangh/dsh-enhance/enhance-mode` 段行。这四条子代理（scout / librarian / reviewer / task）是**预设定的一部分**，不再单独出现在预设名册里。
 
 > **兼容性（必须知道）**：`@deepseek-ai/dsh-agent-preset` 只存在于 **dsh ≥ 0.2.0** 的行式预设注册表里。老 CLI（如 nvm 里的 `0.1.0-rc.6`，其机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 inactive entry（启动时给一条告警），**不是**静默生效；本插件不为此发明条件插入机制。
 >
@@ -98,7 +98,7 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 
 ```yaml
 - id: dsh-enhance
-  name: '@dsh-enhance/dsh-enhance'
+  name: '@p-jiangh/dsh-enhance'
   config:
     workRules: |
       # 团队规则
@@ -121,7 +121,7 @@ dsh --profile dsh-enhance --dump-config   # 查找 "# == dsh-enhance" 层
 
 除 `workRules` 之外的 7 个字段都标了 `volatile()`，因此**内置「插件」面板**里本插件那一行会有一个「配置」入口：勾选/取消即时生效（写完立刻重建接线，不需要重启），改动落到你 profile 的 `cordis.patch.yml`（`user` 层），每行旁的「恢复默认」会把覆盖删掉、退回组合默认。
 
-- 面板位置：侧边栏「插件」→ 找到 `@dsh-enhance/dsh-enhance` 包 → 它那一行（设置弹窗里也有只读清单可查）。
+- 面板位置：侧边栏「插件」→ 找到 `@p-jiangh/dsh-enhance` 包 → 它那一行（设置弹窗里也有只读清单可查）。
 - 一条纪律：**同一个字段只有一个写者**。用界面改了之后，就别再同时手工在补丁里写同一个键——界面会把你的覆盖读成 user 层，两边同时写会互相覆盖。
 - 已知限制（上游）：非 loopback 的浏览器拿不到持久设置，页面会显示为只读/不可用；桌面端与 loopback Web 正常。
 - 机制与真机证据（`describe`/`update` 往返、命名空间键、为什么必须重挂）：[docs/design-web-settings-card.md](docs/design-web-settings-card.md) §8–§10。
@@ -171,7 +171,7 @@ pnpm qa:pack        # 打包安装验收（零 token）：真 tarball → 一次
 - **M3 ✅ 守卫 + delivery-gate**：write-existing/path-traversal/bash-read 守卫、rules-injector、delivery-gate 状态机 + verify 绑定 + 防篡改 + 完成报告。
 - **M4 ✅ 工作追踪**：boulder（CAS、work 合并）、写令牌、start-work + delivery-gate 钩子。**goal 存储与 `goal_*` 工具已退役**（原生 `ctx.goals` 覆盖，见 `docs/value-assessment.md` §3）。
 - **M5 ✅ worktree**：WorktreeManager（create/list/find/cleanup/reuse）、命名 + 路径校验、boulder 联动、worktree_create/list/cleanup 工具。
-- **M6 ✅ enhance-mode**：深度工作协议改为 **Enhance 预设作用域内的常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）；关键词触发（`ulw`/`ultrawork`）与目录式预设投递一并退役。
+- **M6 ✅ enhance-mode**：深度工作协议改为 **Enhance 预设作用域内的常驻系统提示词段**（`@p-jiangh/dsh-enhance/enhance-mode`）；关键词触发（`ulw`/`ultrawork`）与目录式预设投递一并退役。
 - **M7 LSP / comment-check（v2）**：计划中。
 - **M8 团队模式（v2）**：**不建议自研**——上游已有 Agent Teams（成员 / 共享任务板 / 邮箱，见 `docs/value-assessment.md` §3）。
 

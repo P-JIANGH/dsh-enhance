@@ -24,7 +24,7 @@ persistent, preset-scoped system-prompt section.
 | **Guards + delivery gate** | write-existing / path-traversal / bash-read guards, a rules injector (reads `.dsh-enhance/rules/` only), and a completion-claim gate bound to a `verify` script plus a **sha256 protected-file manifest** (any later edit is `tampered`); a native goal that is not finished makes a claim a progress report | `guards: false` |
 | **Work tracking** | boulder (CAS) + write token + start-work / delivery-gate hooks. **Goals are native**: `create_goal` / `get_goal` / `update_goal` + `dsh-goal-round-driver` | `workTracking: false` |
 | **Worktrees** | `worktree_create` / `worktree_list` / `worktree_cleanup` wired into boulder | `worktree: false` |
-| **enhance-mode section** | A deep-work contract contributed as `@dsh-enhance/dsh-enhance/enhance-mode` and mounted **only inside the Enhance preset**: sessions on that preset always carry it, sessions on any other preset never see it. No trigger word, no exit action | not in the preset, not present (`preset-enhance` row) |
+| **enhance-mode section** | A deep-work contract contributed as `@p-jiangh/dsh-enhance/enhance-mode` and mounted **only inside the Enhance preset**: sessions on that preset always carry it, sessions on any other preset never see it. No trigger word, no exit action | not in the preset, not present (`preset-enhance` row) |
 | **Advisor** | A companion reviewer following every main session: it reads each turn's transcript increment and steers back at most one suggestion (`nit` / `concern` / `blocker`) | `advisor: false` |
 | **Agent preset** | This bundle ships exactly **one**: `Enhance` (id `enhance`). Presets are declared by the bundle patch (`cordis.patch.yml`) — **there is no install step**, and the other roster entries (standard / ptc / minimal / cordis) come from upstream | see `docs/modes.md` |
 | **Settings page** | The built-in Plugins panel shows a config entry on this bundle's row: six switches plus the advisor model, applied as you save (written to the user layer of your profile patch; each field resets independently) | nothing to configure; only `workRules` still needs YAML |
@@ -41,7 +41,7 @@ A bundle is a **profile-level** plugin: it mounts when the profile starts and
 | **This bundle's commands** `/doctor`, `/boulder` | type `/` and pick one (both take no arguments; Enter runs them) | `commands: true` (default) |
 | **The `Enhance` preset** | pick it in the preset menu next to a new session's title, or set it as the default in settings | the bundle mounted (the preset row rides with it) |
 | **Model-facing tools** `dsh_enhance_doctor`, `boulder_*`, `worktree_*` (goals use the native `create_goal` / `get_goal` / `update_goal`) | just let the model use them, or ask it to "run dsh_enhance_doctor" | the matching switch (all on by default) |
-| **This bundle's settings page** | sidebar → Plugins panel → `@dsh-enhance/dsh-enhance` → its row's config entry | desktop app or loopback Web (the browser half ships with the bundle) |
+| **This bundle's settings page** | sidebar → Plugins panel → `@p-jiangh/dsh-enhance` → its row's config entry | desktop app or loopback Web (the browser half ships with the bundle) |
 
 Two easy misunderstandings:
 
@@ -73,7 +73,7 @@ dsh plugin --profile dsh-enhance add ./path/to/dsh-enhance
 dsh plugin --profile dsh-enhance add link:<checkout>
 ```
 
-> The package name is `@dsh-enhance/dsh-enhance` — **not** the bare name
+> The package name is `@p-jiangh/dsh-enhance` — **not** the bare name
 > `dsh-enhance`, which is a different, unrelated name on npm. All four forms
 > resolve by path, URL or repository, so the package name never appears in the
 > command.
@@ -85,7 +85,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 > needs it **quoted**:
 > ```yaml
 > allowBuilds:
->   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+>   "@p-jiangh/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
 > ```
 > Prefer form 1 if that is annoying — the tarball already ships the built `lib/`.
 >
@@ -97,7 +97,7 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 Verify what the profile will actually assemble:
 
 ```sh
-dsh --profile dsh-enhance --dump-config   # look for the "# == @dsh-enhance/dsh-enhance" layer
+dsh --profile dsh-enhance --dump-config   # look for the "# == @p-jiangh/dsh-enhance" layer
 ```
 
 ### Presets (no install step)
@@ -111,7 +111,7 @@ roster (this bundle ships only that one). There is no `/presets install`, no
 `config.plugins` is the session agent's **entire** composition (**there is no
 inheritance**): the Enhance preset lists its persona (a `prefix` — the persona
 prose), `agent-instructions` (the AGENTS.md chain), tool rows, four scoped
-subagents, and the `@dsh-enhance/dsh-enhance/enhance-mode` row. Those four
+subagents, and the `@p-jiangh/dsh-enhance/enhance-mode` row. Those four
 subagents (scout / librarian / reviewer / task) are part of the preset and no
 longer appear in the roster themselves.
 
@@ -138,7 +138,7 @@ The plugin row accepts a `config` block, overridable in your profile's
 
 ```yaml
 - id: dsh-enhance
-  name: '@dsh-enhance/dsh-enhance'
+  name: '@p-jiangh/dsh-enhance'
   config:
     workRules: |
       # Team rules

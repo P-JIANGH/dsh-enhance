@@ -27,7 +27,7 @@
 # bundle's plugin row, and the enhance-mode section row.
 - insert:
     - id: dsh-enhance
-      name: '@dsh-enhance/dsh-enhance'
+      name: '@p-jiangh/dsh-enhance'
 
     - id: preset-enhance
       name: '@deepseek-ai/dsh-agent-preset'
@@ -38,10 +38,10 @@
         order: 5
         plugins:
         - id: dsh-enhance
-          name: '@dsh-enhance/dsh-enhance'
+          name: '@p-jiangh/dsh-enhance'
 
         - id: enhance-mode
-          name: '@dsh-enhance/dsh-enhance/enhance-mode'
+          name: '@p-jiangh/dsh-enhance/enhance-mode'
 
         - id: persona
           name: '@deepseek-ai/dsh-persona'

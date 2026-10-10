@@ -13,7 +13,7 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 ## Layout
 
 - `src/index.ts` — plugin entry (`apply`), config schema, wiring of every feature.
-- `src/enhance-mode.ts` — `@dsh-enhance/dsh-enhance/enhance-mode`: the deep-work contract as a **preset-scoped** system-prompt section (only the `preset-enhance` row mounts it).
+- `src/enhance-mode.ts` — `@p-jiangh/dsh-enhance/enhance-mode`: the deep-work contract as a **preset-scoped** system-prompt section (only the `preset-enhance` row mounts it).
 - `src/features/` — capability implementations: `skills-provider`, `commands` (the human `/doctor` + `/boulder` surface), `boulder/` (work tracking), `worktree/`, `delivery-gate/`, `advisor/` (runtime, prompt, severity, emission-guard).
 - `src/hooks/` — prompt/hook wiring: `work-rules`, `rules-injector`, `start-work`, `delivery-gate`.
 - `src/features/boulder/` — boulder state (`boulder.json` under `.dsh-enhance/`) + the write token. Goals are **not** here: they are the native `ctx.goals` service.
@@ -35,7 +35,7 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 
 ## Settings surface（改配置面之前必读）
 
-本插件的配置页挂在**内置「插件」面板**上：`client/client.js` 在 `plugins.row.config` 里认领 key `<包名>#<行 id>`（= `@dsh-enhance/dsh-enhance#dsh-enhance`），控件经 `ctx.configForms.get('dsh-enhance')` 读写**同一个**共享表单（→ 永远只有一个写者）。机制依据与真机证据在 `docs/design-web-settings-card.md` §8–§10。三条不可忘：
+本插件的配置页挂在**内置「插件」面板**上：`client/client.js` 在 `plugins.row.config` 里认领 key `<包名>#<行 id>`（= `@p-jiangh/dsh-enhance#dsh-enhance`），控件经 `ctx.configForms.get('dsh-enhance')` 读写**同一个**共享表单（→ 永远只有一个写者）。机制依据与真机证据在 `docs/design-web-settings-card.md` §8–§10。三条不可忘：
 
 1. **只有 `volatile()` 字段能被设置面编辑**。宿主 `SettingsForms` 对每个 Loader 条目取 `volatileForm(Config)`；一个 volatile 字段都没有的条目**根本不出现在 `describe()` 里**，写非 volatile 路径会直接抛错。新加一个"用户可调"的开关 = 在 `src/index.ts` 的 `Config` 里给它 `.volatile()`，并且**在 `client/client.js` 的 `SWITCHES`/字典里补一行**（`tests/client-contract.test.mjs` 钉字段集合）。
 2. **volatile 改动不重挂插件**。`cordis-plugin-loader` 只把新值原地写进 accessor，并在本插件自己的 fiber 上发 `loader/volatile-update`。所以凡是"管的是一次注册"的开关（工具、命令、钩子、advisor 运行时），必须由 `applyFeatures` 这一代接线来落实 —— 现有实现是收到该事件后**先卸载再重挂**子插件。**新加开关时不要绕过这条**，否则开关会静默失效（第一轮真机探针就是这么抓到问题的）。

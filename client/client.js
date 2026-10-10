@@ -18,7 +18,7 @@
  * tests/client-contract.test.mjs 钉住。
  */
 window.__ModuleLoader__.load({
-  id: '@dsh-enhance/dsh-enhance',
+  id: '@p-jiangh/dsh-enhance',
   factory: (require) => {
     const { createElement: h } = require('react')
     const {
@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
     const SETTINGS_NS = 'dsh-enhance'
 
     /** 本页在插件面板上认领的格子：`<包名>#<行 id>`。 */
-    const ROW_CONFIG_KEY = '@dsh-enhance/dsh-enhance#dsh-enhance'
+    const ROW_CONFIG_KEY = '@p-jiangh/dsh-enhance#dsh-enhance'
 
     /** 本页拥有的字典命名空间。 */
     const LOCALE_NS = 'dsh-enhance.settings'
@@ -114,14 +114,14 @@ window.__ModuleLoader__.load({
     ].join('')
 
     /** 本页样式的幂等标记（模块可能被多次挂载）。 */
-    const CSS_ID = '@dsh-enhance/dsh-enhance/settings.css'
+    const CSS_ID = '@p-jiangh/dsh-enhance/settings.css'
 
     /** 把本页样式注入文档一次。 */
     function ensureStyle() {
       if (typeof document === 'undefined') return
       if (document.querySelector('style[data-plugin-css="' + CSS_ID + '"]') !== null) return
       const tag = document.createElement('style')
-      tag.dataset.plugin = '@dsh-enhance/dsh-enhance'
+      tag.dataset.plugin = '@p-jiangh/dsh-enhance'
       tag.dataset.pluginCss = CSS_ID
       tag.textContent = CSS
       document.head.appendChild(tag)

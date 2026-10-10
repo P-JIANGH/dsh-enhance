@@ -48,7 +48,7 @@
 ## 实驱验证状态
 
 - 待做（标注在代码落地后执行）：6 角色 persona（planner/scout/librarian/task/reviewer/advisor）在 dsh 会话中加载；work-rules 注入可见；librarian 的 web_search 工具在 dsh 下的可用性实驱。advisor 需 M1 实驱确认 3 个接线点（见 advisor.md）。
-- **已落地（2026-10-09）**：enhance-mode 不再是"触发后注入"——它是 Enhance 预设作用域内的**常驻系统提示词段**（`@dsh-enhance/dsh-enhance/enhance-mode`）。审查稿（enhance-mode.md）保留为正文的约束映射；触发相关的待做项作废。
+- **已落地（2026-10-09）**：enhance-mode 不再是"触发后注入"——它是 Enhance 预设作用域内的**常驻系统提示词段**（`@p-jiangh/dsh-enhance/enhance-mode`）。审查稿（enhance-mode.md）保留为正文的约束映射；触发相关的待做项作废。
 - dsh CLI 已安装（@deepseek-ai/dsh@0.1.1-rc.2，仓库已更新核实），隔离 $DSH_HOME 实驱脚本留待 M1 骨架重构后随代码一起做（6.2 流程第 5 步）。
 
 ---

@@ -6,7 +6,7 @@
  * itself from the human's own words, which made the contract invisible to
  * anyone who did not type the magic word and impossible to disable honestly.
  * The mode is now part of the Enhance agent preset's composition: the preset
- * mounts this row (`@dsh-enhance/dsh-enhance/enhance-mode`), the row registers
+ * mounts this row (`@p-jiangh/dsh-enhance/enhance-mode`), the row registers
  * one static section, and every session created on that preset renders it as
  * part of the system prompt. A session on any other preset never sees it.
  *
@@ -93,7 +93,7 @@ export function registerEnhanceMode(ctx: Context): () => void {
 /**
  * Cordis plugin entry.
  *
- * Loaded as the preset's `@dsh-enhance/dsh-enhance/enhance-mode` row; the
+ * Loaded as the preset's `@p-jiangh/dsh-enhance/enhance-mode` row; the
  * loader mounts it inside the preset scope and this registration becomes part
  * of that scope's system prompt.
  *

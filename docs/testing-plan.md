@@ -76,12 +76,12 @@
 
 | 层 | 结果 | 证据 |
 |---|---|---|
-| 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @dsh-enhance/dsh-enhance` 层合入 |
+| 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @p-jiangh/dsh-enhance` 层合入 |
 | CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
 | CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
 | 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；**说明（2026-10-09）**：以上截图是历史证据，自 2026-10-09 起本插件只出 Enhance 一个预设，其余条目来自上游 dsh；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
 | 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
-| 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@dsh-enhance/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
+| 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@p-jiangh/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
 | **打包安装验收（2026-10-09）** | **已通过（21/21，零 token）** | `pnpm qa:pack`：真 `npm pack` → 真装进一次性 profile `qa-pack`（隔离 home）→ 宿主 0.2.x、插件以真实目录装成、profile 里只有 `schemastery`+`cosmokit`（**无任何服务类宿主包副本**）、安装无 peer 告警、`--dump-config` 行齐备、**真启动解析全部静态 import 且本插件行已激活**、未激活名单只有 `preset-enhance`/`agentPresets`。证据 `.dsh-enhance/evidence/pack-install-drive.md` |
 | **L3 真机验收 · headless 组合（2026-10-09，发布后）** | **已通过（exit 0）** | 对象是**已发布字节**（Release 附件，sha256 `7D20FE1B…`），profile `qa-gh4`：真实会话里模型调用 `dsh_enhance_doctor`，报告插件已加载、**打包技能（3）** `code-review/git-workflow/tdd`、`work-rules` 段 286 字、守卫/工作追踪/worktree/人类指令/advisor 全开；advisor 运行时真实跑了一次审查（`ADVISOR: nit`）。enhance-mode 缺失属预期（headless 一次性 runner 不消费预设，模型自己推理出这一点） |
 | **L3 真机验收 · 预设作用域（2026-10-09，发布后）** | **已通过（exit 0）** | 同一**已发布字节** + 探针复刻 Web/桌面绑定（profile `qa-l3p`：registry 默认 `enhance` + probe 行）：名册只有 `preset=enhance default=true broken=-`，全部行 `=true`（含 `enhance-mode`、persona、agent-instructions 与四条子代理）；`resolve(default) -> {id: enhance}`；真实会话 `session-443bec83` 的 header 即该预设，其 system prompt **含完整 26 行 `<enhance-mode>`**、含 persona 前缀、`{{cwd}}` 已替换，且全日志**无** ultrawork/ulw。证据 `.dsh-enhance/evidence/l3-acceptance-published-artifact.md` |

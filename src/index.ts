@@ -5,7 +5,7 @@
  * configurable through the plugin row's `config`.
  *
  * The deep-work protocol is no longer a keyword-triggered injection: it ships
- * as `@dsh-enhance/dsh-enhance/enhance-mode`, a system-prompt section row that
+ * as `@p-jiangh/dsh-enhance/enhance-mode`, a system-prompt section row that
  * only the Enhance agent preset mounts (see `cordis.patch.yml`).
  * @module dsh-enhance
  */

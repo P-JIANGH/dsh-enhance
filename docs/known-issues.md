@@ -10,6 +10,8 @@
 
 ## 当前基线
 
+- **2026-10-10 包名改为 `@p-jiangh/dsh-enhance`（原 `@dsh-enhance/dsh-enhance`）**：GitHub Packages 的文档规则是"scope 对应**仓库所有者**"（*"a package named `@my-org/test`"* 发布会落到仓库 `my-org/test`）且 scope 必须全小写；本仓库是 `P-JIANGH/dsh-enhance`，所以用户名 scope `@p-jiangh` 天然匹配 —— 于是**既不需要建组织，也不需要 PAT**：用 Actions 自带的 `GITHUB_TOKEN`（`packages: write`）发布，见 `.github/workflows/publish-github-packages.yml`（手动触发，且**断言当前提交就是 `v<version>` tag**）。**未变**的东西同样重要：插件行 id `dsh-enhance`、段落名 `dsh-enhance/work-rules` 与 `dsh-enhance/enhance-mode`、工具名、配置命名空间（`ctx.configForms.get('dsh-enhance')`）与设置页认领 key（`<包名>#<行 id>`）里的**行 id**——所以用户按 id 写的补丁覆盖不受影响。**本文件的历史条目保留旧名原样**（历史只标注不重写，与本文件对旧品牌 `oh-my-dsh` 的处理一致）。
+
 - **2026-10-09 发布后 L3 真机验收**：对象是 **Release 附件本身**（sha256 `7D20FE1B…`，与本地 `npm pack` 逐字节一致）。headless 组合（`qa-gh4`）真实会话 exit 0：doctor 报插件已加载 + **打包技能（3）** + work-rules 段 + 开关全开，advisor 运行时真跑了一次审查；预设作用域（`qa-l3p` + 探针）exit 0：名册只有 `preset=enhance default=true broken=-`、全部行 `=true`，真实会话 `session-443bec83` 的 system prompt 含**完整 26 行 `<enhance-mode>`**、persona 前缀在、`{{cwd}}` 已替换、全日志无 ultrawork/ulw。原始证据：`.dsh-enhance/evidence/l3-acceptance-published-artifact.md`、`.dsh-enhance/evidence/pack-install-drive.md` 与 `dsh-enhance-drive-llm-*.md`。
 
 - **2026-10-09 发布收尾轮基线**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **185/185** · `pnpm qa:pack` **21/21**（零 token 打包安装验收）· `pnpm check:pack` PASS（73 个文件，必需项齐备、无陈旧产物）· `git status` 干净。本轮的关键动作是**把 devDeps 从 `0.1.2-alpha.4` 对齐到宿主实际携带的 `@deepseek-ai/*@0.2.0-rc.2`（`cordis@4.0.4`）**——对齐后 `tsc` 当场报出两个真缺陷（P0-10），并连带修掉署名（P0-11）、打包边界（P0-12）与 QA 启动器（P0-13）；新增两道门：`pnpm qa:pack` 与 `tests/host-contract.test.mjs`。
@@ -287,6 +289,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-09 | **建 GitHub 主仓**（`P-JIANGH/dsh-enhance`，public；gitcode 降为 `upstream` 镜像）+ 元数据指向 GitHub + tag `v0.1.0` + Release（附 tarball）+ 两条分发路径真机验收 | `7b4a492` 起 | Release 复核：1 个 asset（101,370B，state=uploaded）· `github:` 装 1m20s（须放行 allowBuilds）· tarball URL 装 9.2s（免构建）· 两者真启动后插件行均激活、未激活名单只有预期的 `preset-enhance`/`agentPresets` |
 | 2026-10-09 | P0-14 CI 首跑抓到 CRLF 让**全部**打包技能消失 → 解析器容忍换行符 + `skills/** eol=lf` + 可注入 skills root + CI 强制 CRLF 回归步骤 | `d77ad77` | 本机把三个 `SKILL.md` 就地改成 CRLF 复现：修复前 `[]`、修复后单测 8/8、全套 192/192 |
 | 2026-10-09 | tag `v0.1.0` 从红提交 `7b4a492`（CI #1 failure）**移到绿提交 `714f1a6`**（CI #3 success），并重传 Release 附件；GitHub 把旧 Release 自动转 draft，已删除残留 | `714f1a6` | 附件与本地构建 sha256 一致（`7D20FE1B…`，102,896B）· 已发布字节装出的包**恰好贡献 3 条技能**（`probe-installed-skills.mjs`）· 真启动插件行激活 · 唯一 Release（draft=false，1 asset）。**代价记录**：同 URL 替换附件会让 pnpm 的 URL 键缓存/lockfile 失配（`ERR_PNPM_MISSING_TARBALL_INTEGRITY`），故 runbook 定为"切版本而不是换附件" |
+| 2026-10-10 | **包名改为 `@p-jiangh/dsh-enhance`**（原 `@dsh-enhance/dsh-enhance`）+ 版本 `0.1.1`；新增 GitHub Packages 发布工作流（`GITHUB_TOKEN`，无需 PAT）；文档与测试全量改名（20 个文件） | 见下一次提交 | `tsc` 0 · `node --test` 192/192 · `check:pack` PASS(73) · `qa:pack` **21/21**（新包名）。改名脚本漏了 `tests/presets-pin.test.mjs` 里**转义斜杠**的旧名正则，被这条字节钉当场抓到并修掉 |
 | 2026-10-09 | **发布后 L3 真机验收**（对象 = 已发布字节）：headless 组合 `qa-gh4` + 预设作用域 `qa-l3p`（探针复刻 Web 绑定） | 见下一次提交 | 两条都 exit 0：doctor 报插件已加载 + 3 条打包技能 + work-rules 段 + 开关全开（advisor 真跑一次审查）；名册 `preset=enhance default=true broken=-` 全行 `=true`，`session-443bec83` 的 system prompt 含完整 26 行 `<enhance-mode>`、`{{cwd}}` 已替换、全日志无 ultrawork/ulw |
 
 

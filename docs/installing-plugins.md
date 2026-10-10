@@ -4,7 +4,7 @@
 > 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
 > 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
 >
-> **命名**：包名 `@dsh-enhance/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可；用 `<checkout>` 指代你本地的仓库目录。
+> **命名**：包名 `@p-jiangh/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `dsh-enhance` 作 **profile 名**示例，换成你自己的 profile 名即可；用 `<checkout>` 指代你本地的仓库目录。
 
 ## 1. 理解背景：profile、bundle 与 patch 层
 
@@ -53,13 +53,13 @@ dsh plugin --profile <name> <pnpm 参数...>
 该 profile 目录不存在时，`dsh plugin` 会自动初始化（无内置模板时以 `@deepseek-ai/dsh-base` 为第一层）、写入 `package.json`、`cordis.patch.yml` 和 `pnpm-workspace.yaml`：
 
 ```sh
-dsh plugin --profile dsh-enhance add @dsh-enhance/dsh-enhance
+dsh plugin --profile dsh-enhance add @p-jiangh/dsh-enhance
 ```
 
 ### 3.2 安装来源一：npm registry（已发布）
 
 ```sh
-dsh plugin --profile dsh-enhance add @dsh-enhance/dsh-enhance
+dsh plugin --profile dsh-enhance add @p-jiangh/dsh-enhance
 ```
 
 ### 3.3 安装来源二：本地 checkout / 本地路径
@@ -88,10 +88,10 @@ dsh plugin --profile dsh-enhance add link:<checkout>
 安装成功后 profile 的 `package.json` `dependencies` 里会出现：
 
 ```json
-"@dsh-enhance/dsh-enhance": "link:<checkout>"
+"@p-jiangh/dsh-enhance": "link:<checkout>"
 ```
 
-而 `node_modules/@dsh-enhance/dsh-enhance` 是指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: <checkout>`）。
+而 `node_modules/@p-jiangh/dsh-enhance` 是指向源码仓库的目录链接（可验证 `LinkType: Junction, Target: <checkout>`）。
 
 **⚠️ 关键点：链接安装 ≠ 源码即时生效。** dsh 的 loader 解析的是包的 `main` / `exports` 入口，dsh-enhance 指向 `lib/index.js`（**构建产物**）。因此：
 
@@ -128,10 +128,10 @@ dsh plugin --profile dsh-enhance add git@gitcode.com:jiangh_hnr/dsh-enhance.git
 ```
 
 > **源码装（第 2 种）必须放行构建脚本**：pnpm ≥10 默认拦截 git 依赖的 `prepare`，`dsh plugin` 会失败并把确切 key 打印出来，例如
-> `@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#7b4a492…`。把它加进 **profile** 的 `pnpm-workspace.yaml`：
+> `@p-jiangh/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#7b4a492…`。把它加进 **profile** 的 `pnpm-workspace.yaml`：
 > ```yaml
 > allowBuilds:
->   "@dsh-enhance/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
+>   "@p-jiangh/dsh-enhance@git+https://github.com/P-JIANGH/dsh-enhance.git#<commit>": true
 > ```
 > 两个容易踩的点：**key 里带 commit 号**（每次升级都要换），而且 key 含 `:` 与 `#`，**YAML 里必须加引号**（不加会报 `bad indentation of a mapping entry`）。发行版 tarball（第 1 种）没有这一步，因为 `lib/` 已经打进去了。
 >
@@ -181,7 +181,7 @@ dsh --profile dsh-enhance ...
 ```yaml
 # $DSH_HOME/profiles/dsh-enhance/cordis.patch.yml
 - id: dsh-enhance
-  name: '@dsh-enhance/dsh-enhance'
+  name: '@p-jiangh/dsh-enhance'
   config:
     workRules: |
       # My team's rules
@@ -202,7 +202,7 @@ dsh --profile dsh-enhance ...
 > 完整字段（`guards` / `workTracking` / `worktree` / `advisor` / `advisorModel`）见 README 的配置表。
 > 已退役、**不要再写**：`orientOnSessionStart`（绑定事件 `agent/session-start` 在 0.2.0 不存在）与 `ulwTrigger`（关键词触发被 Enhance 预设作用域内的常驻段取代）。
 
-**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 7 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@dsh-enhance/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：界面写的是"最小增量"（保留该行原有的非 volatile 字段 + 你的 volatile 增量），被省略的字段一律回落到 **schema 默认值**，所以用界面改了就别再手工在补丁里写同一个键（会被覆盖成默认值）；点「恢复默认」会清掉该行覆盖——只剩 `id`/`name` 时整行删除，bundle 自己的 `insert` 行不受影响。机制与真机证据见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
+**也可以不写 YAML**：dsh-enhance 把除 `workRules` 外的 7 个字段标了 `volatile()`，桌面端/loopback Web 里打开侧边栏的「插件」面板 → `@p-jiangh/dsh-enhance` 包 → 它那一行的「配置」，改完保存即生效（写进你 profile 的 `cordis.patch.yml` 的 user 层）。**同一字段只能有一个写者**：界面写的是"最小增量"（保留该行原有的非 volatile 字段 + 你的 volatile 增量），被省略的字段一律回落到 **schema 默认值**，所以用界面改了就别再手工在补丁里写同一个键（会被覆盖成默认值）；点「恢复默认」会清掉该行覆盖——只剩 `id`/`name` 时整行删除，bundle 自己的 `insert` 行不受影响。机制与真机证据见 [design-web-settings-card.md](design-web-settings-card.md) §8–§10。
 
 用 `--patch` 临时覆盖（不落盘，调试用，在 profile 层之后应用）：
 
@@ -214,7 +214,7 @@ dsh --profile dsh-enhance --patch ./extra.yml ...
 
 - **从 profile 卸载插件**（移除依赖并自动从 `bundles` 列表剔除）：
   ```sh
-  dsh plugin --profile dsh-enhance remove @dsh-enhance/dsh-enhance
+  dsh plugin --profile dsh-enhance remove @p-jiangh/dsh-enhance
   ```
 - **临时停用某一行**：在更高的补丁层里对目标行设 `disabled: true`。例如临时禁用 dsh-enhance 主行：
   ```yaml
@@ -239,7 +239,7 @@ dsh --profile dsh-enhance --patch ./extra.yml ...
    ```json
    "dsh": { "bundle": { "patch": "./cordis.patch.yml" } }
    ```
-2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: '@dsh-enhance/dsh-enhance'` 一行）。**`name` 必须是 loader 能解析的完整包名**：它以模块说明符的身份从 profile 目录解析，裸名只有在 profile 恰好装了同名依赖时才成立（这正是初版 `name: dsh-enhance` 装完仍报 `ERR_MODULE_NOT_FOUND` 的原因）。
+2. `cordis.patch.yml` 为顶层 YAML 数组，用 `- insert:` 或直接 `- id: ...` 行向空条目列表插入配置行（如 dsh-enhance 插入 `id: dsh-enhance` / `name: '@p-jiangh/dsh-enhance'` 一行）。**`name` 必须是 loader 能解析的完整包名**：它以模块说明符的身份从 profile 目录解析，裸名只有在 profile 恰好装了同名依赖时才成立（这正是初版 `name: dsh-enhance` 装完仍报 `ERR_MODULE_NOT_FOUND` 的原因）。
 
 这样"万物皆插件"的插件就齐了：加一个依赖声明、一个补丁文件，就能用 `dsh plugin --profile <name> add <pkg>` 完成安装。
 

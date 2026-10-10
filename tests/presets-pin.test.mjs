@@ -70,7 +70,7 @@ test('the Enhance preset row carries the plugin row and the enhance-mode section
   assert.match(bundle, /^        name: Enhance$/m)
   // The row that turns the deep-work contract into a preset-scoped prompt section.
   assert.match(bundle, /^ {8}- id: enhance-mode$/m)
-  assert.match(bundle, /name: '@dsh-enhance\/dsh-enhance\/enhance-mode'/)
+  assert.match(bundle, /name: '@p-jiangh\/dsh-enhance\/enhance-mode'/)
   // The plugin install row itself must stay in the same patch layer.
   assert.match(bundle, /^ {4}- id: dsh-enhance$/m)
 })

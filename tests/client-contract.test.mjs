@@ -225,8 +225,8 @@ test('[client] 样式只注入一次，且带幂等标记', () => {
     const { effects } = mountClient()
     assert.ok(effects.length >= 3, '字典/表单订阅/页面三处 effect')
     const style = doc.appended[0]
-    assert.equal(style.dataset.plugin, '@dsh-enhance/dsh-enhance')
-    assert.equal(style.dataset.pluginCss, '@dsh-enhance/dsh-enhance/settings.css')
+    assert.equal(style.dataset.plugin, '@p-jiangh/dsh-enhance')
+    assert.equal(style.dataset.pluginCss, '@p-jiangh/dsh-enhance/settings.css')
     assert.ok(style.textContent.includes('--dsw-alias-label-primary'))
   } finally {
     doc.restore()

@@ -19,7 +19,7 @@
  * disables on the host plane (mirroring the shipped `standard` preset, so the
  * scoped subagents' `toolFilter` resolves), the four scoped subagent rows
  * (scout / librarian / reviewer / task), this bundle's own plugin row, and the
- * `@dsh-enhance/dsh-enhance/enhance-mode` row that makes the deep-work
+ * `@p-jiangh/dsh-enhance/enhance-mode` row that makes the deep-work
  * contract a permanent system-prompt section of every session on this preset.
  *
  * @module scripts/sync-dsh-enhance-preset
@@ -277,12 +277,12 @@ export async function pluginsBlock() {
 
   return [
     '- id: dsh-enhance',
-    "  name: '@dsh-enhance/dsh-enhance'",
+    "  name: '@p-jiangh/dsh-enhance'",
     '',
     // The preset-scoped system-prompt section: this row is what makes the
     // deep-work contract permanent for sessions on this preset only.
     '- id: enhance-mode',
-    "  name: '@dsh-enhance/dsh-enhance/enhance-mode'",
+    "  name: '@p-jiangh/dsh-enhance/enhance-mode'",
     '',
     // The persona row is SCOPE-ONLY and its schema is `prefix` (required) /
     // `suffix` / `complete` / `includeRuntimeContext` — there is no `text` key
@@ -346,7 +346,7 @@ function header() {
 # bundle's plugin row, and the enhance-mode section row.
 - insert:
     - id: dsh-enhance
-      name: '@dsh-enhance/dsh-enhance'
+      name: '@p-jiangh/dsh-enhance'
 
     - id: ${MAIN.rowId}
       name: '@deepseek-ai/dsh-agent-preset'

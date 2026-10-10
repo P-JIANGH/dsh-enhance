@@ -1,0 +1,75 @@
+# 发布到 GitHub Packages（手动触发）
+#
+# 为什么用 GitHub Actions 而不是本机：这个仓库里发布到 GitHub Packages 需要
+# `packages: write`，而工作流自带的 `GITHUB_TOKEN` 就有它——**不需要任何个人访问令牌
+# （PAT）**，也就不需要维护凭据。唯一的前置是"scope 与仓库所有者一致"：仓库是
+# P-JIANGH/dsh-enhance，所以包名是 `@p-jiangh/dsh-enhance`（小写）。
+#
+# 消费侧的代价（写在 docs/releasing.md §4.5）：GitHub Packages 连**公开包**的安装都要
+# token。所以它是"多一个受控 registry 渠道"，不是公开分发的替代品——公开分发仍用
+# Release 里的匿名 tarball。
+#
+# 本工作流不建 Release：Release 与附件由本机按 docs/releasing.md 的配方从 tag 的树生成，
+# 这样"npm 收下的 tarball == Release 附件"这条验收标准才有意义。
+name: Publish to GitHub Packages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 需要 tag 才能做下面那条"必须从 tag 发布"的断言
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          # 这两项会让 setup-node 写好 .npmrc 的作用域行与鉴权行
+          registry-url: https://npm.pkg.github.com
+          scope: '@p-jiangh'
+
+      # `prepare` 会跑 tsc，所以这一步同时验证了构建。
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # 版本纪律由机器把关：只允许从 `v<version>` 指向的那个提交发布，绝不从 master 发。
+      - name: Assert this commit is the v<version> tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          git fetch --tags --force
+          if ! git rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
+            echo "::error::no tag v${version}; tag the release commit first (see docs/releasing.md §2)"
+            exit 1
+          fi
+          tag_commit="$(git rev-list -n1 "v${version}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "::error::HEAD ($head_commit) is not v${version} ($tag_commit)"
+            exit 1
+          fi
+          echo "publishing $version from $head_commit (matches v${version})"
+
+      - name: Publish to npm.pkg.github.com
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

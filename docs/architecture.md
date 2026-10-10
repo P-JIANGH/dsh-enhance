@@ -44,7 +44,7 @@ dsh-enhance/
 ├── skills/                # 打包 SKILL.md（静态知识层）
 ├── src/                   # ★ adapter 层（单一宿主平台插件）
 │   ├── index.ts           # 插件入口：name / inject / Config（schemastery schema，用户开关带 volatile()）/ apply
-│   ├── enhance-mode.ts    # 预设作用域常驻系统提示词段（@dsh-enhance/dsh-enhance/enhance-mode）
+│   ├── enhance-mode.ts    # 预设作用域常驻系统提示词段（@p-jiangh/dsh-enhance/enhance-mode）
 │   ├── hooks/             # 生命周期钩子（work-rules、rules-injector、start-work、delivery-gate）
 │   ├── tools/             # 工具注册（doctor、guards、guard-register、boulder-tools、worktree-tools、write-token-guard）
 │   ├── features/          # 特性模块（skills-provider、commands、boulder/、worktree/、delivery-gate/、advisor/）
@@ -208,7 +208,7 @@ dsh-enhance/
 - **模式段（mode）**：深度工作协议不再走"意图路由 + 关键词触发"，而是**预设作用域内的常驻系统提示词段**：
   - 单源：`prompts/modes/enhance-mode.md`（正文 = `<enhance-mode>` 标记到文末，逐字）。
   - 运行时常量：`src/enhance-mode.ts` 的 `ENHANCE_MODE_TEXT`（`tests/enhance-mode.test.mjs` 逐字 pin）。
-  - 挂载：bundle 的 `cordis.patch.yml` 里 `preset-enhance` 行的 `config.plugins` 含一行 `{ id: enhance-mode, name: '@dsh-enhance/dsh-enhance/enhance-mode' }`；该行在预设作用域内注册 `systemPrompt.section({ name: 'dsh-enhance/enhance-mode', order: 1 })`。
+  - 挂载：bundle 的 `cordis.patch.yml` 里 `preset-enhance` 行的 `config.plugins` 含一行 `{ id: enhance-mode, name: '@p-jiangh/dsh-enhance/enhance-mode' }`；该行在预设作用域内注册 `systemPrompt.section({ name: 'dsh-enhance/enhance-mode', order: 1 })`。
   - 可见性：只有选了 Enhance 预设（id `enhance`）的会话渲染这段；其它预设/无预设的会话完全看不到——作用域段落"同名覆盖全局、跨作用域不可见"由 `dsh-system-prompt` 的 layer 机制保证。
 - **技能自检**：doctor 工具列出当前会话可见技能（v1 已实现 `ctx.skills.list`）。
 
@@ -364,7 +364,7 @@ dsh-enhance 把 6 角色按**三种工作模式/预设**组织和呈现，三者
 
 1. **单测**：`node --test`（20 个测试文件 / 175 例）。纯逻辑（boulder 冲突合并、写令牌接管、worktree 解析、路径校验、守卫判定、交付门卫状态机、人类指令注册、预设装机）均有单测；并发写冲突为构造式交错（真进程间竞争见 §9 已知限制）。
 2. **dsh 实驱**：`qa/` 下三个驱动（`dsh-enhance-drive` / `worktracking-drive` / `delivery-gate-drive`）**默认落在仓库内隔离 home** `.dsh-enhance/desktop-test-home`（profile `qa`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先），真实加载插件后逐项断言：
-   - 激活：`--dump` 确认 `# == @dsh-enhance/dsh-enhance` 层合入（零 token）；`--llm` 真实会话命中实质标记（含插件自己写进 stderr 的确定性痕迹）；
+   - 激活：`--dump` 确认 `# == @p-jiangh/dsh-enhance` 层合入（零 token）；`--llm` 真实会话命中实质标记（含插件自己写进 stderr 的确定性痕迹）；
    - 守卫 + 工作追踪：越界写被拒、合法写放行、令牌持有者可读、退出后无活进程占用令牌；
    - 交付门卫：假完成声明 → `completion_log` 落盘且 `active_work` 清空。
 3. **证据**：每次实驱记录到 `.dsh-enhance/evidence/`（含本次实际使用的 profile 与 `$DSH_HOME`），证明隔离（真实 `$DSH_HOME` 未动）。

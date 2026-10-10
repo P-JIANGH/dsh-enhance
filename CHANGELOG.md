@@ -5,6 +5,38 @@ version scheme is [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Detailed rationale for each decision lives in `docs/` (the ledger in
 `docs/known-issues.md` records what was measured, and why it changed).
 
+## [0.1.1] — 2026-10-10
+
+A packaging release: **nothing about plugin behaviour changed**. The plugin row id
+(`dsh-enhance`), the prompt section names (`dsh-enhance/work-rules`,
+`dsh-enhance/enhance-mode`), the tool names, the config namespace and the settings
+page key all stay the same, so existing `cordis.patch.yml` overrides keep working
+unchanged.
+
+### Changed
+
+- **The npm package is now `@p-jiangh/dsh-enhance`** (it was
+  `@dsh-enhance/dsh-enhance`). Reason: GitHub Packages documents the package scope as
+  the **repository owner** — `@my-org/test` is published to the `my-org/test`
+  repository — and names/scopes must be lowercase. `@p-jiangh` matches this
+  repository, so the plugin can be published to a registry without an organisation.
+  The project name is still **dsh-enhance**; only the package name carries the scope.
+
+### Added
+
+- **`.github/workflows/publish-github-packages.yml`** — publishes to GitHub Packages
+  on manual dispatch, authenticating with the workflow's own `GITHUB_TOKEN`
+  (`packages: write`), so no personal access token is involved. It asserts that the
+  checked-out commit **is** the `v<version>` tag before publishing, which keeps the
+  "publish from the tag, never from master" rule enforced by machine rather than by
+  discipline.
+- The channel itself is documented in `docs/releasing.md` §4.5, including the part
+  that matters to users: GitHub Packages requires an access token to **install**
+  packages too, even public ones, so it is an alternative channel and not a
+  replacement for the token-free release tarball.
+
+[0.1.1]: https://github.com/P-JIANGH/dsh-enhance/releases/tag/v0.1.1
+
 ## [0.1.0] — 2026-10-09
 
 First release: M1–M6 of `docs/architecture.md` plus the settings surface. It is an

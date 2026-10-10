@@ -1,6 +1,6 @@
 # enhance-mode（深度工作模式）协议 —— 预设作用域常驻段
 
-> 本段由 `@dsh-enhance/dsh-enhance/enhance-mode` 作为 system-prompt 段落常驻：只有挂载了那一行的会话（Enhance 预设，id `enhance`）看得到它。没有关键词触发，也没有"进入/退出"动作。
+> 本段由 `@p-jiangh/dsh-enhance/enhance-mode` 作为 system-prompt 段落常驻：只有挂载了那一行的会话（Enhance 预设，id `enhance`）看得到它。没有关键词触发，也没有"进入/退出"动作。
 
 <enhance-mode>
 

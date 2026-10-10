@@ -152,7 +152,7 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
 
 ### 4.1 前置条件
 
-1. **占住 scope**。2026-10-10 查询：`@dsh-enhance/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）。但"能不能占"取决于你能否打开 npm 网页：
+1. **占住 scope**。2026-10-10 查询：`@p-jiangh/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）。但"能不能占"取决于你能否打开 npm 网页：
    - **组织 scope `@dsh-enhance`（当前包名）**：**必须用网页创建组织**——npm 10 的 `npm org` 只有 `set` / `rm` / `ls`，**没有 `create`**（实测 `npm org --help` 的输出里只有这三条）。网页不可达时这条路走不通。
    - **用户 scope `@<你的 npm 用户名>/dsh-enhance`**：账号一旦存在，用户名 scope 是**自动的**，**不需要网页、不需要建组织**；只需要 `npm login`。代价是要改包名（见下），而"改包名"属于改动 manifest，**不能塞回已 tag 的版本**——必须**切新版本**（例如 `0.1.1` + `v0.1.1`），发布时验收标准也随之变成"npm tarball == v0.1.1 的 GitHub 附件"。
    - **裸名 `dsh-enhance`**：安装命令最短（`add dsh-enhance`），同样要改包名；缺点是看起来像官方 `dsh-*` 包，并与 GitHub 上另一个同名项目（`vcxmug/dsh-enhance`）混淆。
@@ -220,7 +220,7 @@ git worktree prune
 > 真要用 junction，删 worktree 前必须先单独删掉那个 junction 本身（`cmd /c rmdir <wt>\node_modules`）。
 
 **可验证的验收**：npm 收下的 tarball 必须与 GitHub Release 附件**逐字节相同**——比对
-`npm view @dsh-enhance/dsh-enhance dist.integrity`（sha512）与附件的 sha512。2026-10-10 演练实测：
+`npm view @p-jiangh/dsh-enhance dist.integrity`（sha512）与附件的 sha512。2026-10-10 演练实测：
 从 tag 树 + `core.autocrlf=false` + `npm pack` 得到的 tarball **等于**附件
 （`7D20FE1B…`，102,896 B）。
 
@@ -237,11 +237,11 @@ git worktree prune
 ### 4.3 发布后核验（四件事，缺一不算发完）
 
 ```sh
-npm view @dsh-enhance/dsh-enhance version dist.tarball dist.integrity
-npm view @dsh-enhance/dsh-enhance dist-tags          # latest 指到刚发的版本
+npm view @p-jiangh/dsh-enhance version dist.tarball dist.integrity
+npm view @p-jiangh/dsh-enhance dist-tags          # latest 指到刚发的版本
 
 # 1) 四公开面扫描（附件/npm tarball 是**新**的公开面，必须单独扫一遍）
-curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
+curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 #    然后用 .dsh-enhance/scan-public-surface.mjs 扫它（密钥特征 + 本机痕迹 + 无 *.map）
 
 # 2) 装出来的形状：与 qa:pack 的断言同一套（只有 schemastery 闭包被复制进 profile、无宿主包副本）
@@ -260,7 +260,7 @@ curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 | 项 | 事实（2026-10-10 实测/官方文档） |
 |---|---|
 | 包名必须 scoped 且**全小写** | 文档：*"GitHub Packages only supports scoped npm packages"*、*"Package names and scopes must only use lowercase letters"* → 用户 scope 只能写作 `@p-jiangh/…`（不是 `@P-JIANGH/…`） |
-| **scope 与仓库所有者的关系（关键）** | 文档的经典规则原文：*"By default, your package is published in the GitHub repository that you specify in the `name` field of the `package.json` file. For example, you would publish a package named `@my-org/test` to the `my-org/test` GitHub repository."* → **scope 应对应仓库所有者**。即：发 `@dsh-enhance/dsh-enhance` 需要仓库位于组织 `dsh-enhance` 之下（**只建组织不够，还要把仓库转移进去**）；发 `@p-jiangh/dsh-enhance` 与当前仓库 `P-JIANGH/dsh-enhance` 天然匹配。文档另有一支较新的行为（包归属某账号/组织、与仓库的关联可选），但**哪一支对某个账号生效无法从外部判定——以第一次发布的实际返回为准** |
+| **scope 与仓库所有者的关系（关键）** | 文档的经典规则原文：*"By default, your package is published in the GitHub repository that you specify in the `name` field of the `package.json` file. For example, you would publish a package named `@my-org/test` to the `my-org/test` GitHub repository."* → **scope 应对应仓库所有者**。即：发 `@p-jiangh/dsh-enhance` 需要仓库位于组织 `dsh-enhance` 之下（**只建组织不够，还要把仓库转移进去**）；发 `@p-jiangh/dsh-enhance` 与当前仓库 `P-JIANGH/dsh-enhance` 天然匹配。文档另有一支较新的行为（包归属某账号/组织、与仓库的关联可选），但**哪一支对某个账号生效无法从外部判定——以第一次发布的实际返回为准** |
 | 认证 | 文档：npm registry **只支持 classic PAT**（fine-grained 不行）；且 *"You need an access token to publish, **install**, and delete private, internal, and **public** packages."* → 发布与安装都要 token |
 | 需要勾的 scope | **`repo` + `read:packages` + `write:packages`**（`delete:packages` 可选）。最小发布集是 `write:packages` **加** `read:packages`，只勾前者仍可能 403 |
 | 改动 scope 的代价 | classic token 的 scope **无法就地修改**，必须 regenerate 或新建；改后用 `x-oauth-scopes` 响应头验证（本仓库：`node .dsh-enhance/gh-api.mjs whoami`） |
@@ -273,8 +273,8 @@ curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 |---|---|---|---|
 | `@p-jiangh/dsh-enhance` | **Actions 的 `GITHUB_TOKEN`**（`permissions: packages: write`） | **什么都不用**（只需点一次 "Run workflow"） | 要 → 切 `0.1.1` |
 | `@p-jiangh/dsh-enhance` | 本机 classic PAT | 新建一把带上述 scope 的 classic PAT | 要 → 切 `0.1.1` |
-| `@dsh-enhance/dsh-enhance` | 本机 classic PAT | 建组织 `dsh-enhance` + 新 PAT；**且（按经典规则）把仓库转移进该组织** | 不改名 → 可发 `0.1.0` |
-| `@dsh-enhance/dsh-enhance` | Actions 的 `GITHUB_TOKEN` | 建组织 **+ 转移仓库**进组织 | 不改名 → 可发 `0.1.0` |
+| `@p-jiangh/dsh-enhance` | 本机 classic PAT | 建组织 `dsh-enhance` + 新 PAT；**且（按经典规则）把仓库转移进该组织** | 不改名 → 可发 `0.1.0` |
+| `@p-jiangh/dsh-enhance` | Actions 的 `GITHUB_TOKEN` | 建组织 **+ 转移仓库**进组织 | 不改名 → 可发 `0.1.0` |
 
 **注意**：`GITHUB_TOKEN` 这条并不要求建组织——它只要求 **scope 与仓库所有者一致**。所以"保名"才需要组织（+转移仓库），"用用户名 scope"则连 PAT 都不用。
 

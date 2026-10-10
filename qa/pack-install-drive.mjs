@@ -1,7 +1,7 @@
 // 「打包安装验收」—— npm pack → 一次性 profile 真装 tarball → 断言装配与模块加载。
 //
 // 为什么单独一层：仓库里其余测试都在 `link:` 形态下跑（profile 的
-// node_modules/@dsh-enhance/dsh-enhance 是指向本 checkout 的 junction），解析会落到
+// node_modules/@p-jiangh/dsh-enhance 是指向本 checkout 的 junction），解析会落到
 // checkout 自己的 node_modules —— 恰好掩盖「宿主供给的包被写成 dependency」这类缺陷。
 // 这里跑的是用户真装一遍的那条路：真 tarball、真 pnpm、真启动。
 //
@@ -137,7 +137,7 @@ if (!bundles.some(b => /dsh-(headless|web-app)$|-app$/.test(String(b)))) {
 }
 
 // ── 4. 装出来的形状：这些断言就是这条验收存在的理由 ────────────────────────────
-const installedPkg = join(PROFILE_DIR, 'node_modules', '@dsh-enhance', 'dsh-enhance')
+const installedPkg = join(PROFILE_DIR, 'node_modules', '@p-jiangh', 'dsh-enhance')
 const isLink = existsSync(installedPkg) && lstatSync(installedPkg).isSymbolicLink()
 check('插件以真实目录装进 profile（不是 link: 形态）', existsSync(installedPkg) && !isLink,
   isLink ? 'junction/symlink — 这条验收就失去意义了' : installedPkg)
@@ -149,7 +149,7 @@ check('插件以真实目录装进 profile（不是 link: 形态）', existsSync
 // cordis …）带模块级身份（消息工厂、工具运行时 Symbol），在一个 profile 里只能有宿主那一份
 // —— 它们必须由宿主运行时解析器供给，绝不能被我们声明成依赖。这份白名单就是那条边界。
 const ALLOWED_DEEPSEEK_COPIES = new Set(['schemastery', 'cosmokit'])
-const ALLOWED_TOP_SCOPES = new Set(['@dsh-enhance', '@deepseek-ai', '@standard-schema'])
+const ALLOWED_TOP_SCOPES = new Set(['@p-jiangh', '@deepseek-ai', '@standard-schema'])
 const deepseekDir = join(PROFILE_DIR, 'node_modules', '@deepseek-ai')
 const deepseekCopies = existsSync(deepseekDir) ? readdirSync(deepseekDir).sort() : []
 check('复制进 profile 的只有 schemastery 及其纯工具依赖，没有任何服务类宿主包',
@@ -170,10 +170,10 @@ const dump = runDsh(['--profile', PROFILE, '--dump-config'])
 const dumpText = dump.stdout + dump.stderr
 for (const needle of [
   "- id: dsh-enhance",
-  "name: '@dsh-enhance/dsh-enhance'",
+  "name: '@p-jiangh/dsh-enhance'",
   'id: preset-enhance',
   'id: enhance-mode',
-  "name: '@dsh-enhance/dsh-enhance/enhance-mode'",
+  "name: '@p-jiangh/dsh-enhance/enhance-mode'",
   'id: dsh-enhance-subagent-scout',
   'id: dsh-enhance-subagent-librarian',
   'id: dsh-enhance-subagent-reviewer',

@@ -3,7 +3,7 @@
 > 性质：dsh-enhance 自有深度工作协议，自主设计，MIT 许可。
 > 素材来源（均非 SUL）：`oh-my-pi`（MIT）agent/task 委派纪律、`lazycodex`（MIT）证据门理念、你的桌面工作流分析（个人材料）、2026-07-09 确认的两条工作准则（事实永远在文件 / 不臆想、不编造、多提问）。
 > 本稿：入口契约；交付前回归审查见 `enhance-mode-review.md`。
-> 落地：作为 Enhance 预设（`config.id: 'enhance'`）作用域内的**常驻 system-prompt 段落**（预设里的 `@dsh-enhance/dsh-enhance/enhance-mode` 行）；没有关键词触发，也没选该预设的会话完全看不到。正文单源是 `prompts/modes/enhance-mode.md`。
+> 落地：作为 Enhance 预设（`config.id: 'enhance'`）作用域内的**常驻 system-prompt 段落**（预设里的 `@p-jiangh/dsh-enhance/enhance-mode` 行）；没有关键词触发，也没选该预设的会话完全看不到。正文单源是 `prompts/modes/enhance-mode.md`。
 > 注：不依赖任一 harness 专属工具名，落地时映射 dsh 实际机制。
 
 <enhance-mode>
