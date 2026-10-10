@@ -32,17 +32,37 @@ const FORBIDDEN = [
 /**
  * npm 的可执行入口。Windows 上 `spawnSync('npm.cmd', …)` 会 EINVAL，
  * 所以走 `node <npm-cli.js>`；`npm_execpath` 在经由 npm/pnpm 运行时已经给出正确路径。
+ *
+ * 兜底必须**同时**覆盖两种 Node 安装布局：Windows 是 `<nodeDir>/node_modules/npm/…`，
+ * POSIX（官方 tar、apt、`actions/setup-node`）是 `<nodeDir>/lib/node_modules/npm/…`。
+ * 只写前者时，本脚本在 Linux 上会直接抛"找不到 npm 的 CLI 入口"——CI 的 ubuntu 腿就是这样红的
+ * （2026-10-10，第一次跑 Linux 时把三处平台假设逐一暴露出来）。
+ *
  * @returns `{ cmd, prefix }`。
  */
 function npmArgv() {
+  const nodeDir = dirname(process.execPath)
+  const execpath = process.env.npm_execpath
+  // `npm_execpath` 只在它**确实是 npm 的 JS 入口**时才可用：在 pnpm 下它指向
+  // `@pnpm/exe/pnpm.exe`（本机实测），交给 `node` 会报 `Unknown file extension ".exe"` ——
+  // 于是 `pnpm check:pack` 一直是坏的（这是既有缺陷，2026-10-10 顺手修掉）。
+  // 而且这个脚本要检查的是**npm 打出来的载荷**（`npm publish` 用的就是 npm 的打包器），
+  // 所以 Node 自带的那份 npm 优先。
+  const execpathIsNpmJs =
+    typeof execpath === 'string' && /\.(c|m)?js$/i.test(execpath) && /(^|[\\/])npm[\\/][^\\/]*$/.test(execpath)
   const candidates = [
-    process.env.npm_execpath,
-    join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Windows 布局
+    join(nodeDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // POSIX 布局
+    execpathIsNpmJs ? execpath : undefined,
+    join(process.cwd(), 'node_modules', 'npm', 'bin', 'npm-cli.js'), // 本仓库自带
   ].filter(Boolean)
   for (const candidate of candidates) {
     if (existsSync(candidate)) return { cmd: process.execPath, prefix: [candidate] }
   }
-  throw new Error('check-pack-payload: 找不到 npm 的 CLI 入口（npm_execpath / node_modules/npm/bin/npm-cli.js 都不存在）')
+  throw new Error(
+    `check-pack-payload: 找不到 npm 的 CLI 入口。已尝试：\n  ${candidates.join('\n  ')}\n` +
+      '提示：直接 `node scripts/…` 调用时 npm_execpath 不会被设置，所以上面靠的是 Node 安装布局。',
+  )
 }
 
 const npm = npmArgv()
