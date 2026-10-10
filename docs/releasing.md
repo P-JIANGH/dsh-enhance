@@ -259,14 +259,24 @@ curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 
 | 项 | 事实（2026-10-10 实测/官方文档） |
 |---|---|
-| 包名 | 官方文档：*"GitHub Packages only supports scoped npm packages"*，且"names and scopes must only use lowercase letters"。现有名 `@dsh-enhance/dsh-enhance` 已符合 |
-| scope 归属 | 包属于 scope 里的那个 GitHub 账号/组织。要保留现有名，必须存在 **GitHub 组织 `dsh-enhance`**；建组织是**网页操作**（`https://github.com/account/organizations/new`）。用户名 scope（如 `@p-jiangh/…`）不需要组织，但要改名 → 必须切新版本 |
-| 名字可用性 | GitHub 的用户名与组织名**共用一个命名空间**。2026-10-10 探测：`GET /users/dsh-enhance` → 404、`GET /orgs/dsh-enhance` → 404、网页 `https://github.com/dsh-enhance` → 404。**但这只是"很可能可用"，不是证明**——私有组织对非成员同样返回 404，被停用的账号也可能仍占着名字。**以实际创建成功为准**；若建不出来，兜底是发到 `@P-JIANGH/dsh-enhance`（改名 → 切 0.1.1 + `v0.1.1`） |
-| 认证 | 官方文档：npm registry **只支持 classic PAT**（fine-grained 不行）；并且 *"You need an access token to publish, **install**, and delete private, internal, and **public** packages."* → 发布与安装都要 token |
-| 需要勾的 scope | **`repo` + `read:packages` + `write:packages`**（`delete:packages` 可选）。文档给的最小发布集是 `write:packages` **加** `read:packages`，只勾前者仍可能 403 |
-| 改动 scope 的代价 | classic token 的 scope **无法就地修改**，必须 regenerate 或新建；改了之后用 `x-oauth-scopes` 响应头验证（本仓库用 `node .dsh-enhance/gh-api.mjs whoami` 打印它） |
-| `.npmrc`（发布与安装都需要） | `@dsh-enhance:registry=https://npm.pkg.github.com` + `//npm.pkg.github.com/:_authToken=<classic PAT>` |
+| 包名必须 scoped 且**全小写** | 文档：*"GitHub Packages only supports scoped npm packages"*、*"Package names and scopes must only use lowercase letters"* → 用户 scope 只能写作 `@p-jiangh/…`（不是 `@P-JIANGH/…`） |
+| **scope 与仓库所有者的关系（关键）** | 文档的经典规则原文：*"By default, your package is published in the GitHub repository that you specify in the `name` field of the `package.json` file. For example, you would publish a package named `@my-org/test` to the `my-org/test` GitHub repository."* → **scope 应对应仓库所有者**。即：发 `@dsh-enhance/dsh-enhance` 需要仓库位于组织 `dsh-enhance` 之下（**只建组织不够，还要把仓库转移进去**）；发 `@p-jiangh/dsh-enhance` 与当前仓库 `P-JIANGH/dsh-enhance` 天然匹配。文档另有一支较新的行为（包归属某账号/组织、与仓库的关联可选），但**哪一支对某个账号生效无法从外部判定——以第一次发布的实际返回为准** |
+| 认证 | 文档：npm registry **只支持 classic PAT**（fine-grained 不行）；且 *"You need an access token to publish, **install**, and delete private, internal, and **public** packages."* → 发布与安装都要 token |
+| 需要勾的 scope | **`repo` + `read:packages` + `write:packages`**（`delete:packages` 可选）。最小发布集是 `write:packages` **加** `read:packages`，只勾前者仍可能 403 |
+| 改动 scope 的代价 | classic token 的 scope **无法就地修改**，必须 regenerate 或新建；改后用 `x-oauth-scopes` 响应头验证（本仓库：`node .dsh-enhance/gh-api.mjs whoami`） |
+| `.npmrc`（发布与安装都需要） | `@<NAMESPACE>:registry=https://npm.pkg.github.com` + `//npm.pkg.github.com/:_authToken=<classic PAT>` |
 | 发布目标 | 也可用 `publishConfig.registry`，但那会改 manifest；**已经 tag 的版本**就用命令行/`.npmrc` 路由，别改树 |
+
+**两条轴决定了四种组合**（"scope 选谁" 与 "谁来发布"）：
+
+| scope | 发布者/凭据 | 你需要做的前置 | 改名？ |
+|---|---|---|---|
+| `@p-jiangh/dsh-enhance` | **Actions 的 `GITHUB_TOKEN`**（`permissions: packages: write`） | **什么都不用**（只需点一次 "Run workflow"） | 要 → 切 `0.1.1` |
+| `@p-jiangh/dsh-enhance` | 本机 classic PAT | 新建一把带上述 scope 的 classic PAT | 要 → 切 `0.1.1` |
+| `@dsh-enhance/dsh-enhance` | 本机 classic PAT | 建组织 `dsh-enhance` + 新 PAT；**且（按经典规则）把仓库转移进该组织** | 不改名 → 可发 `0.1.0` |
+| `@dsh-enhance/dsh-enhance` | Actions 的 `GITHUB_TOKEN` | 建组织 **+ 转移仓库**进组织 | 不改名 → 可发 `0.1.0` |
+
+**注意**：`GITHUB_TOKEN` 这条并不要求建组织——它只要求 **scope 与仓库所有者一致**。所以"保名"才需要组织（+转移仓库），"用用户名 scope"则连 PAT 都不用。
 
 发布步骤与 §4.2 相同（worktree + `core.autocrlf=false` + `pnpm install --offline`），只把最后两步换成：
 
