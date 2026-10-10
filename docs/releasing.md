@@ -139,10 +139,60 @@ git config --local http.https://github.com.proxy http://127.0.0.1:10809
   因此这一步必须在主仓推送之后。注意 GitHub 上已有一个同名的
   `vcxmug/dsh-enhance`（另一套 vision / native-web 插件），提交时说明区隔。
 
-## 4. 明确不做的事（v1）
+## 4. npm 渠道（可选，与 GitHub 并行）
 
-- **不发 npm**（留待 v2）：若将来发，需要 scoped 名 `@dsh-enhance/dsh-enhance` +
-  `publishConfig.access: public`（scoped 包默认 restricted，免费账号会推失败）。
+v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一份代码、两个分发面）。要走 npm，先把下面几件事做对——**本机 npm 默认指向 `registry.npmmirror.com` 这类镜像，直接 `npm publish` 会发到错的地方**（镜像通常只读），所以远端必须显式指定；`package.json` 里的 `publishConfig` 已经把这件事钉住：
+
+```json
+"publishConfig": { "access": "public", "registry": "https://registry.npmjs.org" }
+```
+
+- `access: public` 是 scoped 包的**必需项**：不写，免费账号发布会被拒（scoped 默认 restricted）。
+- `registry` 让 `npm publish` 无视本机 npmrc 直指公共 registry（实测 dry-run 输出 `Publishing to https://registry.npmjs.org … public access`）。
+
+### 4.1 前置条件
+
+1. **占住 scope**：`@dsh-enhance` 需要在 npm 上创建（组织或个人 scope，免费，浏览器操作）。2026-10-10 查询：`@dsh-enhance/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）——所以两条路都还开着：
+   - **scoped（当前包名）**：只需创建 scope，零改动。
+   - **裸名 `dsh-enhance`**：安装命令最短（`add dsh-enhance`），但要改包名——牵动 `cordis.patch.yml`（生成器与生成物）、`client/client.js` 的行 key、测试推导、README/文档约十处；且裸名看起来像官方 `dsh-*` 包，并与 GitHub 上另一个同名项目（`vcxmug/dsh-enhance`）混淆。**推荐仍用 scoped。**
+2. **登录公共 registry**（注意显式写 registry）：
+   ```sh
+   npm login --registry=https://registry.npmjs.org
+   ```
+   开了 2FA 就准备好一次性验证码（发布时 `--otp=<code>`）；CI 场景用 granular access token（`NPM_TOKEN`）。
+3. **manifest 已是发布就绪**：`files`（`lib`/`client`/`skills`/`cordis.patch.yml`）、`prepare`（在发布时用 tsc 产出 `lib/`，所以 `lib/` 不入库也能发出）、`repository`/`homepage`/`bugs`、`license`、`keywords`、无 `private`。
+
+### 4.2 发布
+
+```sh
+npm publish --dry-run          # 先看载荷：73 个文件、无 src/tests/docs/.dsh-enhance、无陈旧 lib
+npm publish                    # publishConfig 已固定 registry 与 access；有 2FA 则加 --otp
+```
+
+**版本纪律**：npm 版本号必须等于 git tag（`0.1.0` ↔ `v0.1.0`），且该提交 CI 绿——与 §2 同一条规矩。发布后**不要**改已发布的版本内容（npm 只允许 72 小时内 unpublish，且 unpublish 会打断已有使用者）：出错就 `npm deprecate` 或直接发补丁版。
+
+### 4.3 发布后核验（四件事，缺一不算发完）
+
+```sh
+npm view @dsh-enhance/dsh-enhance version dist.tarball dist.integrity
+npm view @dsh-enhance/dsh-enhance dist-tags          # latest 指到刚发的版本
+
+# 1) 四公开面扫描（附件/npm tarball 是**新**的公开面，必须单独扫一遍）
+curl -sSL $(npm view @dsh-enhance/dsh-enhance dist.tarball) -o /tmp/npm.tgz
+#    然后用 .dsh-enhance/scan-public-surface.mjs 扫它（密钥特征 + 本机痕迹 + 无 *.map）
+
+# 2) 装出来的形状：与 qa:pack 的断言同一套（只有 schemastery 闭包被复制进 profile、无宿主包副本）
+# 3) 真启动：插件行激活，未激活名单只有预设那一条预期项
+# 4) 真会话（L3）：doctor 报插件已加载 + 3 条打包技能
+```
+
+### 4.4 更省事的做法（推荐给 v2）
+
+从 GitHub Actions 发布并带 **provenance**（`npm publish --provenance`，需要 `id-token: write` 权限），npm 页面上会显示"由哪个仓库的哪次构建产生"，把"仓库 → 包"的链条变成可验证的。代价是要在仓库 secrets 里放 `NPM_TOKEN`。当前 CI 不发布，只做校验。
+
+## 5. 明确不做的事（v1）
+
+- **v1 不发 npm**：机制与前置条件见 §4；要发就按 §4 走，别在镜像上发。
 - **不自动写用户家目录**：没有 `postinstall`，插件不在启动时写任何东西；预设是补丁行，
   随 bundle 一起生效。
 - 不带 `--force` 推送、不重写已发布的 tag：历史只追加。

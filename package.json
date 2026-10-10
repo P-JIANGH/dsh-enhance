@@ -78,6 +78,19 @@
     "typescript": "^5.9.0"
   },
   "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "agent-preset",
+    "skills",
+    "cordis"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "homepage": "https://github.com/P-JIANGH/dsh-enhance#readme",
   "bugs": {
     "url": "https://github.com/P-JIANGH/dsh-enhance/issues"
