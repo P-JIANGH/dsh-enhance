@@ -1,6 +1,6 @@
 {
   "name": "@p-jiangh/dsh-enhance",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "oh-my-zsh-style enhancement bundle for DeepSeek Harness (dsh-enhance): packaged skills, work-rule prompt guidance, an Enhance agent preset with a persistent deep-work prompt section, and a doctor tool — install and go",
   "type": "module",
   "main": "lib/index.js",

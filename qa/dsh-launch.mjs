@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, join, win32 } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -61,8 +61,11 @@ export function resolveQaTarget(options = {}) {
  */
 export function desktopRootOf(bin) {
   if (!bin || !/resources[\\/]runtime[\\/]cli[\\/]bin[\\/]dsh\.cmd$/i.test(bin)) return undefined
+  // 输入域是 **Windows** shim 路径（正则只认 `dsh.cmd`），所以必须用 win32 语义切分。
+  // 用宿主平台的 `dirname`（Linux 上是 posix 版）会把反斜杠当普通字符：5 次之后得到 `'.'`
+  // 而不是应用根——Linux 上第一次跑单测就是这么红的（publish 工作流是这套测试第一次上 Linux）。
   let root = bin
-  for (let i = 0; i < DESKTOP_SHIM_REL.length; i++) root = dirname(root)
+  for (let i = 0; i < DESKTOP_SHIM_REL.length; i++) root = win32.dirname(root)
   return root
 }
 

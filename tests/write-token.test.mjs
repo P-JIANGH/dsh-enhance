@@ -33,8 +33,14 @@ function seed (dir, { worktree, holder, holderAt, holderPid } = {}) {
     s.active_work_id = 'w1'
     if (holder) {
       s.exec_holder = holder
-      s.exec_holder_at = holderAt ?? Date.now()
-      s.exec_holder_pid = holderPid ?? process.pid
+      // 显式传 null = **真的不写这个字段**（模拟"旧版本留下的、没有时间戳/pid 的状态"）。
+      // 之前这里是 `holderAt ?? Date.now()`，于是"无时间戳"那条测试根本构造不出无时间戳的状态：
+      // 它只是一直在赌 `seed()` 写文件期间跨过一个毫秒（`now - stampedAt > 0`）。Windows 上
+      // 能侥幸通过，Linux 上两次 Date.now() 落在同一毫秒就红了。
+      if (holderAt === null) delete s.exec_holder_at
+      else s.exec_holder_at = holderAt ?? Date.now()
+      if (holderPid === null) delete s.exec_holder_pid
+      else s.exec_holder_pid = holderPid ?? process.pid
     }
   })
 }
@@ -104,9 +110,24 @@ test('[write-token] 陈旧持有者被接管（默认 30 分钟）', () => {
 test('[write-token] 无时间戳的旧状态视为陈旧，可被接管', () => {
   const dir = tmp()
   try {
-    seed(dir, { holder: 'legacy' }) // no exec_holder_at
+    // 真正的"旧状态"：既没有 exec_holder_at，也没有 exec_holder_pid（旧版本写的形态）。
+    seed(dir, { holder: 'legacy', holderAt: null, holderPid: null })
     const r = claimWriteTokenDetailed(dir, 's2', { staleMs: 0, now: Date.now() })
     assert.equal(r.ok, true)
+    assert.equal(r.tookOver, true)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+})
+
+test('[write-token] 刚写下且持有进程仍活着时不陈旧（与"无时间戳"互补的对照）', () => {
+  const dir = tmp()
+  try {
+    // now 显式等于写入时刻：`now - stampedAt === 0`，即使 staleMs 为 0 也不该算陈旧。
+    // 这条是为了钉住"判定用的是时间戳而不是'文件写过了'"，避免上一条再次退化成时序赌博。
+    const now = 5_000_000
+    seed(dir, { holder: 'live', holderAt: now, holderPid: process.pid })
+    const r = claimWriteTokenDetailed(dir, 's2', { staleMs: 0, now })
+    assert.equal(r.ok, false)
+    assert.equal(r.holder, 'live')
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

@@ -1,8 +1,12 @@
 # CI：安装（含 prepare 构建）+ 类型检查 + 单测 + 发布载荷形状。
 #
-# 只跑 windows-latest 是**刻意的、诚实的**选择：测试套件里仍有平台假设
-# （qa/dsh-launch 的桌面版 shim 识别与 where.exe、若干 Windows 路径用法），
-# 在 Linux 上会红。改成跨平台是一个已知的 v2 项，见 docs/known-issues.md。
+# 跨平台（windows-latest + ubuntu-latest），**不是**装饰：本套件原本有 Windows 专有假设，
+# 于 2026-10-10 在 Linux 上首次暴露（publish 工作流用的是 ubuntu，3 条测试红）：
+#   - qa/dsh-launch 的 desktopRootOf 用宿主平台的 path.dirname 切 **Windows** shim 路径，
+#     在 Linux 上 5 次 dirname 得到 `'.'` → 改用 win32 语义（同处已注释原因）；
+#   - write-token 的"无时间戳即陈旧"用例其实从未构造出无时间戳状态，只在赌 seed() 写文件
+#     跨过一毫秒 → 改为显式删除字段，并补一条互补对照。
+# 两处都修好之后加这条 Linux 腿，就是为了让这类问题在**合并前**暴露，而不是在发布时。
 # 真机验收（qa:pack）不在这里跑：它需要一个真实的 dsh 宿主，而 CI 里没有。
 name: CI
 
@@ -13,7 +17,11 @@ on:
 
 jobs:
   verify:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,11 +44,12 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # 换行符回归：把打包技能改写为 CRLF 再跑一次单测。CI 自身可能检出 LF（我们给了
-      # `skills/** text eol=lf`），那样就再也压不到这条路径；而用户在 Windows 上以
-      # core.autocrlf=true 检出（`github:` 安装就是这条路）拿到的正是 CRLF——曾导致
-      # list() 静默返回空、插件一条技能都不贡献。
+      # 换行符回归（仅 Windows）：把打包技能改写为 CRLF 再跑一次单测。CI 自身可能检出 LF
+      # （我们给了 `skills/** text eol=lf`），那样就再也压不到这条路径；而用户在 Windows 上以
+      # core.autocrlf=true 检出（`github:` 安装就是这条路）拿到的正是 CRLF——曾导致 list()
+      # 静默返回空、插件一条技能都不贡献。
       - name: CRLF skill tree regression
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           Get-ChildItem skills -Recurse -Filter SKILL.md | ForEach-Object {
@@ -55,7 +64,8 @@ jobs:
       # 构建与测试不得在工作树里留下未入库的文件。这条专抓一类陷阱：测试引用了
       # 一个未被 git 跟踪的模块（例如被过宽的 .gitignore 规则忽略掉的 scripts/lib/），
       # 本地因为文件就在那儿而全绿，新 clone 上必红。只看未跟踪项，避免换行符差异噪声。
-      - name: No untracked leftovers
+      - name: No untracked leftovers (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $untracked = git status --porcelain | Where-Object { $_ -match '^\?\?' }
@@ -63,3 +73,14 @@ jobs:
             Write-Host $untracked
             throw "build/test left untracked files in the working tree"
           }
+
+      - name: No untracked leftovers (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          untracked="$(git status --porcelain | grep '^??' || true)"
+          if [ -n "$untracked" ]; then
+            echo "$untracked"
+            echo "::error::build/test left untracked files in the working tree"
+            exit 1
+          fi

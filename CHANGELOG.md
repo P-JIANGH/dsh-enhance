@@ -5,6 +5,39 @@ version scheme is [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Detailed rationale for each decision lives in `docs/` (the ledger in
 `docs/known-issues.md` records what was measured, and why it changed).
 
+## [0.1.2] — 2026-10-10
+
+The first release published through the GitHub Packages workflow. Nothing about
+plugin behaviour changed; the test suite became portable and CI now proves it.
+
+### Fixed
+
+- **`desktopRootOf` parsed Windows paths with the host's `path` semantics.** The
+  function's input domain is a Windows shim path (`…\dsh.cmd`), but it used
+  `path.dirname`, which on Linux is the POSIX version: five iterations over a
+  backslash-separated path turned it into `'.'` instead of the application root. It now
+  uses `win32.dirname`. This was invisible until the suite first ran on Linux — the
+  publish workflow was that first run, and it failed on exactly this test.
+- **The "a state with no timestamp counts as stale" write-token test never built such a
+  state.** Its `seed()` helper filled `exec_holder_at` with `Date.now()` and the pid with
+  the live test process, so the case being asserted could not occur; it passed only when
+  writing the file happened to cross a millisecond boundary (`now - stampedAt > 0`). It
+  now deletes the fields explicitly, and a complementary control asserts that a holder
+  stamped exactly at `now` with a live process is *not* stale — together they pin the
+  rule without depending on timing.
+
+### Changed
+
+- **CI runs on `windows-latest` and `ubuntu-latest`.** The workflow previously said, in
+  its own header, that Windows-only was a deliberate choice because the suite had
+  platform assumptions, with cross-platform left as a v2 item. Those assumptions were
+  the two defects above, and they surfaced in a *release* run instead of in CI. With them
+  fixed, the Linux leg exists so this class of failure is caught before a merge rather
+  than at publish time. Only the CRLF skill-tree regression stays Windows-only, because
+  CRLF is a Windows checkout property.
+
+[0.1.2]: https://github.com/P-JIANGH/dsh-enhance/releases/tag/v0.1.2
+
 ## [0.1.1] — 2026-10-10
 
 A packaging release: **nothing about plugin behaviour changed**. The plugin row id
