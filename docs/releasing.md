@@ -160,16 +160,52 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
    npm login --registry=https://registry.npmjs.org
    ```
    开了 2FA 就准备好一次性验证码（发布时 `--otp=<code>`）；CI 场景用 granular access token（`NPM_TOKEN`）。
-3. **manifest 已是发布就绪**：`files`（`lib`/`client`/`skills`/`cordis.patch.yml`）、`prepare`（在发布时用 tsc 产出 `lib/`，所以 `lib/` 不入库也能发出）、`repository`/`homepage`/`bugs`、`license`、`keywords`、无 `private`。
+3. **manifest 发布就绪**：`files`（`lib`/`client`/`skills`/`cordis.patch.yml`）、`prepare`（发布时用 tsc 产出 `lib/`，所以 `lib/` 不入库也能发出）、`repository`/`homepage`/`bugs`、`license`、`keywords`、无 `private`。**注意**：`publishConfig`（固定 registry 与 `access: public`）是 2026-10-10 才加进 master 的，**`v0.1.0` 的树里没有**——发布老 tag 时目标与可见性必须走命令行参数（见 §4.2）。
 
 ### 4.2 发布
 
+**版本纪律（本节的核心）**：npm 的 `X.Y.Z` 必须**从 tag `vX.Y.Z` 的树**发布，内容与该提交一致；**不要从 master 发**——master 上 tag 之后的提交（文档、`keywords`、`publishConfig`）不属于该版本。发布所需的目标/权限用**命令行**传入，而不是为了发布去改那个已经 tag 了的 manifest；真要让 manifest 本身带上 `publishConfig`，就**切新版本**（`0.1.1` + `v0.1.1`），而不是把改动塞回 `0.1.0`。
+
 ```sh
-npm publish --dry-run          # 先看载荷：73 个文件、无 src/tests/docs/.dsh-enhance、无陈旧 lib
-npm publish                    # publishConfig 已固定 registry 与 access；有 2FA 则加 --otp
+# 1) 取出 tag 的树（worktree，不碰主工作区）
+git worktree add --detach ../dsh-enhance-v0.1.0 v0.1.0
+cd ../dsh-enhance-v0.1.0
+
+# 2) 装依赖：worktree 是干净树，没有 node_modules，而 prepare 要跑 tsc（实测约 2 秒）
+pnpm install --offline
+
+# 3) 行尾必须确定化 —— 否则同一个 tag 在不同检出配置下打出的包**逐字节不同**（见下方实测）
+git -c core.autocrlf=false checkout -- .
+#    v0.1.0 的树还没有仓库级 `* text=auto eol=lf`（那一条 2026-10-10 才进 master），
+#    所以老 tag 必须显式指定；带该属性的 tag 之后不需要这一步。
+
+# 4) 该 tag 的 manifest 无 publishConfig → 目标与访问级别走命令行
+npm publish --dry-run --registry=https://registry.npmjs.org --access public
+npm publish           --registry=https://registry.npmjs.org --access public   # 有 2FA 加 --otp
+
+cd - && git worktree remove ../dsh-enhance-v0.1.0
 ```
 
-**版本纪律**：npm 版本号必须等于 git tag（`0.1.0` ↔ `v0.1.0`），且该提交 CI 绿——与 §2 同一条规矩。发布后**不要**改已发布的版本内容（npm 只允许 72 小时内 unpublish，且 unpublish 会打断已有使用者）：出错就 `npm deprecate` 或直接发补丁版。
+> **别用 junction/symlink 把主检出的 `node_modules` 接进 worktree。** 删 worktree 时
+> `Remove-Item -Recurse` 会**穿过 junction** 去删主检出的内容——2026-10-10 实测把
+> `node_modules/.bin` 整个删掉，`prepare` 随即报 `Cannot find module …/typescript/bin/tsc`；
+> 修复是 `pnpm install --force`（重链 29 个包，2 秒），`node_modules` 是 gitignored，仓库跟踪文件无损失。
+> 真要用 junction，删 worktree 前必须先单独删掉那个 junction 本身（`cmd /c rmdir <wt>\node_modules`）。
+
+**可验证的验收**：npm 收下的 tarball 必须与 GitHub Release 附件**逐字节相同**——比对
+`npm view @dsh-enhance/dsh-enhance dist.integrity`（sha512）与附件的 sha512。2026-10-10 演练实测：
+从 tag 树 + `core.autocrlf=false` + `npm pack` 得到的 tarball **等于**附件
+（`7D20FE1B…`，102,896 B）。
+
+> **实测过的坑（2026-10-10）**：同一个 tag 在 `core.autocrlf=true` 的 Windows 检出上打出的 tarball
+> 比 LF 检出**大 137 字节**——差的不是内容而是行尾，而且连 `lib/` 都受影响：
+> `lib/enhance-mode.js`、`lib/features/advisor/prompt.js`、`lib/index.js` 里嵌的多行文本是模板字面量，
+> 行尾跟着**源文件**走；另外 `LICENSE`/`README*`/`client/client.js` 也随检出配置变化。
+> master 已加仓库级 `* text=auto eol=lf` 根治，但**已发布的 v0.1.0 tag 没有它**，
+> 所以发 0.1.0 时必须显式 `-c core.autocrlf=false`。
+
+发布后**不要**改已发布版本的内容：npm 只允许 72 小时内 unpublish，且会打断已有使用者；
+出错就 `npm deprecate` 或直接发补丁版。
 
 ### 4.3 发布后核验（四件事，缺一不算发完）
 

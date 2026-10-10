@@ -10,3 +10,11 @@ prompts/** text eol=lf
 # 解析器就会一个技能都认不出来（CI 第一次跑就是这么红的）。解析器已改成容忍 CRLF，
 # 这里再让检出本身确定化，两道都留着。
 skills/** text eol=lf
+
+# 全仓库统一 LF（存储与检出）。上面的逐条规则是历史原因留下的，这一条把它们覆盖掉，
+# 并解决一个实测过的**可复现性**问题：同一个 tag 在 core.autocrlf=true 的 Windows 检出上
+# 打出的 tarball，与在 LF 检出上打出的**差 137 字节**——差的不是内容而是行尾，而且连
+# `lib/` 都受影响（`lib/enhance-mode.js`、`lib/features/advisor/prompt.js`、`lib/index.js`
+# 里嵌的多行文本是模板字面量，行尾跟着**源文件**走）。加上这一条后，谁在什么平台上检出、
+# 打出的包都一致；对已发布的 v0.1.0 无影响（tag 树用的是它自己那份属性）。
+* text=auto eol=lf
