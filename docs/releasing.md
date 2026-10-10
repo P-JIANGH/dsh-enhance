@@ -152,9 +152,13 @@ v1 只发 GitHub；npm 是可选的第二条渠道，两条可以并存（同一
 
 ### 4.1 前置条件
 
-1. **占住 scope**：`@dsh-enhance` 需要在 npm 上创建（组织或个人 scope，免费，浏览器操作）。2026-10-10 查询：`@dsh-enhance/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）——所以两条路都还开着：
-   - **scoped（当前包名）**：只需创建 scope，零改动。
-   - **裸名 `dsh-enhance`**：安装命令最短（`add dsh-enhance`），但要改包名——牵动 `cordis.patch.yml`（生成器与生成物）、`client/client.js` 的行 key、测试推导、README/文档约十处；且裸名看起来像官方 `dsh-*` 包，并与 GitHub 上另一个同名项目（`vcxmug/dsh-enhance`）混淆。**推荐仍用 scoped。**
+1. **占住 scope**。2026-10-10 查询：`@dsh-enhance/dsh-enhance` 与裸名 `dsh-enhance` **在公共 registry 上均未注册**（都是 404）。但"能不能占"取决于你能否打开 npm 网页：
+   - **组织 scope `@dsh-enhance`（当前包名）**：**必须用网页创建组织**——npm 10 的 `npm org` 只有 `set` / `rm` / `ls`，**没有 `create`**（实测 `npm org --help` 的输出里只有这三条）。网页不可达时这条路走不通。
+   - **用户 scope `@<你的 npm 用户名>/dsh-enhance`**：账号一旦存在，用户名 scope 是**自动的**，**不需要网页、不需要建组织**；只需要 `npm login`。代价是要改包名（见下），而"改包名"属于改动 manifest，**不能塞回已 tag 的版本**——必须**切新版本**（例如 `0.1.1` + `v0.1.1`），发布时验收标准也随之变成"npm tarball == v0.1.1 的 GitHub 附件"。
+   - **裸名 `dsh-enhance`**：安装命令最短（`add dsh-enhance`），同样要改包名；缺点是看起来像官方 `dsh-*` 包，并与 GitHub 上另一个同名项目（`vcxmug/dsh-enhance`）混淆。
+   - 改包名牵动：`package.json`、`cordis.patch.yml`（生成器 `scripts/sync-dsh-enhance-preset.mjs` + 生成物）、`client/client.js` 的行 key、`tests/client-contract.test.mjs` 的推导、README/文档约十处。
+
+   > **网络事实（2026-10-10 实测）**：`registry.npmjs.org` **直连可达**（HTTP 200，约 1 秒，不需要代理），所以 `npm login` / `npm publish` 在 CLI 层面没问题；而 `www.npmjs.com` 对程序化请求返回 **403**（WAF，带浏览器 UA 也一样），本机无法据此判断浏览器是否可用。**发布本身不需要网页**——网页只在"建组织 scope"和"建 CI 用的 token"时才是必需的。
 2. **登录公共 registry**（注意显式写 registry）：
    ```sh
    npm login --registry=https://registry.npmjs.org
@@ -185,8 +189,20 @@ npm publish --dry-run --registry=https://registry.npmjs.org --access public
 npm publish           --registry=https://registry.npmjs.org --access public   # 有 2FA 加 --otp
 
 cd -
-rm -rf ../dsh-enhance-v0.1.0 && git worktree prune   # 见下注：不能只靠 worktree remove
 ```
+```powershell
+# 收尾（PowerShell；本仓库开发环境的主 shell）
+Set-Location <仓库根目录>
+Remove-Item -Recurse -Force ../dsh-enhance-v0.1.0
+git worktree prune
+```
+
+> **收尾为什么不能用 `git worktree remove`**：worktree 里有未跟踪的 `node_modules`/`lib`（以及你打出来的
+> tarball），`remove` 会以 `Directory not empty` 拒绝——2026-10-10 实测如此。而 `git worktree prune`
+> **只清注册项、不删目录**，所以"删目录"这一步是必需的（bash 的 `rm -rf` / PowerShell 的
+> `Remove-Item -Recurse -Force`），删完再 `prune`；确认 `git worktree list` 里只剩主工作区即可。
+> 注意 bash 的 `cd -` 在 PowerShell 里没有等价语义（`-` 是目录栈），PowerShell 用 `Set-Location <路径>`，
+> 且 `rm` 是 `Remove-Item` 别名、不接受 `-rf` 这样的合并短参。
 
 > **顺序别改：行尾必须在任何构建之前定下来。** 曾经写成"先 `pnpm install`（它会跑 `prepare`/tsc）再
 > `checkout` 成 LF"：那样 `lib/` 是在 **CRLF 源码**上构建的，而 `lib/enhance-mode.js`、
@@ -196,10 +212,6 @@ rm -rf ../dsh-enhance-v0.1.0 && git worktree prune   # 见下注：不能只靠 
 > 新版本，正好破坏本节的验收标准。
 > 2026-10-10 按修正后的顺序实测：worktree 创建即全 LF（`git ls-files --eol` 无 `w/crlf`）→
 > `pnpm install --offline` → 三个嵌入文件 `CR=0` → `npm pack` 与附件**逐字节相同**（`7D20FE1B…`，102,896 B）。
->
-> **收尾用 `rm -rf` 再 `worktree prune`，而不是只靠 `git worktree remove`**：worktree 里有未跟踪的
-> `node_modules`/`lib`（还有你打出来的 tarball），`remove` 会以 `Directory not empty` 拒绝——实测如此。
-> 直接删目录 + `prune` 才干净；确认 `git worktree list` 里只剩主工作区即可。
 
 > **别用 junction/symlink 把主检出的 `node_modules` 接进 worktree。** 删 worktree 时
 > `Remove-Item -Recurse` 会**穿过 junction** 去删主检出的内容——2026-10-10 实测把
