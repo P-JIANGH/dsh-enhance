@@ -116,6 +116,7 @@
 - **为什么其它功能照常（这条极具误导性）**：Node 的**包自引用**（package.json 的 `name` + `exports`）让 bundle 补丁里的 `@p-jiangh/dsh-enhance` 与 `…/enhance-mode` 两行仍能解析——从包内实测 `import.meta.resolve('@p-jiangh/dsh-enhance/enhance-mode')` = `file:///F:/oh-my-dsh/lib/enhance-mode.js`。所以死在"按包名做 key"的只有设置面，没有任何报错。
 - 修复：① 三个 profile（`desktop`/`dsh-enhance`/`web`）的 dependency + bundles 行改为真名并重跑 pnpm 链接（`package.json`/`pnpm-lock.yaml` 各留 `.bak-rename-20261015`）；② 本文档与 `docs/installing-plugins.md` 记下这条迁移要求（**包改名 = 已装的 `link:`/tarball profile 都要按新名重装**）。
 - 验收（可复跑）：`createRequire('<profile>/package.json').resolve('@p-jiangh/dsh-enhance/package.json')` → `F:\oh-my-dsh\package.json`（三个 profile 全 OK）；宿主 key 计算与 `client/client.js` 的 `ROW_CONFIG_KEY` 逐 profile 相符。GUI 侧入口需**重启桌面端**后才可见（bundle 名在启动时读入）。
+- **真机验收（2026-10-15，重启桌面端后）**：用户确认「插件」面板里 `@p-jiangh/dsh-enhance` 那一行**重新出现「配置」入口，且点进去能改开关**——设置面的写→读往返恢复（`docs/design-web-settings-card.md` §10.5 记录的那套往返此前正是这样被验证的）。至此 P0-15 闭环。
 
 ### ✅ P0-16 advisor 在要求会话亲和的 provider 上静默失效（复核请求不带 sessionId）
 - 现象：Enhance 模式下 advisor「没有动作」——没有任何建议回注，也没有任何提示。
@@ -129,6 +130,7 @@
 - **修复后的真机复验（2026-10-15，重启桌面端后同一会话）**：`顾问旁审：开 · 已审查 1 次 · 最近：本次无建议 · 路由=opencode-go/deepseek-v4.1-flash · 说明=模型未给出 ADVISOR 信封（回答 13 字）`——**400 消失、调用真的跑通**，路由/次数/时间都记上了；同时暴露出这条文案自身的缺陷：`parseAdvisorEmission` 对"明确回 `ADVISOR: NONE`（13 字，正是该长度）"与"回答里根本没有信封"都返回 `null`，而文案把两者说成同一件事（状态行说谎）。已修：新增 `declaresNoEmission()` 判别器 + `none` 结局（"契约内的沉默"），`no-emission` 改为"未按格式回答"并回显回答样本（≤160 字）——`ADVISOR: NONE` 是 `prompts/modes/advisor.md` 明写的"在正轨"回执，属正常结局。
 - 验收：`tests/advisor.test.mjs` +9 例（请求带 `sessionId`、**负控制**：不带时把 provider 的 400 如实记为 `failed`、失败记 `failed`+原因+路由、成功记 `delivered`、送不到记 `dropped`、被节流记 `guarded`、明确回 NONE 记 `none`、无信封记 `no-emission` 且回显样本、`declaresNoEmission` 判别）；`tests/doctor.test.mjs` +4 例（未触发审查/失败回显+可执行建议/成功回注/沉默与格式不符分开念）；`tests/tool-output-schema.test.mjs` +1 例 doctor 覆盖（含**负控制**：缺 `advisor.outcome`、多出未声明字段都必须被判违规——先读过宿主 `dsh-tools/lib/types/json-schema.js` 的值校验器：它是显式 frame 栈、**递归进入嵌套对象**、`oneOf` 要求恰好命中一支，所以嵌套 `required` 不是摆设）。`node --test` **207/207**。
 - 关联（非本包）：`@deepseek-ai/dsh-experimental-auto-review` 在同一路由上有同类缺陷，且它拦的是**工具调用**（本会话被拒 25 次，报同样的 `MissingSessionID`）。规避：把默认模型换成 `deepseek-official`，或在 profile 的 bundles 里去掉该实验包。
+- **产品取舍（2026-10-15 用户确认）**：advisor **保持低噪声**——"审查了但没回建议"是它按契约沉默（`ADVISOR: NONE`，`prompts/modes/advisor.md` 明写的"在正轨"回执），不改成更主动的口径。因此"最近：无建议（模型判定本轮干净）"是**正常结局**，不是缺陷信号；只要它出现，就说明调用链（含会话亲和头）是通的。想更主动时的两条路记在 P2-11/P2-12 与本节：放宽提示词的口径，或换审查模型（先修 P2-12 的 provider 固定问题）。
 
 ---
 
@@ -336,7 +338,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-09 | **发布后 L3 真机验收**（对象 = 已发布字节）：headless 组合 `qa-gh4` + 预设作用域 `qa-l3p`（探针复刻 Web 绑定） | 见下一次提交 | 两条都 exit 0：doctor 报插件已加载 + 3 条打包技能 + work-rules 段 + 开关全开（advisor 真跑一次审查）；名册 `preset=enhance default=true broken=-` 全行 `=true`，`session-443bec83` 的 system prompt 含完整 26 行 `<enhance-mode>`、`{{cwd}}` 已替换、全日志无 ultrawork/ulw |
 | 2026-10-15 | **P0-16 advisor 静默失效**：复核请求带 `sessionId`（会话亲和 provider 必需）+ 审查结局/失败原因/路由记录并在 `dsh_enhance_doctor`、`/doctor` 回显（输出 schema 同步扩展）+ 失败给可执行建议；顺带清掉 emission guard 的按 agent 状态、补 `isGone` 早退的结局记录 | `e4f1f76` | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **204/204**（`tests/advisor.test.mjs` +7 例含负控制、`tests/doctor.test.mjs` 改携带 advisor 状态并 +3 例、`tests/tool-output-schema.test.mjs` +1 例含 schema 负控制）· `check:pack` PASS(73) · `node qa/pack-install-drive.mjs` **21/21** |
 | 2026-10-15 | **P0-16 复验补丁**：真机复验发现新状态行说谎——`ADVISOR: NONE`（契约内的沉默）与"回答里没有信封"都被记成 `no-emission`；新增 `declaresNoEmission()` + `none` 结局 + 回答样本回显 | 见下一次提交 | `pnpm test` **207/207**（+3 例：判别器、`none` 结局、沉默/格式不符分开念）· 真机复验：重启后 `顾问旁审：… · 已审查 1 次 · 路由=opencode-go/deepseek-v4.1-flash`（400 已消失） |
-| 2026-10-15 | **P0-15 设置面入口静默消失**：本机三个 profile（`desktop`/`dsh-enhance`/`web`）的 dependency + `dsh.profile.bundles` 改为真名 `@p-jiangh/dsh-enhance` 并重跑 pnpm 链接（各留 `.bak-rename-20261015`）；文档记下"包改名 = 已装 profile 必须按新名重装" | 环境侧改动（不改仓库代码） | 三个 profile `createRequire(...).resolve('@p-jiangh/dsh-enhance/package.json')` → `F:\oh-my-dsh\package.json`；宿主 key 计算与 `client/client.js` 的 `ROW_CONFIG_KEY` 相符（`@p-jiangh/dsh-enhance#dsh-enhance`）。GUI 入口待重启桌面端复核 |
+| 2026-10-15 | **P0-15 设置面入口静默消失**：本机三个 profile（`desktop`/`dsh-enhance`/`web`）的 dependency + `dsh.profile.bundles` 改为真名 `@p-jiangh/dsh-enhance` 并重跑 pnpm 链接（各留 `.bak-rename-20261015`）；文档记下"包改名 = 已装 profile 必须按新名重装" | 环境侧改动（不改仓库代码） | 三个 profile `createRequire(...).resolve('@p-jiangh/dsh-enhance/package.json')` → `F:\oh-my-dsh\package.json`；宿主 key 计算与 `client/client.js` 的 `ROW_CONFIG_KEY` 相符（`@p-jiangh/dsh-enhance#dsh-enhance`）。**GUI 复核（重启后，用户确认）**：「配置」入口回来且能改开关 |
 
 
 
