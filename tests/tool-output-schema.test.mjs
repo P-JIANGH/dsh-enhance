@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerBoulderTools } from '../lib/tools/boulder-tools.js'
 import { registerWorktreeTools } from '../lib/tools/worktree-tools.js'
+import { registerDoctorTool } from '../lib/tools/doctor.js'
 import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 /** Capture every registered ToolDefinition in registration order. */
@@ -71,6 +72,64 @@ test('[tool-output-schema] worktree tools declare valid object-root schemas', ()
   for (const def of defs) {
     assertObjectJsonSchema(def.output.schema)
     assert.equal(def.output.schema.additionalProperties, false, `${def.name}: closed object root`)
+  }
+})
+
+test('[tool-output-schema] doctor 工具输出覆盖真实报告形状（含 advisor 运行时状态）', async () => {
+  // 触发原因（2026-10-15 实机）：advisor 静默失效无法自查。报告现在携带运行时状态，
+  // 所以 schema 必须能装下它——否则工具会被宿主判为 invalid output。
+  const defs = []
+  const ctx = {
+    tools: { register(def) { defs.push(def); return () => { /* no-op */ } } },
+    skills: { list: async () => [{ name: 'tdd', source: 'bundled', provider: 'dsh-enhance' }] },
+  }
+  const dispose = registerDoctorTool(ctx, {
+    config: { workRulesChars: 286, doctorTool: true, guards: true, workTracking: true, worktree: true, commands: true },
+    enabled: true,
+    humanCommands: ['doctor', 'boulder'],
+    advisorStatus: () => ({
+      enabled: true,
+      reviews: 2,
+      outcome: 'failed',
+      detail: 'Request is missing x-opencode-session',
+      route: 'opencode-go/deepseek-v4.1-flash',
+      lastReviewAt: '2026-10-15T02:00:00.000Z',
+    }),
+  })
+  try {
+    assert.equal(defs.length, 1)
+    const def = defs[0]
+    assert.equal(def.name, 'dsh_enhance_doctor')
+    assertObjectJsonSchema(def.output.schema)
+    assert.equal(def.output.schema.additionalProperties, false, 'closed object root')
+
+    const value = await def.execute({})
+    const violations = validateJsonSchemaValue(def.output.schema, value)
+    assert.deepEqual(violations, [], `doctor value validates: ${JSON.stringify(violations)}`)
+    assert.equal(value.advisor.outcome, 'failed')
+    assert.equal(value.advisor.reviews, 2)
+
+    // 渲染面同样要把失败讲清楚（模型读到的就是这段文本）。
+    const text = def.output.render({}, value).map(part => part.text).join('\n')
+    assert.ok(text.includes('最近：调用失败'), `渲染应回显失败结局：\n${text}`)
+    assert.ok(text.includes('x-opencode-session'), `渲染应回显失败原因：\n${text}`)
+
+    // 负控制：schema 必须真的**拒绝**坏值，否则"schema 覆盖"只是自证
+    // （宿主 dsh-tools 的值校验器确实递归进入嵌套对象，见其 json-schema.js 的 frame 栈）。
+    const missingOutcome = { ...value, advisor: { ...value.advisor } }
+    delete missingOutcome.advisor.outcome
+    assert.notDeepEqual(
+      validateJsonSchemaValue(def.output.schema, missingOutcome),
+      [],
+      '缺 advisor.outcome 必须被判违规',
+    )
+    assert.notDeepEqual(
+      validateJsonSchemaValue(def.output.schema, { ...value, unexpected: 1 }),
+      [],
+      '多出未声明字段必须被判违规（additionalProperties: false）',
+    )
+  } finally {
+    dispose()
   }
 })
 

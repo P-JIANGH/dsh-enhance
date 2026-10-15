@@ -250,8 +250,10 @@ function applyFeatures(ctx: Context, config: ResolvedConfig): void {
   // M5: worktree tools (depend on boulder linkage).
   registerWorktreeTools(ctx, workTracking && worktree)
 
-  // §advisor: companion-review runtime (the 6th agent / advisor mode).
-  registerAdvisorRuntime(ctx, { enabled: advisor, model: advisorModel })
+  // §advisor: companion-review runtime (the 6th agent / advisor mode). The
+  // handle doubles as the diagnostic surface's status source, so `/doctor` and
+  // `dsh_enhance_doctor` can report *why* the advisor last did nothing.
+  const advisorHandle = registerAdvisorRuntime(ctx, { enabled: advisor, model: advisorModel })
 
   // The human surface: the only entry point that needs no model turn at all.
   registerHumanCommands(ctx, {
@@ -265,15 +267,20 @@ function applyFeatures(ctx: Context, config: ResolvedConfig): void {
       worktree,
       commands,
     },
-    advisorEnabled: advisor,
+    advisorStatus: () => advisorHandle.status(),
   })
 
   registerDoctorTool(ctx, {
-    workRulesChars: workRules.length,
-    doctorTool,
-    guards,
-    workTracking,
-    worktree,
-    commands,
-  }, doctorTool, advisor, COMMAND_NAMES)
+    config: {
+      workRulesChars: workRules.length,
+      doctorTool,
+      guards,
+      workTracking,
+      worktree,
+      commands,
+    },
+    enabled: doctorTool,
+    humanCommands: COMMAND_NAMES,
+    advisorStatus: () => advisorHandle.status(),
+  })
 }

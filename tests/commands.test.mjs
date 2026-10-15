@@ -14,8 +14,14 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerHumanCommands, COMMAND_NAMES, renderBoulderStatus } from '../lib/features/commands.js'
+import { inactiveAdvisorStatus } from '../lib/features/advisor/runtime.js'
 import { mutateBoulderState, upsertWork } from '../lib/features/boulder/store.js'
 import { claimWriteToken } from '../lib/features/boulder/write-token.js'
+
+/** 接线时 advisor 的实时状态来源（与 src/index.ts 传给指令面的是同一种函数）。 */
+function advisorOn (patch = {}) {
+  return { ...inactiveAdvisorStatus(true), ...patch }
+}
 
 /** 假 ctx：捕获注册的指令定义（重名即失败，对齐上游同层去重语义）。 */
 function captureCtx (skills = []) {
@@ -63,7 +69,7 @@ function registerAll (options = {}) {
     enabled: true,
     workTracking: true,
     doctorConfig: fullDoctorConfig(),
-    advisorEnabled: true,
+    advisorStatus: () => advisorOn(),
     ...options,
   })
   return { ctx, dispose }
@@ -187,7 +193,7 @@ test('[commands] enabled:false 一条都不注册，且 disposer 可安全调用
     enabled: false,
     workTracking: true,
     doctorConfig: fullDoctorConfig(),
-    advisorEnabled: true,
+    advisorStatus: () => advisorOn(),
   })
   assert.equal(ctx.defs.size, 0)
   assert.equal(typeof dispose, 'function')

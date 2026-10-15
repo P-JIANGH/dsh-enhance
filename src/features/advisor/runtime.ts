@@ -63,16 +63,84 @@ export interface ReviewResult {
 }
 
 /**
+ * One standalone review call's outcome: the assembled text, and — when the
+ * call itself failed — the transport message. The failure is returned rather
+ * than swallowed so the runtime can record *why* the advisor went quiet: a
+ * silent `null` was indistinguishable from "the model had nothing to say", and
+ * a provider rejecting the call (e.g. OpenCode Go answering
+ * `400 … missing x-opencode-session` for a request with no `sessionId`) is
+ * exactly the kind of failure that must be visible.
+ */
+export interface ReviewCallResult {
+  /** Assembled advisor text, or null when the call produced no text. */
+  text: string | null
+  /** Failure message when the stream threw, else null. */
+  error: string | null
+}
+
+/** How one advisor review attempt ended. */
+export type AdvisorOutcome =
+  /** A suggestion reached the main agent. */
+  | 'delivered'
+  /** A suggestion was produced but the agent no longer accepted it. */
+  | 'dropped'
+  /** The emission guard suppressed a repeat inside the cooldown window. */
+  | 'guarded'
+  /** The review answered, but carried no actionable `ADVISOR:` envelope. */
+  | 'no-emission'
+  /** There was nothing to review, or the agent was already gone. */
+  | 'skipped'
+  /** The review call itself failed (transport/provider/model error). */
+  | 'failed'
+
+/**
+ * The advisor runtime's live state. Consumed by the diagnostic surface
+ * (`dsh_enhance_doctor`, `/doctor`) so "the advisor did nothing" is legible
+ * instead of silent — the runtime's own traces only reach stderr.
+ */
+export interface AdvisorStatus {
+  /** Master switch as resolved at wiring time. */
+  enabled: boolean
+  /** Review calls that reached the model since this runtime was wired. */
+  reviews: number
+  /** Outcome of the most recent attempt, or null before the first one. */
+  outcome: AdvisorOutcome | null
+  /** Free-text reason for that outcome (failure message, skip reason, severity). */
+  detail: string | null
+  /** `provider/model` the last attempt routed on, when it got that far. */
+  route: string | null
+  /** ISO timestamp of the last attempt, or null before the first one. */
+  lastReviewAt: string | null
+}
+
+/**
+ * Registration handle: the exact disposer plus a live status reader. The status
+ * is served through a function (not a snapshot) because the doctor tool and the
+ * `/doctor` command read it at call time, long after wiring.
+ */
+export interface AdvisorHandle {
+  /** Unregister the runtime and stop reviewing. */
+  dispose(): void
+  /** Current status; a fresh copy each call. */
+  status(): AdvisorStatus
+}
+
+/** A status for a runtime that was never wired (switch off, or no `llm`). */
+export function inactiveAdvisorStatus(enabled: boolean): AdvisorStatus {
+  return { enabled, reviews: 0, outcome: null, detail: null, route: null, lastReviewAt: null }
+}
+
+/**
  * Run one independent advisor review through `ctx.llm.stream()` and assemble
  * the assistant's text output. Pure enough to test with a fake LLM runtime.
  * @param llm - the LLM service (`ctx.llm`); exposes `stream(GenerateOptions)`.
  * @param request - provider/model/messages/system for the review call.
- * @returns the assembled advisor text, or `null` if the call failed.
+ * @returns the assembled advisor text and, on failure, the transport message.
  */
 export async function runReviewCall(
   llm: { stream(options: GenerateOptions): AsyncIterable<StreamChunk> },
   request: GenerateOptions,
-): Promise<string | null> {
+): Promise<ReviewCallResult> {
   const assembler = new BlockAssembler()
   try {
     for await (const chunk of llm.stream(request)) {
@@ -80,10 +148,11 @@ export async function runReviewCall(
     }
     const blocks = assembler.blocks().filter(b => b.type === 'text')
     const text = blocks.map(b => 'text' in b ? b.text as string : '').join('\n').trim()
-    return text || null
+    return { text: text || null, error: null }
   } catch (err) {
-    trace('review stream FAILED', String((err as Error)?.message ?? err))
-    return null
+    const message = String((err as Error)?.message ?? err)
+    trace('review stream FAILED', message)
+    return { text: null, error: message }
   }
 }
 
@@ -93,13 +162,30 @@ export async function runReviewCall(
  * transcript and relay any actionable review back to the main agent.
  * @param ctx - context exposing `llm` and broadcasting `agent/turn-stopping`.
  * @param options - advisor behavior.
- * @returns the exact disposer.
+ * @returns the disposer plus a live status reader for the diagnostic surface.
  */
-export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): () => void {
+export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): AdvisorHandle {
   const llm = ctx.llm
-  if (!options.enabled || !llm) return () => {}
+  if (!options.enabled || !llm) {
+    return { dispose: () => {}, status: () => inactiveAdvisorStatus(options.enabled) }
+  }
   const prompt = options.prompt ?? ADVISOR_SYSTEM_PROMPT
   const guard = createEmissionGuard(Date.now, options.windowMs)
+
+  /**
+   * Live state for the diagnostic surface. The runtime's own traces only reach
+   * stderr, which no user reads, so every decision point below records itself
+   * here — that is what turns "the advisor did nothing" into a legible reason.
+   */
+  const status: AdvisorStatus = inactiveAdvisorStatus(true)
+
+  /** Record the outcome of one attempt (and its route, when routing happened). */
+  function record(outcome: AdvisorOutcome, detail: string, route?: string): void {
+    status.outcome = outcome
+    status.detail = detail
+    if (route !== undefined) status.route = route
+    status.lastReviewAt = new Date().toISOString()
+  }
 
   /**
    * Set by the disposer. Reviews are fired from an `agent/turn-stopping` listener
@@ -117,6 +203,31 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
     return {
       provider: main.options?.provider ?? 'deepseek-official',
       model: main.options?.model ?? 'deepseek-v4-flash',
+    }
+  }
+
+  /**
+   * The session identity the review request must carry.
+   *
+   * `GenerateOptions.sessionId` is what the loop stamps for request routing, and
+   * adapters map it to model-hidden transport metadata: the pi-ai adapter
+   * forwards it verbatim (`streamSimple({ …, sessionId })`), and the OpenCode Go
+   * wrapper adds its **required** `x-opencode-session` header only when it is
+   * present (`@earendil-works/pi-ai`'s `opencode-headers.js`). A review that
+   * carries no identity is unroutable there and comes back
+   * `400 … Request is missing x-opencode-session` — a failed review with no
+   * visible trace, which is exactly how this runtime went quiet before.
+   *
+   * The review belongs to the main session's conversation, so it reuses that
+   * identity rather than inventing one. Read defensively: on a disposed agent
+   * an accessor may throw `cannot get required service … in inactive context`.
+   */
+  function sessionIdFor(main: Agent): string | undefined {
+    try {
+      const id: unknown = main.session.header.id
+      return typeof id === 'string' && id.length > 0 ? id : undefined
+    } catch {
+      return undefined
     }
   }
 
@@ -207,16 +318,19 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
   })
 
   // Cursors are per-agent; drop them when the agent goes away so a long-lived
-  // host does not accumulate one entry per session forever.
+  // host does not accumulate one entry per session forever. The emission guard
+  // holds per-agent state too, so it is cleared on the same signal — otherwise a
+  // long-lived host keeps one guard entry per session it has ever reviewed.
   const offDisposed = ctx.on('agent/disposed', ({ agent }: { agent: Agent }) => {
     if (typeof agent?.id !== 'string') return
     cursors.delete(agent.id)
+    guard.clear(agent.id)
     if (gone.size >= GONE_CAP) gone.clear()
     gone.add(agent.id)
   })
 
   async function kickReview(main: Agent, id: string): Promise<void> {
-    if (isGone(id)) return
+    if (isGone(id)) { record('skipped', '主 agent 已销毁'); return }
     // `stage` makes a failure self-describing: real sessions hit
     // `cannot get required service "agents" in inactive context` on the turn
     // boundary that races shutdown, and the stage pinpoints which access did it.
@@ -227,12 +341,16 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
       try {
         increment = extractIncrement(main, id)
       } catch (err) {
-        trace('skip: transcript unavailable for', id, String((err as Error)?.message ?? err))
+        const message = String((err as Error)?.message ?? err)
+        trace('skip: transcript unavailable for', id, message)
+        record('skipped', `读不到会话记录：${message}`)
         return
       }
-      if (!increment) { trace('skip: empty increment for', id); return }
+      if (!increment) { trace('skip: empty increment for', id); record('skipped', '本轮没有可审的增量'); return }
       stage = 'route'
       const { provider, model } = routeFor(main)
+      const route = `${provider}/${model}`
+      const sessionId = sessionIdFor(main)
       const start = Date.now()
       const request: GenerateOptions = {
         provider,
@@ -244,34 +362,58 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): (
           source: { kind: CONTEXT_SOURCE_KIND },
         })],
         system: prompt,
+        // Routing identity (see sessionIdFor): without it a provider that
+        // requires per-conversation affinity rejects the call.
+        ...sessionId === undefined ? {} : { sessionId: sessionId as GenerateOptions['sessionId'] },
       }
       stage = 'stream'
-      const raw = await runReviewCall(llm, request)
-      if (isGone(id)) return
+      status.reviews += 1
+      const { text: raw, error } = await runReviewCall(llm, request)
+      // The call is already counted; record why it goes no further, so the
+      // diagnostic surface never pairs a fresh count with a stale outcome.
+      if (isGone(id)) { record('skipped', '复核期间主 agent 已销毁', route); return }
       trace('review for', id, 'route=', provider, model, 'incrementChars=', increment.length,
         'tookMs=', Date.now() - start, 'answerLen=', raw?.length ?? 0, 'raw=', JSON.stringify(raw))
-      if (raw === null) return
+      if (raw === null) {
+        record(error === null ? 'skipped' : 'failed', error ?? '模型没有返回任何文本', route)
+        return
+      }
       stage = 'parse'
       const emission = parseAdvisorEmission(raw)
-      if (!emission) { trace('advisor produced no emission for', id, 'answerLen=', raw.length); return }
-      if (!guard.gate(id, emission.body)) { trace('guarded emission', emission.severity, 'for', id); return }
+      if (!emission) {
+        trace('advisor produced no emission for', id, 'answerLen=', raw.length)
+        record('no-emission', `模型未给出 ADVISOR 信封（回答 ${raw.length} 字）`, route)
+        return
+      }
+      if (!guard.gate(id, emission.body)) {
+        trace('guarded emission', emission.severity, 'for', id)
+        record('guarded', `节流/去重抑制了 ${emission.severity} 建议`, route)
+        return
+      }
       stage = 'deliver'
       if (!deliver(main, emission)) {
         trace('skip: agent no longer accepts messages, dropped', emission.severity, 'for', id)
+        record('dropped', `建议已算出（${emission.severity}），但主 agent 已不再接收消息`, route)
         return
       }
       trace('delivered', emission.severity, 'to', id)
+      record('delivered', `已回注 ${emission.severity} 建议`, route)
     } catch (err) {
-      trace('review FAILED at stage', stage, 'for', id, String((err as Error)?.message ?? err))
+      const message = String((err as Error)?.message ?? err)
+      trace('review FAILED at stage', stage, 'for', id, message)
+      record('failed', `${stage} 阶段异常：${message}`)
     }
   }
 
-  return () => {
-    disposed = true
-    offMain?.()
-    offDisposed?.()
-    cursors.clear()
-    gone.clear()
+  return {
+    dispose () {
+      disposed = true
+      offMain?.()
+      offDisposed?.()
+      cursors.clear()
+      gone.clear()
+    },
+    status: () => ({ ...status }),
   }
 }
 

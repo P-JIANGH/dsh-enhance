@@ -17,6 +17,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-commands'
 import { collectDoctorReport, renderReport, type DoctorReport } from '../tools/doctor.js'
+import { inactiveAdvisorStatus, type AdvisorStatus } from './advisor/runtime.js'
 import { readBoulder } from './boulder/store.js'
 import { readWriteToken } from './boulder/write-token.js'
 
@@ -31,8 +32,11 @@ export interface HumanCommandOptions {
   workTracking: boolean
   /** `/doctor` 回显用的生效配置（与模型侧 doctor 工具同一份）。 */
   doctorConfig: DoctorReport['config']
-  /** advisor 是否开启：`/doctor` 的「下一步建议」需要它。 */
-  advisorEnabled: boolean
+  /**
+   * advisor 运行时的实时状态读取器：`/doctor` 用它回显最近一次审查的结局与
+   * 失败原因（与模型侧 doctor 工具同一来源）。缺席时按「未接线」显示。
+   */
+  advisorStatus?: () => AdvisorStatus
 }
 
 /** 取会话仓库根：优先会话自身 cwd，缺失时退回进程 cwd。 */
@@ -91,13 +95,14 @@ export function renderBoulderStatus(repoRoot: string): string {
  */
 export function registerHumanCommands(ctx: Context, options: HumanCommandOptions): () => void {
   if (!options.enabled) return () => {}
+  const readAdvisor = options.advisorStatus ?? (() => inactiveAdvisorStatus(false))
   const disposers: Array<() => void> = [
     ctx.commands.register({
       name: 'doctor',
-      description: '诊断 dsh-enhance 装配状态：插件加载、打包技能、工作准则段落与生效配置（只读，不进入模型历史）',
+      description: '诊断 dsh-enhance 装配状态：插件加载、打包技能、工作准则段落、生效配置与顾问旁审状态（只读，不进入模型历史）',
       async handler() {
-        const report = await collectDoctorReport(ctx, options.doctorConfig)
-        return { kind: 'success', text: renderReport(report, options.advisorEnabled, COMMAND_NAMES) }
+        const report = await collectDoctorReport(ctx, options.doctorConfig, readAdvisor())
+        return { kind: 'success', text: renderReport(report, COMMAND_NAMES) }
       },
     }),
   ]

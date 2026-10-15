@@ -10,6 +10,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { PROVIDER as BUNDLED_PROVIDER } from '../features/skills-provider.js'
+import { inactiveAdvisorStatus, type AdvisorStatus } from '../features/advisor/runtime.js'
 
 /** One skill visible to the session, with its registry labels. */
 export interface SkillEntry {
@@ -37,6 +38,13 @@ export interface DoctorReport {
     worktree: boolean
     commands: boolean
   }
+  /**
+   * Live advisor runtime state (the switch plus the last review's outcome and
+   * its failure reason). Carried in the value — not passed alongside the
+   * renderer — so it is covered by the tool's output schema and reaches every
+   * consumer of the report, including `/doctor`.
+   */
+  advisor: AdvisorStatus
 }
 
 /**
@@ -44,9 +52,14 @@ export interface DoctorReport {
  * empty list instead of failing the whole report).
  * @param ctx - context with the `skills` registry.
  * @param config - the effective configuration, echoed back verbatim.
+ * @param advisor - live advisor status; absent means no runtime is wired.
  * @returns the assembled report value.
  */
-export async function collectDoctorReport(ctx: Context, config: DoctorReport['config']): Promise<DoctorReport> {
+export async function collectDoctorReport(
+  ctx: Context,
+  config: DoctorReport['config'],
+  advisor: AdvisorStatus = inactiveAdvisorStatus(false),
+): Promise<DoctorReport> {
   let skills: SkillEntry[] = []
   try {
     skills = (await ctx.skills.list({})).map(summary => ({
@@ -63,19 +76,48 @@ export async function collectDoctorReport(ctx: Context, config: DoctorReport['co
     skills,
     workRulesSection: 'dsh-enhance/work-rules',
     config,
+    advisor,
   }
+}
+
+/** 顾问审查结局的中文名，用于诊断回显。 导出供单元测试。 */
+export function advisorOutcomeLabel(status: AdvisorStatus): string {
+  switch (status.outcome) {
+    case 'delivered': return '已回注建议'
+    case 'dropped': return '建议已丢弃'
+    case 'guarded': return '被节流抑制'
+    case 'no-emission': return '本次无建议'
+    case 'skipped': return '已跳过'
+    case 'failed': return '调用失败'
+    default: return '尚未触发审查'
+  }
+}
+
+/**
+ * 渲染顾问旁审状态一行。诊断的价值在于**失败可见**：结局、路由与失败原因
+ * 都回显出来，否则「advisor 没动作」只能靠猜（本包真实发生过：会话亲和的
+ * provider 拒绝无 `sessionId` 的复核请求，而运行时只往 stderr 写 trace）。
+ * @param status - 该运行时当前状态。
+ * @returns 一行中文文本。
+ */
+export function renderAdvisorStatus(status: AdvisorStatus): string {
+  if (!status.enabled) return '顾问旁审：关'
+  if (status.outcome === null) return '顾问旁审：开 · 尚未触发审查（每个回合结束时会审查一次）'
+  const bits = [`已审查 ${status.reviews} 次`, `最近：${advisorOutcomeLabel(status)}`]
+  if (status.route !== null) bits.push(`路由=${status.route}`)
+  if (status.detail !== null) bits.push(`说明=${status.detail}`)
+  if (status.lastReviewAt !== null) bits.push(`时间=${status.lastReviewAt}`)
+  return `顾问旁审：开 · ${bits.join(' · ')}`
 }
 
 /**
  * Render the report as plain text for the model (中文小节式). 导出供单元测试。
  * @param report - the assembled report.
- * @param advisorEnabled - advisor runtime state (not part of the echo config).
  * @param humanCommands - command names this bundle registers, without the slash;
  *   empty when the human-command surface is off or the caller has none.
  */
 export function renderReport(
   report: DoctorReport,
-  advisorEnabled: boolean,
   humanCommands: readonly string[] = [],
 ): string {
   const lines = [
@@ -89,7 +131,8 @@ export function renderReport(
       `工作追踪=${report.config.workTracking ? '开' : '关'} ` +
       `worktree=${report.config.worktree ? '开' : '关'} ` +
       `人类指令=${report.config.commands ? '开' : '关'} ` +
-      `advisor=${advisorEnabled ? '开' : '关'}`,
+      `advisor=${report.advisor.enabled ? '开' : '关'}`,
+    renderAdvisorStatus(report.advisor),
   ]
   // The human-command surface is the one entry point the user sees without the
   // model, so the diagnosis names it whenever it is live.
@@ -111,7 +154,7 @@ export function renderReport(
       lines.push(`会话内其它来源技能：${others.length} 个（非本插件提供，如需详情见 skill 工具）`)
     }
   }
-  const next = suggestNext(report.config, advisorEnabled)
+  const next = suggestNext(report.config, report.advisor)
   if (next.length > 0) {
     lines.push('下一步建议：')
     for (const s of next) lines.push(`- ${s}`)
@@ -119,40 +162,53 @@ export function renderReport(
   return lines.join('\n')
 }
 
-/** 可执行下一步建议，由现有 config 开关驱动（不新增配置）。 导出供单元测试。 */
-export function suggestNext(config: DoctorReport['config'], advisorEnabled: boolean): string[] {
+/** 可执行下一步建议，由现有 config 开关 + advisor 运行时状态驱动。 导出供单元测试。 */
+export function suggestNext(config: DoctorReport['config'], advisor: AdvisorStatus): string[] {
   const out: string[] = []
   if (!config.guards) out.push('守卫已关闭：开启 guards 以启用写保护与交付门。')
   if (!config.workTracking) out.push('工作追踪已关闭：开启后可建 goal/boulder 追踪工作进度。')
   if (!config.worktree) out.push('worktree 已关闭：开启后可为每项工作建立独立工作区。')
   if (!config.commands) out.push('人类指令已关闭：开启后可在输入框打 / 直接调用 /doctor、/boulder。')
-  if (!advisorEnabled) out.push('advisor 已关闭：开启后每轮结束有伴随审查建议。')
+  if (!advisor.enabled) out.push('advisor 已关闭：开启后每轮结束有伴随审查建议。')
+  // A failed review is the one advisor state that needs action: say what broke,
+  // because the runtime itself only traces to stderr.
+  if (advisor.enabled && advisor.outcome === 'failed') {
+    out.push(`advisor 审查调用失败：${advisor.detail ?? '原因未记录'}（换掉该路由或修好 provider 凭据后重试；成功后再看这一行）`)
+  }
   if (out.length === 0) out.push('一切就绪：可用 /doctor 看装配、/boulder 看工作追踪；要常驻深度工作纪律就在新建会话时选「Enhance」预设。')
   return out
+}
+
+/** The doctor tool's registration options. */
+export interface DoctorToolOptions {
+  /** The effective dsh-enhance configuration, reported back verbatim. */
+  config: DoctorReport['config']
+  /** Whether to register the tool at all (the `doctorTool` switch). */
+  enabled: boolean
+  /** Command names this bundle registers; empty when the surface is off. */
+  humanCommands?: readonly string[]
+  /**
+   * Live advisor status reader. A function (not a value) because the tool reads
+   * it when the model calls it — long after wiring, so the report shows the
+   * runtime's *current* state. Absent → reported as off.
+   */
+  advisorStatus?: () => AdvisorStatus
 }
 
 /**
  * Register the doctor tool.
  * @param ctx - context with the `tools` registry.
- * @param config - the effective dsh-enhance configuration, reported back verbatim.
- * @param enabled - whether to register at all.
- * @param advisorEnabled - advisor runtime switch (drives the 下一步建议 without
- *   widening the output schema).
- * @param humanCommands - command names this bundle registers (rendered in the
- *   report; empty when the surface is off).
+ * @param options - effective configuration, the registration switch, the live
+ *   advisor status reader, and the human-command names.
  * @returns the exact disposer that unregisters the tool.
  */
-export function registerDoctorTool(
-  ctx: Context,
-  config: DoctorReport['config'],
-  enabled: boolean,
-  advisorEnabled = false,
-  humanCommands: readonly string[] = [],
-): () => void {
-  if (!enabled) return () => {}
+export function registerDoctorTool(ctx: Context, options: DoctorToolOptions): () => void {
+  if (!options.enabled) return () => {}
+  const alternates = options.humanCommands ?? []
+  const readAdvisor = options.advisorStatus ?? (() => inactiveAdvisorStatus(false))
   const definition: ToolDefinition = {
     name: 'dsh_enhance_doctor',
-    description: '诊断 dsh-enhance 增强包的装配状态：插件是否加载、注册的技能、工作准则段落与生效配置，并给出可执行的下一步建议。只读；调用它即可确认插件工作正常。',
+    description: '诊断 dsh-enhance 增强包的装配状态：插件是否加载、注册的技能、工作准则段落、生效配置与顾问旁审（advisor）运行时状态，并给出可执行的下一步建议。只读；调用它即可确认插件工作正常。',
     parameters: {
       type: 'object',
       properties: {},
@@ -190,18 +246,31 @@ export function registerDoctorTool(
             required: ['workRulesChars', 'doctorTool', 'guards', 'workTracking', 'worktree', 'commands'],
             additionalProperties: false,
           },
+          advisor: {
+            type: 'object',
+            properties: {
+              enabled: { type: 'boolean' },
+              reviews: { type: 'number' },
+              outcome: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+              detail: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+              route: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+              lastReviewAt: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+            },
+            required: ['enabled', 'reviews', 'outcome', 'detail', 'route', 'lastReviewAt'],
+            additionalProperties: false,
+          },
         },
-        required: ['pluginLoaded', 'skills', 'workRulesSection', 'config'],
+        required: ['pluginLoaded', 'skills', 'workRulesSection', 'config', 'advisor'],
         additionalProperties: false,
       },
       render: (_args, value) => [{
         type: 'text',
-        text: renderReport(value as unknown as DoctorReport, advisorEnabled, humanCommands),
+        text: renderReport(value as unknown as DoctorReport, alternates),
       }],
       presentationMeta: (_args, value) => value,
     },
     async execute() {
-      return collectDoctorReport(ctx, config)
+      return collectDoctorReport(ctx, options.config, readAdvisor())
     },
     presentCall: () => ({
       card: 'generic',
