@@ -10,7 +10,7 @@
 
 ## 当前基线
 
-- **2026-10-15 修复轮基线**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **207/207** · `pnpm check:pack` PASS（73 个文件）· `node qa/pack-install-drive.mjs` **21/21**（零 token）。本机三个 profile（`desktop`/`dsh-enhance`/`web`）的安装名从旧名改为真名 `@p-jiangh/dsh-enhance`（P0-15）。**已知工具缺口**：`pnpm qa:pack` 在本机仍会失败（pnpm 把 `npm_execpath` 设成 `@pnpm/exe/pnpm.exe`，驱动把它交给 `node` → `Unknown file extension ".exe"`），见 P2-10；直接跑 `node qa/pack-install-drive.mjs` 即可。同轮只记录未修的两条：P2-11（advisor 也审委派子会话）、P2-12（自定义 `advisorModel` 时 provider 被固定为 `deepseek-official`）。
+- **2026-10-15 基线（本轮收尾）**：`pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **209/209** · `pnpm check:pack` PASS（73 个文件）· **`pnpm qa:pack` 21/21**（零 token，P2-10 修好后这条入口本身可用，不再需要绕道 `node qa/pack-install-drive.mjs`）。本机三个 profile（`desktop`/`dsh-enhance`/`web`）的安装名从旧名改为真名 `@p-jiangh/dsh-enhance`（P0-15，GUI 已复核）。同轮把 P2-11（advisor 也审委派子会话）与 P2-12（`advisorModel` 夺走 provider）一并修掉。
 
 - **2026-10-10 包名改为 `@p-jiangh/dsh-enhance`（原 `@dsh-enhance/dsh-enhance`）**：GitHub Packages 的文档规则是"scope 对应**仓库所有者**"（*"a package named `@my-org/test`"* 发布会落到仓库 `my-org/test`）且 scope 必须全小写；本仓库是 `P-JIANGH/dsh-enhance`，所以用户名 scope `@p-jiangh` 天然匹配 —— 于是**既不需要建组织，也不需要 PAT**：用 Actions 自带的 `GITHUB_TOKEN`（`packages: write`）发布，见 `.github/workflows/publish-github-packages.yml`（手动触发，且**断言当前提交就是 `v<version>` tag**）。**未变**的东西同样重要：插件行 id `dsh-enhance`、段落名 `dsh-enhance/work-rules` 与 `dsh-enhance/enhance-mode`、工具名、配置命名空间（`ctx.configForms.get('dsh-enhance')`）与设置页认领 key（`<包名>#<行 id>`）里的**行 id**——所以用户按 id 写的补丁覆盖不受影响；但 **key 里的包名会随安装名变化**，这就是 P0-15。**本文件的历史条目保留旧名原样**（历史只标注不重写，与本文件对旧品牌 `oh-my-dsh` 的处理一致）。
 
@@ -259,20 +259,22 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 - 根因（不是本插件缺陷）：`agentPresets` 服务由 **Web 组合**提供——`@deepseek-ai/dsh-web-app` 的补丁里就是 *"the agent plane moves behind agent presets"* 那一段；上游那行预设插件 `inject: ['agentPresets']` 于是 pending。预设本来就只在 Web/桌面面可选，headless（含 acp / sdk / sdk-minimal）里没有预设菜单是**正确**行为。
 - 处置：不改机制（无法从补丁静态判断），在 README 与 `docs/installing-plugins.md` 明写这条预期输出，并让 `qa:pack` 把它钉成"未激活名单里**只有**这一条、且原因必须是 `agentPresets`"；其余任何未激活行都会让验收变红。
 
-### ⚠️ P2-10 `pnpm qa:pack` 在 pnpm 以 exe 形式安装时跑不起来（2026-10-15 记录，未修）
-- 现象：`pnpm qa:pack` 直接死在"打包"这一步，`pack-install-drive: 打包失败，无法继续。` / `ERR_UNKNOWN_FILE_EXTENSION: Unknown file extension ".exe" for …\@pnpm\exe\pnpm.exe`。同一轮的 `pnpm check:pack` **PASS(73)**——它上次已按同样的症状修过 npm CLI 兜底（见 2026-10-10 修复记录那行），所以本条只针对 `qa/pack-install-drive.mjs`。
-- 根因：`qa/pack-install-drive.mjs` 的 `npmArgv()` 首选 `process.env.npm_execpath`，而 pnpm 以 `@pnpm/exe` 形式安装时它指向 **`pnpm.exe`**；驱动用 `node <那个路径>` 启动 → node 不认 exe。
-- 影响面：只是"通过 pnpm script 跑"这条入口；**验收本身没坏**——直接 `node qa/pack-install-drive.mjs` 本轮 21/21 全过（`npm_execpath` 未设时走 `npm` 兜底）。
-- 建议修法（未实施，等确认）：`npmArgv()` 过滤掉以 `.exe`/`.cmd` 结尾的候选（`qa/` 不在 `files` 里，改动不影响已发布载荷）。
+### ✅ P2-10 `pnpm qa:pack` 在 pnpm 以 exe 形式安装时跑不起来（2026-10-15 修复）
+- 现象：`pnpm qa:pack` 直接死在"打包"这一步，`pack-install-drive: 打包失败，无法继续。` / `ERR_UNKNOWN_FILE_EXTENSION: Unknown file extension ".exe" for …\@pnpm\exe\pnpm.exe`。同一轮的 `pnpm check:pack` **PASS(73)**——它已按同样的症状修过 npm CLI 兜底（见 2026-10-10 修复记录那行），所以本条只针对 `qa/pack-install-drive.mjs`。
+- 根因：`npmArgv()` 首选 `process.env.npm_execpath`，而 pnpm 以 `@pnpm/exe` 形式安装时它指向 **`pnpm.exe`**；驱动用 `node <那个路径>` 启动 → node 不认 exe。
+- 修复：`npmArgv()` 只接受**确实是 JS 入口**的 `npm_execpath`（`/\.(c|m)?js$/i`），并把 Node 自带 npm 的两个安装布局（Windows `<nodeDir>/node_modules/npm/…`、POSIX `<nodeDir>/../lib/node_modules/npm/…`）排在前面——与 `scripts/check-pack-payload.mjs` 已落地的同一写法保持一致（本驱动要的是 npm 打出来的载荷）。
+- 验收：`pnpm qa:pack` 本身从"跑不起来"变为 **21/21 通过**（零 token）；`qa/` 不在 `files` 里，改动不影响已发布载荷。
 
-### ⚠️ P2-11 advisor 不区分主会话与委派子会话（2026-10-15 记录，未修）
-- 事实：`runtime.ts` 的模块注释写的是 "one independent LLM review call per **main-agent** turn-stop boundary"，但监听器对**每个** agent 的 `agent/turn-stopping` 都发起复核——`agent/turn-stopping` 在委派子会话上同样发射，而其它钩子（`rules-injector`、`start-work`）都用 `isDelegatedSession(agent.session.header)` 过滤（`src/shared/session-scope.ts`）。
-- 后果：Enhance 预设一次派 4 个子代理时，每个子代理每轮都多一次模型调用；`dsh_enhance_doctor` 的「已审查 N 次」也把主/子会话混在一起计数。
-- 建议修法（未实施，等确认——这是行为变更，不是缺陷修复）：在 `kickReview` 入口加 `isDelegatedSession` 过滤，或在文档里明确"advisor 也审子代理"。
+### ✅ P2-11 advisor 不区分主会话与委派子会话（2026-10-15 修复）
+- 事实：`runtime.ts` 的模块注释写的是 "one independent LLM review call per **main-agent** turn-stop boundary"，但监听器对**每个** agent 的 `agent/turn-stopping` 都发起复核。宿主契约也确认了这一点：`@deepseek-ai/dsh-agent` 的 `runtime-types.d.ts` 对该事件写着 *"Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent"* —— 注册在插件 ctx 上的监听器于是收到每个 agent，包括委派子会话；而其它钩子（`rules-injector`、`start-work`）都用 `isDelegatedSession(agent.session.header)` 过滤（`src/shared/session-scope.ts`）。
+- 后果：Enhance 预设派 4 个子代理时，每个子代理每轮多一次模型调用；`dsh_enhance_doctor` 的「已审查 N 次」也把主/子会话混在一起计数。
+- 修复：入监听器先 `isDelegatedAgent(agent)`（`origin === 'subagent'` 或 `delegationDepth > 0` 都算）即跳过并只写 stderr trace；读不到 header 时**故意 fail-open**（当作可审）——因为取 transcript 那一步本来就会把读不到的跳过，不因此静默关掉 advisor。
+- 验收：`tests/advisor.test.mjs` 新增 1 例（两种子会话标记都不触发调用、不污染次数，主会话照旧）。
 
-### ⚠️ P2-12 自定义 `advisorModel` 时 provider 被硬编码为 `deepseek-official`（2026-10-15 记录，未修）
-- 事实：`runtime.ts` 的 `routeFor()` 在 `options.model` 存在时返回 `{ provider: 'deepseek-official', model: options.model }`；而 README 的配置表只说"advisor 子代理的独立模型；默认继承主 agent 的路由"，没写 provider 被固定。用户若填一个属于别的 provider 的模型名（例如本机默认路由 `opencode-go` 下的 `glm-5.3`），请求会打到 `deepseek-official` 上——**这条现在至少是可见的**：`dsh_enhance_doctor` 会回显 `路由=deepseek-official/<你填的模型>` 与失败原因。
-- 建议修法（未实施，等确认）：`{ provider: main.options?.provider ?? 'deepseek-official', model: options.model }`（只覆盖模型、继承 provider），或把 provider 也做成配置字段。
+### ✅ P2-12 自定义 `advisorModel` 时 provider 被硬编码为 `deepseek-official`（2026-10-15 修复）
+- 事实：`routeFor()` 在 `options.model` 存在时返回 `{ provider: 'deepseek-official', model: options.model }`；而 README 的配置表只说"advisor 子代理的独立模型；默认继承主 agent 的路由"。用户填一个属于别的 provider 的模型名（例如本机默认路由 `opencode-go` 下的 `glm-5.3`）时，请求会打到 `deepseek-official`——一条根本不认识该模型的路由上。
+- 修复：只覆盖**模型**，provider 一律继承主会话（`main.options?.provider ?? 'deepseek-official'`），与 README 的承诺一致。
+- 验收：`tests/advisor.test.mjs` 新增 1 例（主会话 `opencode-go` + `advisorModel: glm-5.3` → 请求 `provider=opencode-go`、`model=glm-5.3`，且状态行回显 `opencode-go/glm-5.3`）。
 
 ---
 
@@ -337,7 +339,8 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 | 2026-10-10 | **包名改为 `@p-jiangh/dsh-enhance`**（原 `@dsh-enhance/dsh-enhance`）+ 版本 `0.1.1`；新增 GitHub Packages 发布工作流（`GITHUB_TOKEN`，无需 PAT）；文档与测试全量改名（20 个文件） | 见下一次提交 | `tsc` 0 · `node --test` 192/192 · `check:pack` PASS(73) · `qa:pack` **21/21**（新包名）。改名脚本漏了 `tests/presets-pin.test.mjs` 里**转义斜杠**的旧名正则，被这条字节钉当场抓到并修掉 |
 | 2026-10-09 | **发布后 L3 真机验收**（对象 = 已发布字节）：headless 组合 `qa-gh4` + 预设作用域 `qa-l3p`（探针复刻 Web 绑定） | 见下一次提交 | 两条都 exit 0：doctor 报插件已加载 + 3 条打包技能 + work-rules 段 + 开关全开（advisor 真跑一次审查）；名册 `preset=enhance default=true broken=-` 全行 `=true`，`session-443bec83` 的 system prompt 含完整 26 行 `<enhance-mode>`、`{{cwd}}` 已替换、全日志无 ultrawork/ulw |
 | 2026-10-15 | **P0-16 advisor 静默失效**：复核请求带 `sessionId`（会话亲和 provider 必需）+ 审查结局/失败原因/路由记录并在 `dsh_enhance_doctor`、`/doctor` 回显（输出 schema 同步扩展）+ 失败给可执行建议；顺带清掉 emission guard 的按 agent 状态、补 `isGone` 早退的结局记录 | `e4f1f76` | `pnpm typecheck` 0 · `pnpm build` 0 · `pnpm test` **204/204**（`tests/advisor.test.mjs` +7 例含负控制、`tests/doctor.test.mjs` 改携带 advisor 状态并 +3 例、`tests/tool-output-schema.test.mjs` +1 例含 schema 负控制）· `check:pack` PASS(73) · `node qa/pack-install-drive.mjs` **21/21** |
-| 2026-10-15 | **P0-16 复验补丁**：真机复验发现新状态行说谎——`ADVISOR: NONE`（契约内的沉默）与"回答里没有信封"都被记成 `no-emission`；新增 `declaresNoEmission()` + `none` 结局 + 回答样本回显 | 见下一次提交 | `pnpm test` **207/207**（+3 例：判别器、`none` 结局、沉默/格式不符分开念）· 真机复验：重启后 `顾问旁审：… · 已审查 1 次 · 路由=opencode-go/deepseek-v4.1-flash`（400 已消失） |
+| 2026-10-15 | **P0-16 复验补丁**：真机复验发现新状态行说谎——`ADVISOR: NONE`（契约内的沉默）与"回答里没有信封"都被记成 `no-emission`；新增 `declaresNoEmission()` + `none` 结局 + 回答样本回显 | `9cc2506` | `pnpm test` **207/207**（+3 例：判别器、`none` 结局、沉默/格式不符分开念）· 真机复验：重启后 `顾问旁审：… · 已审查 1 次 · 路由=opencode-go/deepseek-v4.1-flash`（400 已消失） |
+| 2026-10-15 | **P2-10 / P2-11 / P2-12 一并修掉**：QA 驱动只接受「确实是 JS 入口」的 `npm_execpath`（+ Node 自带 npm 的双布局）；advisor 跳过委派子会话（`isDelegatedSession`，读不到 header 时 fail-open）；`advisorModel` 只覆盖模型、provider 继承主会话 | 见下一次提交 | `pnpm test` **209/209**（+2 例：子会话不触发调用、advisorModel 不夺 provider）· **`pnpm qa:pack` 21/21**（该入口从"跑不起来"变为可用）· `check:pack` PASS(73) |
 | 2026-10-15 | **P0-15 设置面入口静默消失**：本机三个 profile（`desktop`/`dsh-enhance`/`web`）的 dependency + `dsh.profile.bundles` 改为真名 `@p-jiangh/dsh-enhance` 并重跑 pnpm 链接（各留 `.bak-rename-20261015`）；文档记下"包改名 = 已装 profile 必须按新名重装" | 环境侧改动（不改仓库代码） | 三个 profile `createRequire(...).resolve('@p-jiangh/dsh-enhance/package.json')` → `F:\oh-my-dsh\package.json`；宿主 key 计算与 `client/client.js` 的 `ROW_CONFIG_KEY` 相符（`@p-jiangh/dsh-enhance#dsh-enhance`）。**GUI 复核（重启后，用户确认）**：「配置」入口回来且能改开关 |
 
 
