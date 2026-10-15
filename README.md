@@ -20,7 +20,7 @@
 | **工作追踪** | boulder（CAS）+ 写令牌 + start-work / delivery-gate 钩子。**目标（goal）归原生**：`create_goal`/`get_goal`/`update_goal` + `dsh-goal-round-driver`（目标未完成自动续轮） | `workTracking: false` |
 | **worktree** | `worktree_create/list/cleanup` 工具 + boulder 联动 | `worktree: false` |
 | **增强模式段（enhance-mode）** | 一段深度工作协议，由本包以 `@p-jiangh/dsh-enhance/enhance-mode` 行贡献，**只挂在 Enhance 预设作用域内**：选了该预设的会话每个都常驻这段系统提示词；没选的会话完全看不到。没有关键词触发，也没有"退出模式"的动作 | 不在预设里，就不出现（`cordis.patch.yml` 的 `preset-enhance` 行） |
-| **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`） | `advisor: false` |
+| **Advisor** | 伴随审查子代理跟随每个主会话：接收每轮增量 transcript，把建议 steers/injects 回注（`nit` / `concern` / `blocker`）。**它的状态是可见的**：`dsh_enhance_doctor` 与 `/doctor` 会回显「审查了几次 / 最近一次结局 / 路由 / 失败原因」——调用失败、没给出信封、被节流、送不出去都各有分开的结局，不再是静默 | `advisor: false` |
 | **工作模式** | 面向用户的主预设是 **Enhance**（预设 id `enhance`）：常驻深度工作提示词段 + 纪律 + 打包技能 + 交付门卫，且**保留编排**——它把 scout/librarian/reviewer/task 接线为受作用域限制的子代理，因此"一个会话只有一个预设"也能分派专职子代理 | 新建会话时选 **Enhance** |
 | **Agent 预设** | 本插件只出 **1 个**：`Enhance`（id `enhance`，编排者 + 常驻 enhance-mode 段）。预设由 bundle 补丁层声明（`cordis.patch.yml`），**不需要安装动作**；名册里另外那些（standard / ptc / minimal / cordis）是上游自带的 | 见 `docs/modes.md` |
 | **界面配置页** | 内置「插件」面板里本插件那一行有「配置」入口：6 个开关 + 顾问模型就地改，**保存即生效**（写入 profile 补丁的 user 层，每项可单独恢复默认） | 无需配置；只有 `workRules` 仍需在 YAML 里改 |
@@ -35,7 +35,7 @@
 | **`/` 菜单里的本包指令** `/doctor`、`/boulder` | 在输入框打 `/` 选择后回车（两条都无入参→回车即执行） | `commands: true`（默认） |
 | **预设**：**Enhance**（id `enhance`，编排者 + 常驻 enhance-mode 段） | 新建会话时用会话标题旁的预设菜单选择；或在设置的预设名册区块里设为默认。预设由 bundle 补丁声明，装好插件就在 | 插件已挂载（预设行随 bundle 一起生效） |
 | **模型侧工具** `dsh_enhance_doctor`、`boulder_*`、`worktree_*`（目标用原生的 `create_goal`/`get_goal`/`update_goal`） | 让模型使用即可（也可以直接说「跑一下 dsh_enhance_doctor」） | 对应开关（默认全开） |
-| **本插件的配置页** | 侧边栏「插件」面板 → `@p-jiangh/dsh-enhance` 包 → 它那一行的「配置」 | 桌面端 / loopback Web（浏览器半侧随包发布） |
+| **本插件的配置页** | 侧边栏「插件」面板 → `@p-jiangh/dsh-enhance` 包 → 它那一行的「配置」 | 桌面端 / loopback Web（浏览器半侧随包发布）。**若包里没有「配置」入口**：多半是 profile 仍按旧名安装（改名后的已知形态），见 [docs/installing-plugins.md](docs/installing-plugins.md) §7 与 [known-issues.md](docs/known-issues.md) P0-15 |
 
 两个容易误解的点：
 

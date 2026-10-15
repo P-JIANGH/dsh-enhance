@@ -259,6 +259,7 @@ dsh --profile <your-profile> --patch ./extra.yml ...
 | 装了但 `--dump-config` 里没出现 | 该包没有 `dsh.bundle` 声明，只会作为普通依赖；看 `dsh plugin` 的 warning |
 | 想覆盖插件配置却没生效 | 层优先级没对：`dsh.profile.bundles` 内的 bundle 层 < profile 的 `cordis.patch.yml` < home 级 < `--patch`；请在更高层覆盖，并写全 `config` |
 | `--dump-config` 有帮助 | 用它能看见最终装配树，确认某行能否被自己的补丁瞄准（按其 id） |
+| 「插件」面板里有这个包、但那一行**没有「配置」入口** | 这是**安装名与包名不一致**（本插件 2026-10-10 改过名：`@dsh-enhance/dsh-enhance` → `@p-jiangh/dsh-enhance`）。宿主按 *profile manifest 里记的安装名* 生成设置页台账键（`<安装名>#<行 id>`），而浏览器半侧认领的是**包名**；两者不等就静默没有入口——插件本身照常工作（bundle 补丁里的行靠 Node 包自引用仍能解析）。对策：按现名重装一次（`dsh plugin --profile <your-profile> remove <旧名>` 再 `add @p-jiangh/dsh-enhance`，或直接把 `dependencies` 与 `dsh.profile.bundles` 里的名字改成新名后重跑 `pnpm install`），然后**重启**桌面端。复核：`node -e "console.log(require.resolve('@p-jiangh/dsh-enhance/package.json'))"` 要在 profile 目录下解析成功。完整证据见 [known-issues.md](known-issues.md) P0-15 |
 
 ## 8. 附录：如何把你们自己的插件变成可装 bundle
 
