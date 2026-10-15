@@ -3,7 +3,7 @@
 // runtime relies on, independent of the live dsh loop.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseAdvisorEmission } from '../lib/features/advisor/severity.js'
+import { parseAdvisorEmission, declaresNoEmission } from '../lib/features/advisor/severity.js'
 import { createEmissionGuard } from '../lib/features/advisor/emission-guard.js'
 import { runReviewCall, registerAdvisorRuntime } from '../lib/features/advisor/runtime.js'
 
@@ -12,6 +12,17 @@ test('[advisor-severity] NONE marker → null', () => {
   assert.equal(parseAdvisorEmission('Some text\nADVISOR: NONE\nmore'), null)
   assert.equal(parseAdvisorEmission(''), null)
   assert.equal(parseAdvisorEmission('no marker here'), null)
+})
+
+test('[advisor-severity] declaresNoEmission 区分"明确回 NONE"与"根本没给信封"', () => {
+  // parseAdvisorEmission 对两者都返回 null，所以诊断面需要这个判别器：
+  // 前者是契约内的沉默（正常结局），后者才是格式问题。
+  assert.equal(declaresNoEmission('ADVISOR: NONE'), true)
+  assert.equal(declaresNoEmission('Some text\nADVISOR: NONE\nmore'), true)
+  assert.equal(declaresNoEmission('ADVISOR: none'), true)
+  assert.equal(declaresNoEmission('Looks fine to me.'), false)
+  assert.equal(declaresNoEmission(''), false)
+  assert.equal(declaresNoEmission('ADVISOR: nit\nTidy this up'), false)
 })
 
 test('[advisor-severity] parses severity + body', () => {
@@ -300,10 +311,29 @@ test('[advisor-run] 成功回注后状态记为 delivered，且 status 返回副
   assert.equal(handle.status().reviews, 1, 'status 必须是副本，调用方改不动运行时状态')
 })
 
-test('[advisor-run] 模型未给 ADVISOR 信封 → no-emission（与调用失败区分）', async () => {
+test('[advisor-run] 明确回 NONE → none（契约内的沉默，与"格式不符"分开记）', async () => {
   const llm = {
     stream: () => (async function* () {
-      yield { type: 'text-delta', index: 0, text: 'Looks fine to me.' }
+      yield { type: 'text-delta', index: 0, text: 'ADVISOR: NONE' }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })(),
+  }
+  const ctx = fakeCtx(llm)
+  const handle = registerAdvisorRuntime(ctx, { enabled: true })
+  const agent = fakeAgent('main-none')
+  ctx.handlers.get('agent/turn-stopping')({ agent })
+
+  await waitFor(() => handle.status().outcome !== null)
+  const status = handle.status()
+  assert.equal(status.outcome, 'none', '13 字的 ADVISOR: NONE 是正常结局，不是格式失败')
+  assert.match(status.detail, /NONE/)
+  assert.equal(agent.injected.length + agent.steered.length, 0, '沉默不产生任何回注')
+})
+
+test('[advisor-run] 回答里没有信封 → no-emission，并把回答样本回显出来', async () => {
+  const llm = {
+    stream: () => (async function* () {
+      yield { type: 'text-delta', index: 0, text: 'Looks fine to me.\nNothing  to\nraise.' }
       yield { type: 'finish', reason: { kind: 'stop' } }
     })(),
   }
@@ -312,7 +342,10 @@ test('[advisor-run] 模型未给 ADVISOR 信封 → no-emission（与调用失�
   ctx.handlers.get('agent/turn-stopping')({ agent: fakeAgent('main-quiet') })
 
   await waitFor(() => handle.status().outcome !== null)
-  assert.equal(handle.status().outcome, 'no-emission')
+  const status = handle.status()
+  assert.equal(status.outcome, 'no-emission')
+  // 样本要单行化（诊断回显是一行），并带上模型真正说了什么。
+  assert.match(status.detail, /Looks fine to me\. Nothing to raise\./)
 })
 
 test('[advisor-run] 负控制：请求不带 sessionId 时，provider 的 400 会被如实记为 failed', async () => {
@@ -338,7 +371,7 @@ test('[advisor-run] 负控制：请求不带 sessionId 时，provider 的 400 �
   ctx.handlers.get('agent/turn-stopping')({ agent })
   await waitFor(() => handle.status().outcome !== null)
   assert.equal(seen[0].sessionId, 'session-main-no-sid')
-  assert.equal(handle.status().outcome, 'no-emission', '带 sessionId 的调用成功（模型回 NONE → 无建议）')
+  assert.equal(handle.status().outcome, 'none', '带 sessionId 的调用成功（模型回 NONE → 契约内的沉默）')
 
   // 再把 identity 抽掉（模拟"忘了透传"），断言失败被如实记录：
   delete agent.session.header

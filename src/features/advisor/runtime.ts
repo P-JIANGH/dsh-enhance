@@ -29,7 +29,7 @@ import { messageText as bodyText } from '../../shared/messages.js'
 import { CONTEXT_SOURCE_KIND } from '../../shared/provenance.js'
 import { ADVISOR_SYSTEM_PROMPT } from './prompt.js'
 import { createEmissionGuard } from './emission-guard.js'
-import { parseAdvisorEmission, type AdvisorEmission } from './severity.js'
+import { parseAdvisorEmission, declaresNoEmission, type AdvisorEmission } from './severity.js'
 
 /** Advisor sub-session id suffix (kept distinct from any user-facing id). */
 export const ADVISOR_ID_SUFFIX = '__advisor'
@@ -86,7 +86,9 @@ export type AdvisorOutcome =
   | 'dropped'
   /** The emission guard suppressed a repeat inside the cooldown window. */
   | 'guarded'
-  /** The review answered, but carried no actionable `ADVISOR:` envelope. */
+  /** The review declared on purpose that the turn is clean (`ADVISOR: NONE`). */
+  | 'none'
+  /** The review answered without the `ADVISOR:` envelope the contract requires. */
   | 'no-emission'
   /** There was nothing to review, or the agent was already gone. */
   | 'skipped'
@@ -382,7 +384,13 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): A
       const emission = parseAdvisorEmission(raw)
       if (!emission) {
         trace('advisor produced no emission for', id, 'answerLen=', raw.length)
-        record('no-emission', `模型未给出 ADVISOR 信封（回答 ${raw.length} 字）`, route)
+        if (declaresNoEmission(raw)) {
+          // Contract-compliant silence: the reviewer looked and judged the turn
+          // clean. Reporting this as a formatting failure would be a lie.
+          record('none', '模型明确回 ADVISOR: NONE（判定本轮没有值得打断的问题）', route)
+        } else {
+          record('no-emission', `回答里没有 ADVISOR 信封：${answerSample(raw)}`, route)
+        }
         return
       }
       if (!guard.gate(id, emission.body)) {
@@ -423,6 +431,19 @@ function messageText(m: Message): string {
   if (!body) return ''
   const role = m.role === 'user' ? 'USER: ' : m.role === 'assistant' ? 'ASSISTANT: ' : 'TOOL: '
   return role + body
+}
+
+/**
+ * A bounded, single-line sample of a review that ignored the output contract.
+ *
+ * The status line exists so a user can answer "why did the advisor stay quiet?"
+ * without reading stderr — and "it answered, but not with the envelope" is
+ * unanswerable without seeing what it said. Capped because it lands in the
+ * doctor report, which is read by a model and rendered in the UI.
+ */
+function answerSample(raw: string, cap = 160): string {
+  const flat = raw.replace(/\s+/g, ' ').trim()
+  return flat.length > cap ? `${flat.slice(0, cap)}…` : flat
 }
 
 /**

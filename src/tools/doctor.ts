@@ -86,7 +86,10 @@ export function advisorOutcomeLabel(status: AdvisorStatus): string {
     case 'delivered': return '已回注建议'
     case 'dropped': return '建议已丢弃'
     case 'guarded': return '被节流抑制'
-    case 'no-emission': return '本次无建议'
+    // 契约内的沉默（ADVISOR: NONE）与"回答里没有信封"必须分开念：前者是
+    // 正常结局，后者才是格式问题——混成一句会让状态行说谎。
+    case 'none': return '无建议（模型判定本轮干净）'
+    case 'no-emission': return '未按格式回答'
     case 'skipped': return '已跳过'
     case 'failed': return '调用失败'
     default: return '尚未触发审查'

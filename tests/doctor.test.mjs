@@ -169,3 +169,17 @@ test('[doctor] 顾问旁审：成功回注时显示结局与次数，不再提�
   assert.ok(text.includes('最近：已回注建议'))
   assert.ok(text.includes('已回注 nit 建议'))
 })
+
+test('[doctor] 顾问旁审：契约内的沉默与"格式不符"必须分开念', () => {
+  // 触发原因（2026-10-15 真机）：模型回 `ADVISOR: NONE`（13 字）被旧文案说成
+  // "未给出 ADVISOR 信封" —— 状态行说谎了。这两者是不同结局，必须分开。
+  const quiet = advisorOn({ reviews: 1, outcome: 'none', detail: '模型明确回 ADVISOR: NONE（判定本轮没有值得打断的问题）' })
+  const quietText = renderReport(baseReport({ advisor: quiet }))
+  assert.ok(quietText.includes('最近：无建议（模型判定本轮干净）'), '契约内的沉默应念成正常结局')
+  assert.equal(suggestNext(fullConfig(), quiet).length, 1, '沉默不产生额外建议')
+
+  const offContract = advisorOn({ reviews: 1, outcome: 'no-emission', detail: '回答里没有 ADVISOR 信封：Looks fine to me.' })
+  const offText = renderReport(baseReport({ advisor: offContract }))
+  assert.ok(offText.includes('最近：未按格式回答'), '格式不符要明确说成格式问题')
+  assert.ok(offText.includes('Looks fine to me.'), '要回显模型真正说了什么，否则用户无法自查')
+})

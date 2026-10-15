@@ -46,3 +46,21 @@ export function parseAdvisorEmission(text: string): AdvisorEmission | null {
   if (!body) return null // a marker with no body carries no actionable advice
   return { severity: sev as AdvisorSeverity, body }
 }
+
+/**
+ * Whether the review declared *on purpose* that it has nothing to raise
+ * (`ADVISOR: NONE` — the output contract's "on track" reply, see
+ * `prompts/modes/advisor.md`).
+ *
+ * {@link parseAdvisorEmission} returns `null` for `NONE` **and** for text that
+ * carries no marker at all, so a caller holding only the parsed value cannot
+ * tell "the reviewer judged this turn clean" from "the reviewer ignored the
+ * output contract". The diagnostic surface has to say which one happened —
+ * that difference is the whole reason an outcome is reported.
+ * @param text - the advisor's raw review output.
+ * @returns true when the explicit `NONE` marker is present.
+ */
+export function declaresNoEmission(text: string): boolean {
+  const m = MARKER.exec(text)
+  return m !== null && (m[1] ?? '').toLowerCase() === 'none'
+}
