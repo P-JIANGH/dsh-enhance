@@ -55,12 +55,23 @@ function run(cmd, argv, options = {}) {
 
 /**
  * npm 的可执行入口。Windows 上 `spawnSync('npm.cmd', …)` 会 EINVAL（实测），
- * 所以走 `node <npm-cli.js>`；`npm_execpath` 在经由 npm/pnpm 运行时已给出正确路径。
+ * 所以走 `node <npm-cli.js>`。
+ *
+ * `npm_execpath` 只在它确实是 npm 的 **JS 入口** 时可用：pnpm 以 `@pnpm/exe` 形式
+ * 安装时它指向 `pnpm.exe`，交给 `node` 会报 `Unknown file extension ".exe"` —— 即
+ * 「`pnpm qa:pack` 跑不起来」的真实原因（`scripts/check-pack-payload.mjs` 的
+ * `npmArgv` 已按同一症状修过）。Node 自带的那份 npm 因此排在前面：本驱动要的是
+ * **npm 打出来的载荷**。
+ * @returns `{ cmd, prefix }`，可直接交给 spawnSync。
  */
 function npmArgv() {
+  const execpath = process.env.npm_execpath
+  const execpathIsJs = typeof execpath === 'string' && /\.(c|m)?js$/i.test(execpath)
+  const nodeDir = dirname(process.execPath)
   const candidates = [
-    process.env.npm_execpath,
-    join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Windows 官方安装
+    join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // POSIX（官方 tar / apt）
+    execpathIsJs ? execpath : undefined,
   ].filter(Boolean)
   for (const candidate of candidates) {
     if (existsSync(candidate)) return { cmd: process.execPath, prefix: [candidate] }
