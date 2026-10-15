@@ -27,6 +27,7 @@ import type { GenerateOptions, Message, StreamChunk } from '@deepseek-ai/dsh-llm
 import { BlockAssembler, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { messageText as bodyText } from '../../shared/messages.js'
 import { CONTEXT_SOURCE_KIND } from '../../shared/provenance.js'
+import { isDelegatedSession, type DelegationHeader } from '../../shared/session-scope.js'
 import { ADVISOR_SYSTEM_PROMPT } from './prompt.js'
 import { createEmissionGuard } from './emission-guard.js'
 import { parseAdvisorEmission, declaresNoEmission, type AdvisorEmission } from './severity.js'
@@ -199,13 +200,20 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): A
    */
   let disposed = false
 
-  /** Which provider/model the advisor should route on (inherit main, or override). */
+  /**
+   * Which provider/model the advisor should route on.
+   *
+   * `advisorModel` overrides the **model only**: a bare model name carries no
+   * provider, and the previous version pinned `deepseek-official` whenever it was
+   * set — so a model belonging to any other provider (e.g. `glm-5.3` under this
+   * deployment's `opencode-go` default) was sent to a route that had never heard
+   * of it and failed. Keeping the main session's provider is what the config
+   * doc promises ("默认继承主 agent 的路由").
+   */
   function routeFor(main: Agent): { provider: string; model: string } {
-    if (options.model) return { provider: 'deepseek-official', model: options.model }
-    return {
-      provider: main.options?.provider ?? 'deepseek-official',
-      model: main.options?.model ?? 'deepseek-v4-flash',
-    }
+    const provider = main.options?.provider ?? 'deepseek-official'
+    if (options.model) return { provider, model: options.model }
+    return { provider, model: main.options?.model ?? 'deepseek-v4-flash' }
   }
 
   /**
@@ -311,11 +319,20 @@ export function registerAdvisorRuntime(ctx: Context, options: AdvisorOptions): A
     ].join('\n')
   }
 
-  // Single serial listener on the turn-stop boundary. Only main agents are
-  // observed here; the advisor runs as a direct streaming call, never as a
-  // sub-agent whose own stop could loop back into this listener.
+  // Single serial listener on the turn-stop boundary. The advisor is the *main*
+  // session's companion: `agent/turn-stopping` is dispatched per agent, so a
+  // delegated child (scout/librarian/reviewer/task under the Enhance preset)
+  // would otherwise buy its own review on every turn — extra billed calls, and a
+  // "已审查 N 次" count that mixes main and child sessions. Every other session
+  // hook in this bundle filters the same way (`isDelegatedSession`). The advisor
+  // still runs as a direct streaming call, never as a sub-agent whose own stop
+  // could loop back into this listener.
   const offMain = ctx.on('agent/turn-stopping', ({ agent }: { agent: Agent }) => {
     const id = safeAgentId(agent)
+    if (isDelegatedAgent(agent)) {
+      trace('skip: delegated child session', id)
+      return
+    }
     void kickReview(agent, id).catch((err) => trace('review async FAILED for', id, String((err as Error)?.message ?? err)))
   })
 
@@ -458,5 +475,21 @@ function safeAgentId(agent: Agent): string {
     return typeof id === 'string' && id.length > 0 ? id : 'unknown'
   } catch {
     return 'unknown'
+  }
+}
+
+/**
+ * Whether this agent is a delegated child rather than a top-level session
+ * (never throws: a disposed agent's accessors can raise).
+ *
+ * An unreadable header is treated as *reviewable* on purpose — the extraction
+ * step already skips a transcript it cannot read, so failing open here costs one
+ * skipped attempt instead of silently disabling the advisor.
+ */
+function isDelegatedAgent(agent: Agent): boolean {
+  try {
+    return isDelegatedSession(agent.session.header as DelegationHeader)
+  } catch {
+    return false
   }
 }

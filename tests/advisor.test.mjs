@@ -430,3 +430,54 @@ test('[advisor-run] 结局 guarded：同一建议在冷却窗口内被抑制', a
   assert.equal(agent.steered.length, 1, '被节流的那条不得回注')
 })
 
+// ── 路由与作用域（2026-10-15 台账 P2-11 / P2-12） ───────────────────────────────
+
+test('[advisor-run] 委派子会话不触发复核：advisor 只跟主会话', async () => {
+  // `agent/turn-stopping` 是按 agent 派发的，所以子代理每个回合都会各自触发一次
+  // ——不筛就会多花调用，并让「已审查 N 次」把主/子会话混在一起。
+  const counter = { calls: 0 }
+  const ctx = fakeCtx(concernLlm(counter))
+  const handle = registerAdvisorRuntime(ctx, { enabled: true })
+
+  const child = fakeAgent('child-origin')
+  child.session.header = { id: 'session-child-origin', origin: 'subagent' }
+  const resumedChild = fakeAgent('child-depth')
+  resumedChild.session.header = { id: 'session-child-depth', delegationDepth: 1 }
+
+  ctx.handlers.get('agent/turn-stopping')({ agent: child })
+  ctx.handlers.get('agent/turn-stopping')({ agent: resumedChild })
+  await new Promise(r => setTimeout(r, 60))
+
+  assert.equal(counter.calls, 0, '两种子会话标记都不得触发复核调用')
+  assert.equal(handle.status().outcome, null, '也不得污染主会话的状态计数')
+
+  // 主会话照旧（同一条监听器、同一代接线）。
+  const main = fakeAgent('main-scope')
+  ctx.handlers.get('agent/turn-stopping')({ agent: main })
+  assert.equal(await waitFor(() => counter.calls > 0), true, '主会话必须照样被审查')
+  assert.equal(counter.calls, 1)
+})
+
+test('[advisor-run] advisorModel 只覆盖模型，不夺走 provider', async () => {
+  // 旧实现把 provider 硬编码成 deepseek-official：填一个属于别的 provider 的模型
+  // 名（本机默认路由是 opencode-go）就会被送到一条根本不认识它的路由上。
+  const seen = []
+  const llm = {
+    stream: (options) => {
+      seen.push(options)
+      return (async function* () { yield { type: 'finish', reason: { kind: 'stop' } } })()
+    },
+  }
+  const ctx = fakeCtx(llm)
+  const handle = registerAdvisorRuntime(ctx, { enabled: true, model: 'glm-5.3' })
+  const agent = fakeAgent('main-route')
+  agent.options = { provider: 'opencode-go', model: 'deepseek-v4.1-flash' }
+
+  ctx.handlers.get('agent/turn-stopping')({ agent })
+  assert.equal(await waitFor(() => seen.length > 0), true)
+  assert.equal(seen[0].provider, 'opencode-go', 'provider 继承主会话')
+  assert.equal(seen[0].model, 'glm-5.3', '模型被覆盖')
+  await waitFor(() => handle.status().outcome !== null)
+  assert.equal(handle.status().route, 'opencode-go/glm-5.3', '状态行回显真实路由')
+})
+
