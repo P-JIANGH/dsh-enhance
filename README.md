@@ -90,15 +90,17 @@ dsh --profile <your-profile> --dump-config   # 找 "# == " 层头；层头用的
 
 ### 预设（无需安装动作）
 
-预设由 bundle 的补丁层声明，**不是目录**：`cordis.patch.yml` 插入本插件行与 `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。profile 挂上本 bundle，**Enhance** 就出现在预设名册里（本插件只出这一个），没有 `/presets install`、没有 `postinstall`、插件绝不在启动时写你的家目录。
+预设由 bundle 的补丁层声明，**不是目录**：`cordis.patch.yml` 插入本插件行、**四条角色子预设**与 `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。profile 挂上本 bundle，**Enhance** 就出现在预设名册里；没有 `/presets install`、没有 `postinstall`，插件绝不在启动时写你的家目录。
 
-`config.plugins` 就是该会话 agent 的**全部**构成（**没有继承**）：Enhance 预设里逐条写明了 persona（`@deepseek-ai/dsh-persona` 的 `prefix`，即 persona 正文）、`agent-instructions`（AGENTS.md 指令链）、工具行、四条受限子代理与 `@p-jiangh/dsh-enhance/enhance-mode` 段行。这四条子代理（scout / librarian / reviewer / task）是**预设定的一部分**，不再单独出现在预设名册里。
+`config.plugins` 就是该会话 agent 的**全部**构成（**没有继承**）：Enhance 预设里逐条写明了 persona（`@deepseek-ai/dsh-persona` 的 `prefix`，即 persona 正文）、`agent-instructions`（AGENTS.md 指令链）、工具行、四条受限子代理与 `@p-jiangh/dsh-enhance/enhance-mode` 段行。
+
+> **为什么名册里还有 Scout / Librarian / Reviewer / Task（2026-10-19 起）**：dsh `0.2.1` 删除了 `@deepseek-ai/dsh-tool-subagent` 的 `persona` 与 `toolFilter` 配置字段（宿主要求把人格与工具面写进 Agent 预设，再用 `agentPreset` 选择）。于是这四条角色组合各自成为一条真实预设：它们既被 `subagent_scout` / `subagent_librarian` / `subagent_reviewer` / `subagent_task` 四个工具使用，也可以被你自己直接选中（选中即得到一个窄工具面的会话：只读或可写）。宿主会把**每一条**注册的预设都列进名册，没有隐藏字段 —— 这是机制的直接后果，不是本插件"多出四个预设"。
 
 > **兼容性（必须知道）**：`@deepseek-ai/dsh-agent-preset` 只存在于 **dsh ≥ 0.2.0** 的行式预设注册表里。老 CLI（如 nvm 里的 `0.1.0-rc.6`，其机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 inactive entry（启动时给一条告警），**不是**静默生效；本插件不为此发明条件插入机制。
 >
-> **预设只在 Web / 桌面面可选**：提供 `agentPresets` 服务的是 Web 组合（`@deepseek-ai/dsh-web-app`）。因此**纯 headless / acp / sdk 的 profile** 启动时会打印一行
-> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——
-> 这是上游那行预设插件在等它的服务，不是安装失败；插件本体在该 profile 里照常工作（工具、命令、work-rules 段都在），只是没有预设菜单可选。`pnpm qa:pack` 把这条 pending 钉成"已知且仅此一条"。
+> **预设只在 Web / 桌面面可选**：提供 `agentPresets` 服务的是 Web 组合（`@deepseek-ai/dsh-web-app`）。因此**纯 headless / acp / sdk 的 profile** 启动时会为本插件的**五条预设行**各打印一条
+> `preset-enhance… (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——
+> 这是上游那些预设行在等它们的服务，不是安装失败；插件本体在该 profile 里照常工作（工具、命令、work-rules 段都在），只是没有预设菜单可选。`pnpm qa:pack` 把"未激活的正好是这五条预设行"钉成已知项（多一条、少一条、或换别的行 pending 都会红），`pnpm qa:preset` 则在 Web 组合里断言这五条**都真的挂载成功**。
 
 > 工作模式 C（Advisor 目标回归）需要 `preset-advisor` 与 `prompts/agents/advisor.persona.md`，**尚未实现**（见 `docs/modes.md` §5/§7）；当前 advisor 运行时是通过插件 Config 默认开启的伴随机制，不需要预设。
 

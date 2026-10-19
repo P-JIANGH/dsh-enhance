@@ -103,6 +103,7 @@ dsh-enhance 的 agents 目前是 5 个 persona（planner / reviewer / executor /
 **剩余项（随 M1 落地）**：
 - advisor 落地形态接线细节待 M1 实驱确认（见 prompts-review/advisor.md）——伴随监督已纳入首批。
 - 角色预设行落地（2026-10-09 更新，同日退役）：五份角色 persona 曾生成成 `presets/roles.patch.yml` 的预设行；**2026-10-09 按用户要求只保留 Enhance 一个预设，该文件与这五行已删除**——scout/librarian/reviewer/task 四份 persona 现作为 `cordis.patch.yml` 的 Enhance 预设内的四条 scoped subagent 行，planner 未落地（原计划的 `preset-planner` 行已退役，文本保留为模式 B 的设计源）。模式 C 的 advisor 编排 persona 仍缺。
+- **2026-10-19 机制变更（dsh 0.2.1）**：宿主删除了 `@deepseek-ai/dsh-tool-subagent` 的 `persona` / `toolFilter` 字段，scoped subagent 的"人格 + 工具面"只能由**子 Agent 预设**承载，工具行用 `agentPreset` 选择。因此 scout / librarian / reviewer / task 四份 persona 现在各生成一条 `preset-enhance-<role>` 行（preset id `dsh-enhance-<role>`，order 11–14），工具面按角色收敛为：scout/reviewer = `tool-fs{read, 无 write/edit}` + `tool-fs-search`；librarian 另加 `tool-web{search, 无 fetch}`；task 另加 `write/edit` + `tool-todo`。**代价**：宿主把每一条注册的预设都列进名册（无隐藏字段），所以这四条角色组合会与 Enhance 一起出现在预设选择器里，且每条都可被用户直接选中（选中即窄工具面会话）。原来的"本插件只出 Enhance 一个预设"因此不再成立——那是 0.2.0 机制下的形态。planner 仍未落地，模式 B/C 的预设命名仍待定。
 
 ---
 

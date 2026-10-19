@@ -80,8 +80,8 @@ GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应�
   > 改名后最容易漏的就是这一类 URL：v0.1.1 改名时，README / README.en / installing-plugins
   > 里的 **三条安装命令**仍指向 v0.1.0 的旧文件名（URL 本身没失效，所以不会报错，但装到的是**改名前的那个包**）。
   > 发版时把"全仓库还有哪些 v<上一个版本> 的 URL"当作发布后检查的一项。
-- **兼容性一句话**：预设行需要 dsh ≥ 0.2.0；纯 headless profile 会打印一行
-  `preset-enhance … pending (waiting for service: agentPresets)`，属预期。
+- **兼容性一句话**：预设行需要 dsh ≥ 0.2.0；纯 headless profile 会为本插件的五条预设行各打印一条
+  `preset-… … pending (waiting for service: agentPresets)`，属预期（自 2026-10-19 起是五条：Enhance + 四条角色子预设）。
 
 **v0.1.0 的两条分发路径都做过真机验收**（隔离 home 的一次性 profile，桌面宿主 0.2.0-rc.2）：
 
@@ -255,7 +255,7 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 #    然后用 .dsh-enhance/scan-public-surface.mjs 扫它（密钥特征 + 本机痕迹 + 无 *.map）
 
 # 2) 装出来的形状：与 qa:pack 的断言同一套（只有 schemastery 闭包被复制进 profile、无宿主包副本）
-# 3) 真启动：插件行激活，未激活名单只有预设那一条预期项
+# 3) 真启动：插件行激活，未激活名单正好是预设那五条预期项（见 releasing.md 上一节的兼容性一句话）
 # 4) 真会话（L3）：doctor 报插件已加载 + 3 条打包技能
 ```
 

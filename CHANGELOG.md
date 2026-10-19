@@ -5,6 +5,70 @@ version scheme is [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Detailed rationale for each decision lives in `docs/` (the ledger in
 `docs/known-issues.md` records what was measured, and why it changed).
 
+## [Unreleased]
+
+Fixes the **Enhance preset breaking on dsh 0.2.1** — the desktop host that
+started shipping on 2026-10-17. No plugin tool, command, prompt section or
+config field changed; the shipped agent-preset composition did.
+
+### Fixed
+
+- **`preset-enhance` reported "load failed" and sessions bound to it refused to
+  open.** `@deepseek-ai/dsh-tool-subagent` deleted its `persona` and `toolFilter`
+  config fields, and a row that still sets either throws at activation
+  (`tool-subagent: persona is no longer supported; configure persona and tool
+  plugins in an Agent Preset and select it with agentPreset (spawn only)`). All
+  four `dsh-enhance-subagent-*` rows used them, so the preset registry marked the
+  whole preset `broken` — the picker showed a load failure and `retain()` rejected
+  the preset with `agent-preset/invalid`. Each role's persona and tool surface now
+  lives in its own child agent preset (`dsh-enhance-scout` / `-librarian` /
+  `-reviewer` / `-task`, orders 11–14) composed of `@deepseek-ai/dsh-persona`,
+  `agent-instructions`, `time-context`, the role's tool rows and the compaction
+  group; the tool row selects it with `agentPreset`. The retired `toolFilter`
+  allowlists are reproduced exactly through tool config **on 0.2.1 hosts**
+  (`tool-fs` gained its `read`/`readImage`/`write`/`edit` switches and
+  `tool-subagent` its `agentPreset` field in 0.2.1; on a 0.2.0 host both keys are
+  unknown — schemastery passes them through — so the four scoped tools inherit
+  the parent composition instead: degraded, not broken). scout/reviewer get
+  `read`/`glob`/`grep` (`tool-fs` with `write`/`edit`/`readImage` off),
+  librarian adds `web_search` (`fetch` stays off), task adds `write`/`edit` and
+  `tool-todo`.
+
+### Changed
+
+- **The session roster now shows `Scout` / `Librarian` / `Reviewer` / `Task`
+  beside `Enhance`.** The host lists every registered preset and offers no hide
+  field, so scoping a subagent's persona and tools necessarily adds selectable
+  compositions. They are usable on their own (a narrow-tool session), which is
+  why they carry descriptions rather than internal names.
+- **The Enhance composition mirrors the 0.2.1 shipped `standard` preset**: it
+  gains `time-context`, `command-goal` and `present`, drops the persona's
+  `{{cwd}}` suffix and the removed `backgroundMode` field, and carries 0.2.1's
+  plan-mode section text. `tool-schedule` is deliberately **not** declared:
+  there is no `@deepseek-ai/dsh-tool-schedule@0.2.0-rc.2` build, and a preset row
+  naming a package the host does not carry fails its import and breaks the whole
+  preset, so the row waits for the supported-host floor to move.
+- **`AGENTS.md`, `README(.en).md`, `docs/roles.md` and
+  `docs/installing-plugins.md`** now describe the child-preset mechanism, the
+  roster consequence and the `tool-schedule` omission instead of claiming this
+  bundle ships exactly one preset.
+
+### Added
+
+- **`qa/preset-mount-drive.mjs` (`pnpm qa:preset`) — zero-token preset-mount
+  acceptance.** `pnpm qa:pack` only ever saw `preset-enhance` as *pending*
+  (headless has no `agentPresets` service), so it never mounted the preset and
+  could not catch this class of defect. The new driver composes the Web surface
+  (`dsh-base` + `dsh-web-app` + this plugin) in an isolated home, reads
+  `agentPresets.compositionInventory()` through a probe row, and fails whenever
+  the `enhance` preset — or any other preset — is `broken`.
+- **`tests/presets-pin.test.mjs`** pins both halves of the new contract: the
+  roster (Enhance + four role presets, each referenced by exactly one scoped
+  tool) and the host shape (no `persona`/`toolFilter`/`backgroundMode` on
+  `tool-subagent` rows; every `agentPreset` names a declared preset; per-role
+  write/web/todo surfaces). It also pins the 0.2.1 baseline rows and the
+  deliberate absence of `tool-schedule`.
+
 ## [0.1.2] — 2026-10-10
 
 The first release published through the GitHub Packages workflow. Nothing about

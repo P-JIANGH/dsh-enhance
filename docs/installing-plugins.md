@@ -176,12 +176,14 @@ dsh plugin --profile <your-profile> add git@gitcode.com:jiangh_hnr/dsh-enhance.g
 
 ### 3.6 预设随 bundle 一起装（无需单独动作）
 
-`dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 只列**一个**补丁文件 `cordis.patch.yml`，其中插入插件行 **与** `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。本插件只提供 **Enhance** 一个预设（id `enhance`）；预设菜单里其余条目（`standard` / `ptc` / `minimal` / `cordis`）来自上游 dsh，不由本插件贡献。**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
+`dsh plugin add` 装的就是全部：本 bundle 的 `dsh.bundle.patch` 只列**一个**补丁文件 `cordis.patch.yml`，其中插入插件行、**四条角色子预设**与 `preset-enhance` 行（`@deepseek-ai/dsh-agent-preset`）。预设菜单里其余条目（`standard` / `ptc` / `minimal` / `cordis`）来自上游 dsh，不由本插件贡献。**没有** `/presets install`、**没有** `postinstall`，插件也绝不写你的家目录。
+
+> **为什么名册里还有 Scout / Librarian / Reviewer / Task（2026-10-19 起）**：dsh `0.2.1` 删除了 `@deepseek-ai/dsh-tool-subagent` 的 `persona` 与 `toolFilter` 配置字段（宿主要求把人格与工具面写进 Agent 预设，再用 `agentPreset` 选择；带上旧字段的行会在激活时抛 `persona is no longer supported …`，**一行失败就让整条预设 broken** —— 选择器显示"加载失败"、绑定该预设的会话打不开）。所以四条角色组合各自成为一条真实预设，既供四个 `subagent_*` 工具使用，也可被直接选中。宿主把**每一条**注册的预设都列进名册，没有隐藏字段。
 
 > **兼容性（必须知道）**：行式预设注册表（`@deepseek-ai/dsh-agent-preset` + `ctx.agentPresets`）只存在于 **dsh ≥ 0.2.0**。老 CLI（如 `0.1.0-rc.6`，机制是已退役的目录式 `dsh-agent-presets`）解析不到这一行，它会成为 **inactive entry**（启动诊断里能看到，给出一条告警），而不是静默生效。本插件**不为此发明条件插入机制**。
 >
 > **预设只在 Web / 桌面面可选**：`agentPresets` 服务由 Web 组合（`@deepseek-ai/dsh-web-app`）提供。纯 headless / acp / sdk 的 profile 启动时会打印
-> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——上游那行预设插件在等它的服务，**不是安装失败**：插件本体在该 profile 里照常工作，只是没有预设菜单。要断言这一条，跑 `pnpm qa:pack`（零 token 的打包安装验收，把这条 pending 钉成"已知且仅此一条"）。
+> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`——上游那些预设行在等它们的服务，**不是安装失败**：插件本体在该 profile 里照常工作，只是没有预设菜单。自 2026-10-19 起本插件有五条预设行，所以会看到**五条**这样的 pending。要断言这一点，跑 `pnpm qa:pack`（零 token 的打包安装验收，它把"未激活的正好是这五条预设行"钉成已知项）；要断言"这五条在 Web 组合里真的挂载成功"，跑 `pnpm qa:preset`（同样零 token）。
 >
 > 判定 `config.plugins` 语法/可解析性的方式：`dsh --profile <p> --dump-config`，在输出里找 `preset-enhance` 行与它的 `plugins:` 列表。
 

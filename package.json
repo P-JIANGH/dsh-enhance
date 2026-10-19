@@ -34,6 +34,7 @@
     "test:gate": "node --test tests/delivery-gate.test.mjs",
     "check:pack": "node scripts/check-pack-payload.mjs",
     "qa:pack": "node qa/pack-install-drive.mjs",
+    "qa:preset": "node qa/preset-mount-drive.mjs",
     "qa:gate": "node qa/delivery-gate-drive.mjs"
   },
   "dsh": {

@@ -11,7 +11,7 @@
 | 测试文件 | 覆盖能力 | 里程碑 | 状态 |
 |---|---|---|---|
 | `tests/unit.test.mjs` | skills-provider（parseSkillBody / list / get）+ DEFAULT_WORK_RULES 文案 pin | M1 | ✅ |
-| `tests/presets-pin.test.mjs` | prompts 单一源 → `cordis.patch.yml`（插件行 + `preset-enhance`）的字节 pin 防漂移；含负向钉（只准一条 preset 行、`presets/roles.patch.yml` 不得复活）与"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1/M6 | ✅ |
+| `tests/presets-pin.test.mjs` | prompts 单一源 → `cordis.patch.yml`（插件行 + 四条角色子预设 + `preset-enhance`）的字节 pin 防漂移；含名单钉（Enhance + 四条角色组合，每条都被一个 scoped 工具用 `agentPreset` 引用、`presets/roles.patch.yml` 不得复活）、宿主形状钉（`tool-subagent` 行不得出现 `persona`/`toolFilter`/`backgroundMode`；`agentPreset` 必须指向已声明预设；各角色的写/网/待办工具面）与"防自证式"回归钉（手改必须被发现、`render()` 不得写盘） | M1/M6 | ✅ |
 | `tests/shared.test.mjs` | 路径规范化/根包含、原子写+锁、手写校验 | M1/M3 | ✅ |
 | `tests/boulder.test.mjs` | boulder CAS 合并、写令牌（goal 落盘测试随实现一起退役） | M4 | ✅ |
 | `tests/rules.test.mjs` | rules-injector 只读 `.dsh-enhance/rules/`（AGENTS.md 归原生，含负向断言） | M3 | ✅ |
@@ -39,7 +39,8 @@
 | `qa/dsh-enhance-drive.mjs` | 插件激活实驱：`--dump` 零成本 compose 校验 / `--llm` 真实 headless | M1 | ✅ 已实现并跑通 dump 与 llm |
 | `qa/worktracking-drive.mjs` | 工作追踪 + 写令牌 + 路径越界守卫（真实 LLM 会话） | M4 | ✅ `--llm` 已跑通 |
 | `qa/delivery-gate-drive.mjs` | 交付门卫反向实驱（假完成声明 → 报告落盘、`active_work` 清空） | M3 | ✅ `--llm` 已跑通 |
-| `qa/pack-install-drive.mjs`（`pnpm qa:pack`） | **打包安装验收，零 token**：真 `npm pack` → 真装进一次性 profile → 21 条断言。这是唯一覆盖"用户真装一遍"的层：仓库里其余测试都跑在 `link:` 形态下，解析会落到本 checkout 的 `node_modules`，因此**看不见**"宿主供给的包被写成 dependency / 副本遮蔽宿主"这类缺陷。断言含：宿主 0.2.x、插件是真实目录而非链接、复制进 profile 的只有 `schemastery`+`cosmokit`（无任何服务类宿主包副本）、安装无 peer 告警、`--dump-config` 行齐备无失败诊断、真启动解析全部静态 import 且本插件行**已激活**、未激活名单只有 `preset-enhance`/`agentPresets` 这条已知项 | 发布面 | ✅ 21/21 |
+| `qa/pack-install-drive.mjs`（`pnpm qa:pack`） | **打包安装验收，零 token**：真 `npm pack` → 真装进一次性 profile → 21 条断言。这是唯一覆盖"用户真装一遍"的层：仓库里其余测试都跑在 `link:` 形态下，解析会落到本 checkout 的 `node_modules`，因此**看不见**"宿主供给的包被写成 dependency / 副本遮蔽宿主"这类缺陷。断言含：宿主 0.2.x、插件是真实目录而非链接、复制进 profile 的只有 `schemastery`+`cosmokit`（无任何服务类宿主包副本）、安装无 peer 告警、`--dump-config` 行齐备无失败诊断、真启动解析全部静态 import 且本插件行**已激活**、未激活的正好是本插件五条预设行（都在等 `agentPresets`，名单由生成器给出） | 发布面 | ✅ 21/21 |
+| `qa/preset-mount-drive.mjs`（`pnpm qa:preset`） | **预设挂载验收，零 token**：在隔离 home 里组出 Web 面（`dsh-base` + `dsh-web-app` + 本插件）+ 一行只读探针，读 `agentPresets.compositionInventory()`，断言 `enhance` **以及每一条注册预设**都没有 `broken`（宿主原文一并打印）。存在的理由：`qa:pack` 所在的 headless 组合没有 `agentPresets` 服务，`preset-enhance` 永远是 pending，**从不真正挂载**，因此看不见"某一行 failed → 整条预设 broken → 会话打不开"这类缺陷（2026-10-19 的 0.2.1 事故正是这一类）。 | 预设面 | ✅ 已实现 |
 | `scripts/check-pack-payload.mjs`（`pnpm check:pack`） | 发布载荷形状：必需文件（`lib/index.js`、`lib/enhance-mode.js`、`client/client.js`、`skills/`、`cordis.patch.yml` …）必须在，**已删源码的编译产物必须不在**（历史上 4 个陈旧模块曾被打进 tarball），`src/`/`tests/`/`docs/`/`.dsh-enhance/` 不得入载荷 | 发布面 | ✅ |
 
 ## 3. 后续里程碑测试规划（能力未实现 → 规划先行）

@@ -20,9 +20,9 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - `src/tools/` — model-facing tools: `doctor`, `guards`, `guard-register`, `boulder-tools`, `worktree-tools`. Authored as raw `ToolDefinition`s with complete `output.schema` (see below).
 - `client/client.js` — the browser half: registers the plugin's configuration page on the built-in Plugins panel (`plugins.row.config`). **Hand-authored, not built** — the module loader takes it verbatim through `exports["./client"]` and only `require`s the host module table (`react`, `react-dom`, `@deepseek-ai/dsh-client-ui-primitives`). Keep it consistent with `package.json` + `cordis.patch.yml`; `tests/client-contract.test.mjs` pins that.
 - `prompts/` — single-source prompt text: `agents/<role>.persona.md`, `modes/enhance-mode.md`, `modes/advisor.md`.
-- `cordis.patch.yml` — the bundle patch: the plugin install row **and** the `preset-enhance` agent-preset row. Also **generated** — never hand-edit.
-- `scripts/` — `sync-dsh-enhance-preset.mjs` (the plugin row + the single Enhance preset row → `cordis.patch.yml`), `check-pack-payload.mjs` (published-payload shape: required files present, deleted sources' compiled output gone).
-- `qa/` — real-dsh drivers: `pack-install-drive.mjs` (**zero-token** pack-install acceptance) plus the LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). The LLM ones consume tokens; all write evidence under `.dsh-enhance/evidence/`.
+- `cordis.patch.yml` — the bundle patch: the plugin install row, the **four role child presets**, **and** the `preset-enhance` agent-preset row. Also **generated** — never hand-edit.
+- `scripts/` — `sync-dsh-enhance-preset.mjs` (the plugin row + the four role child presets + the Enhance preset row → `cordis.patch.yml`), `check-pack-payload.mjs` (published-payload shape: required files present, deleted sources' compiled output gone).
+- `qa/` — real-dsh drivers: `pack-install-drive.mjs` (**zero-token** pack-install acceptance) and `preset-mount-drive.mjs` (**zero-token** preset-mount acceptance: the `enhance` preset must not be `broken`) plus the LLM drivers (`dsh-enhance-drive.mjs`, `worktracking-drive.mjs`, `delivery-gate-drive.mjs`, `webbridge-drive.mjs`). The LLM ones consume tokens; all write evidence under `.dsh-enhance/evidence/`.
 - `tests/` — `node --test` unit tests, incl. `presets-pin.test.mjs` (byte-pin), `enhance-mode.test.mjs` (single-source pin), `tool-output-schema.test.mjs`, `advisor.test.mjs`, `host-contract.test.mjs` (event bindings against the installed host typings + injection provenance).
 
 ## Single-source discipline (important)
@@ -30,6 +30,7 @@ Key docs before you start: `docs/architecture.md`, `docs/roles.md`, `docs/prompt
 - Agent presets are **plugin rows**, not directories: on dsh 0.2.x `@deepseek-ai/dsh-agent-preset` registers `{ id, name, description, order, plugins }` into `ctx.agentPresets`, and the retired `$DSH_HOME/.agent-presets/<id>/` scan is gone. The rows are generated from the persona single sources and pinned byte-for-byte by `tests/presets-pin.test.mjs`.
 - Edit the persona text only in `prompts/agents/<role>.persona.md`; `cordis.patch.yml` is **regenerated**, not hand-edited. Hand-editing or editing the source without regenerating breaks the byte-pin test, which is intentional.
 - The main orchestrator persona lives in `prompts/agents/dsh-enhance.persona.md`; the four dispatachable sub-personas reuse `scout / librarian / reviewer / task` sources. Regenerate with `pnpm sync:enhance-preset`.
+- **A scoped subagent's persona and tool surface live in its own agent preset (dsh ≥ 0.2.1).** `@deepseek-ai/dsh-tool-subagent` deleted its `persona` and `toolFilter` config fields; a row that still sets either fails activation with `tool-subagent: persona is no longer supported; configure persona and tool plugins in an Agent Preset and select it with agentPreset (spawn only)`, and **one failed row makes the whole preset `broken`** — the session picker reports "load failed" and sessions bound to that preset refuse to open (`agent-preset/invalid`). So each role renders a `preset-enhance-<role>` child preset (`{ id, name, description, order, plugins }`, persona + `agent-instructions` + `time-context` + the role's tool rows + the compaction group) and its tool row selects it with `agentPreset`. Two consequences worth knowing before you touch this: the roster lists **every** registered preset (upstream has no hide field), so `Scout` / `Librarian` / `Reviewer` / `Task` appear beside `Enhance`; and a preset row naming a package the host does not carry fails its import, so new rows must exist on the oldest supported host (that is why `tool-schedule`, which has no `0.2.0-rc.2` build, is deliberately not declared). Two host-version caveats: the child-preset mechanism is 0.2.1-and-later — on a 0.2.0 host `tool-subagent` has no `agentPreset` field, schemastery passes the unknown key through, and the four scoped tools silently degrade to inheriting the parent composition (no role persona, full filesystem surface) instead of breaking the preset; and the tool-surface mapping (`tool-fs`'s `read`/`readImage`/`write`/`edit` flags, `tool-web`'s `search`) likewise only takes effect on 0.2.1+, because 0.2.0's `tool-fs` registers every tool unconditionally. `tests/presets-pin.test.mjs` pins both halves.
 - The enhance-mode prose is single-sourced in `prompts/modes/enhance-mode.md` and mirrored as `ENHANCE_MODE_TEXT` in `src/enhance-mode.ts`; `tests/enhance-mode.test.mjs` pins the two together.
 - Keep `docs/prompts-review/*.md` consistent when you change a persona's constraints.
 
@@ -50,6 +51,7 @@ pnpm typecheck      # tsc --noEmit
 pnpm test           # node --test (all tests)
 pnpm check:pack     # npm pack payload shape (required files present, deleted sources' output gone)
 pnpm qa:pack        # pack-install acceptance, zero tokens: real tarball → throwaway profile → assertions
+pnpm qa:preset      # preset-mount acceptance, zero tokens: real host + probe — the 'enhance' preset must not be broken
 pnpm sync:enhance-preset   # regenerate cordis.patch.yml after persona edits
 ```
 
@@ -61,7 +63,7 @@ pnpm sync:enhance-preset   # regenerate cordis.patch.yml after persona edits
 
 ## Agent roles (from `docs/roles.md`)
 
-Six roles: five persona presets **planner / scout / librarian / task / reviewer**, plus **advisor** (a per-session companion-review mechanism, not a selectable persona). The orchestrator preset (**Enhance**, id `enhance`) makes scout/librarian/reviewer/task dispatchable as scoped subagents, each with a `toolFilter` limiting its surface, and is the only preset that mounts the `enhance-mode` prompt section.
+Six roles: five persona presets **planner / scout / librarian / task / reviewer**, plus **advisor** (a per-session companion-review mechanism, not a selectable persona). The orchestrator preset (**Enhance**, id `enhance`) makes scout/librarian/reviewer/task dispatchable as scoped subagents — each role's persona and tool surface is its own child agent preset (`dsh-enhance-<role>`) that the tool row selects with `agentPreset`, because dsh 0.2.1 deleted `tool-subagent`'s `persona`/`toolFilter` fields — and it is the only preset that mounts the `enhance-mode` prompt section.
 
 ## Non-goals（刻意不做 —— 加功能前先读这一节）
 

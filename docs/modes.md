@@ -2,7 +2,7 @@
 
 > 状态：**设计定稿（设计评审稿，2026-08-26）**。本文把 dsh-enhance 的智能体能力整理为三种可选的**工作模式（mode / preset）**——dsh-enhance 万能、Planner 计划实施、Advisor 目标回归。三者共享同一套底层能力基底（一个 tool plane + 4 个专职 subagent + advisor 伴随运行时 + delivery-gate + boulder/goal 工作追踪），差异只在**编排层**：谁主导、按什么流程推进、如何处理"完成"。
 > 关联文档：[roles.md](roles.md)（6 角色来源）、[architecture.md](architecture.md)（能力实现）、prompts-review/（各 persona/模式提示词稿）。
-> 本文是**设计说明**；预设落点/QA 的验收口径由下文给出，落地以生成的 `cordis.patch.yml`（模式 A 的 `preset-enhance`，2026-10-09 起也是本插件唯一的预设行）为准。
+> 本文是**设计说明**；预设落点/QA 的验收口径由下文给出，落地以生成的 `cordis.patch.yml`（模式 A 的 `preset-enhance`，2026-10-09 起为模式 A 的落点；2026-10-19 起该文件另含四条角色子预设行，见 §7 落点说明与 `docs/roles.md` §8）为准。
 
 ---
 
@@ -11,7 +11,7 @@
 dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 + 三种编排 persona**来表达。这样三种模式可以：
 
 - **共享同一份已验证的 tool plane**（shell/fs/search/jobs/skills/goals/plan/compaction/delegation/ask-user/todo/web），不需要每个模式重造工具行；
-- **共享同一份 subagent 专职清单**（scout / librarian / reviewer / task，各自 toolFilter 已收敛），三个模式都可用；
+- **共享同一份 subagent 专职清单**（scout / librarian / reviewer / task；人格与工具面自 2026-10-19 起各自收敛为一条子 Agent 预设，由 `agentPreset` 选择），三个模式都可用；
 - **共享同一套运行时纪律**（work-rules 注入、guards + delivery-gate、boulder/goal 追踪、advisor 伴随审查、worktree/写令牌并发纪律）；
 - 唯一改变的是**当前会话装配哪份 orchestrator persona**，决定"主模型如何编排它的子 agent 与流程"。
 
@@ -188,7 +188,7 @@ dsh-enhance 不把"6 角色"扁平铺开，而是用**一份统一预设基底 +
 
 ## 7. 落地与 QA
 
-- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@p-jiangh/dsh-enhance/enhance-mode`；2026-10-09 起本插件唯一的预设行）。原计划把 `preset-planner` 增强为模式 B 编排 persona、`preset-advisor` 作为模式 C 编排 + 装配，两者**均未实现**；2026-10-09 按用户要求只保留 Enhance 一个预设，五个角色预设行（含原计划的 `preset-planner`）连同 `presets/roles.patch.yml` 已退役，persona 文本保留为设计源（当前 `prompts/agents/planner.persona.md` 仍是单句；`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。预设行由 bundle 补丁层声明，随插件即可选。
+- **预设落点**：`preset-enhance`（`cordis.patch.yml`，已实现，= 模式 A，并额外挂 `@p-jiangh/dsh-enhance/enhance-mode`）。原计划把 `preset-planner` 增强为模式 B 编排 persona、`preset-advisor` 作为模式 C 编排 + 装配，两者**均未实现**；2026-10-09 五个角色预设行（含原计划的 `preset-planner`）连同 `presets/roles.patch.yml` 已退役，persona 文本保留为设计源（当前 `prompts/agents/planner.persona.md` 仍是单句；`prompts/agents/advisor.persona.md` 不存在；advisor 运行时本身已由 Config 默认开启）。**2026-10-19 起**：dsh 0.2.1 删除 `tool-subagent` 的 `persona`/`toolFilter`，scout/librarian/reviewer/task 四份 persona 各生成一条**角色子预设行**（`preset-enhance-<role>`，preset id `dsh-enhance-<role>`）供四个 `subagent_*` 工具用 `agentPreset` 选择；这四条是 scoped subagent 的装配载体，**不是**模式 B/C 的编排 persona——模式 B/C 的预设命名仍待定。预设行由 bundle 补丁层声明，随插件即可选。
 - **触发方式**：会话创建时选择对应 preset（web Agent 面板 / headless `--profile` + preset）。**没有**意图路由或关键词触发：模式是会话构成的一部分（0.2.x 的预设行），不写进 `plugins` 就没有。
 - **QA 口径**：
   - A：意图→subagent 映射（单测 + 实驱）；

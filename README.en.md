@@ -121,17 +121,25 @@ dsh --profile <your-profile> --dump-config   # look for a "# == " layer header; 
 ### Presets (no install step)
 
 Presets are declared by the bundle's patch layer, **not** by a directory:
-`cordis.patch.yml` inserts this bundle's plugin row and the `preset-enhance` row
-(`@deepseek-ai/dsh-agent-preset`). Mount the bundle and **Enhance** appears in the
-roster (this bundle ships only that one). There is no `/presets install`, no
-`postinstall`, and the plugin never writes to your home directory at startup.
+`cordis.patch.yml` inserts this bundle's plugin row, the **four role child
+presets**, and the `preset-enhance` row (`@deepseek-ai/dsh-agent-preset`). Mount
+the bundle and **Enhance** appears in the roster. There is no `/presets install`,
+no `postinstall`, and the plugin never writes to your home directory at startup.
 
 `config.plugins` is the session agent's **entire** composition (**there is no
 inheritance**): the Enhance preset lists its persona (a `prefix` — the persona
 prose), `agent-instructions` (the AGENTS.md chain), tool rows, four scoped
-subagents, and the `@p-jiangh/dsh-enhance/enhance-mode` row. Those four
-subagents (scout / librarian / reviewer / task) are part of the preset and no
-longer appear in the roster themselves.
+subagents, and the `@p-jiangh/dsh-enhance/enhance-mode` row.
+
+> **Why Scout / Librarian / Reviewer / Task are in the roster too (since
+> 2026-10-19)**: dsh `0.2.1` deleted `@deepseek-ai/dsh-tool-subagent`'s `persona`
+> and `toolFilter` config fields — upstream now requires a role's persona and
+> tool surface to live in an Agent Preset that the tool selects with
+> `agentPreset`. Each role composition is therefore a real preset: the four
+> `subagent_*` tools use them, and you can also select one directly (you get a
+> narrow-tool session, read-only or writable). The host lists **every**
+> registered preset and offers no hide field, so their presence is a direct
+> consequence of that mechanism, not this bundle adding four presets.
 
 > **Compatibility (important)**: `@deepseek-ai/dsh-agent-preset` only exists in the
 > **dsh ≥ 0.2.0** row-based preset registry. An old CLI (such as an nvm-installed
@@ -142,12 +150,14 @@ longer appear in the roster themselves.
 >
 > **Presets are only selectable on the Web/desktop surface**: the `agentPresets`
 > service comes from the Web composition (`@deepseek-ai/dsh-web-app`). A
-> headless-only (or acp / sdk) profile therefore prints one line at startup —
-> `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`.
+> headless-only (or acp / sdk) profile therefore prints one line per preset row of
+> ours at startup (five since 2026-10-19: Enhance plus the four role compositions) —
+> `preset-enhance… (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`.
 > That is upstream's preset row waiting for its service, **not an install
 > failure**: the plugin itself works there (tools, commands and the work-rules
 > section are all present), there is simply no preset menu. `pnpm qa:pack` pins
-> that line as "known, and the only one".
+> the set of not-activated rows to exactly those five, and `pnpm qa:preset`
+> asserts that all five really mount inside a Web composition.
 
 ## Configuration
 

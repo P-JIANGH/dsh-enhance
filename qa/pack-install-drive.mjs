@@ -19,6 +19,9 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, wr
 import { dirname, join, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { preflight, resolveQaTarget } from './dsh-launch.mjs'
+// 预设行的期望名单从生成器取，避免 qa 与生成物漂移（2026-10-19：scoped subagent 的
+// 人格+工具面改由子 Agent 预设承载，本插件现在一共五条预设行）。
+import { SUBAGENTS } from '../scripts/sync-dsh-enhance-preset.mjs'
 
 const ROOT = process.cwd()
 const DEFAULT_HOME = join(homedir(), '.dsh')
@@ -206,16 +209,23 @@ check('启动过程没有模块解析失败', !/ERR_MODULE_NOT_FOUND|Cannot find
 check('app 真的起来了（"a task is required" 说明装配完成并进入 app）',
   /a task is required/i.test(bootText), oneLine(bootText))
 
-// 未激活的行：只允许 preset-enhance 因缺少 agentPresets 服务而 pending。
-// 该服务由 Web 组合提供（预设本来就只在 Web/桌面面可选），headless 组合里必然 pending。
+// 未激活的行：本插件的**五条** @deepseek-ai/dsh-agent-preset 行（Enhance + 四条角色
+// 子预设）都会因缺少 `agentPresets` 服务而 pending —— 该服务由 Web 组合提供，预设本来
+// 就只在 Web/桌面面可选，headless 组合里必然全部 pending。这是已知项，不是安装失败。
+// 注意：`preset-enhance-scout` 这些行的**行 id** 是 `preset-enhance-<role>`，preset id
+// 是 `dsh-enhance-<role>`；名单从生成器取，qa 不再自己维护一份。
+const expectedPendingPresets = ['preset-enhance', ...SUBAGENTS.map(sub => `preset-enhance-${sub.role}`)]
 const notActivated = [...bootText.matchAll(/^([A-Za-z0-9_-]+) \((@[^)]+)\): (.*)$/gm)]
   .map(m => ({ id: m[1], pkg: m[2], reason: m[3] }))
 check('本插件的行处于激活状态（不在未激活名单里）',
   !notActivated.some(entry => entry.id === 'dsh-enhance'),
   notActivated.map(e => `${e.id}: ${e.reason}`).join(' | '))
-const unexpected = notActivated.filter(entry => entry.id !== 'preset-enhance' || !/agentPresets/.test(entry.reason))
-check('未激活的只有 preset-enhance / agentPresets 这一条已知项', unexpected.length === 0,
-  unexpected.map(e => `${e.id} (${e.pkg}): ${e.reason}`).join(' | '))
+const unexpected = notActivated.filter(entry => !expectedPendingPresets.includes(entry.id) || !/agentPresets/.test(entry.reason))
+const absent = expectedPendingPresets.filter(id => !notActivated.some(entry => entry.id === id))
+check('未激活的正好是等待 agentPresets 的五条预设行（headless 组合的已知项）',
+  unexpected.length === 0 && absent.length === 0,
+  [...notActivated.map(e => `${e.id} (${e.pkg}): ${e.reason}`), absent.length > 0 ? `missing: ${absent.join(', ')}` : '']
+    .filter(Boolean).join(' | '))
 
 // ── 7. 证据与报告 ──────────────────────────────────────────────────────────────
 const failed = checks.filter(c => !c.ok)
