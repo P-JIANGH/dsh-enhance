@@ -63,11 +63,13 @@ dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 
 ### 3.2 安装来源一：registry —— GitHub Packages **已发布**；npmjs **未发布**
 
-**GitHub Packages（`npm.pkg.github.com`）上已有 `@p-jiangh/dsh-enhance@0.1.2`**（2026-10-10 由
-`.github/workflows/publish-github-packages.yml` 发布，认证用工作流自带的 `GITHUB_TOKEN`，不需要 PAT）。
-它与 Release 附件是**同一份字节**：registry 的 `dist.integrity` 为
-`sha512-W0xXZoQJQii+o5zRUB97c9Pho6F0qixNQf0vr0r5FBe1P+NsZ3AhmcCLlHg9UJwKHmGhVj+w05/sMciaaZ9Muw==`，
-下载回来与附件 sha256 一致（103,627 B）。
+**GitHub Packages（`npm.pkg.github.com`）上已有 `@p-jiangh/dsh-enhance@0.1.3`**（2026-10-30 由
+`.github/workflows/publish-github-packages.yml` 以 `ref=v0.1.3` 发布，认证用工作流自带的 `GITHUB_TOKEN`，不需要 PAT）。
+它与 Release 附件来自同一棵 tag 树：附件 `p-jiangh-dsh-enhance-0.1.3.tgz` 为 111,492 B、
+sha256 `A9EA00C7…`（完整 sha512 与逐步结果见 `docs/releasing.md` §5.5）。**本轮没有直读 registry
+元数据做字节复核**：本机 token 只有 `gist, repo, workflow`，读 registry 会返回
+`403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`
+——这正是下面"需要凭据"那一条；要复核请换一把带 `read:packages` 的 classic token。
 
 **这一条来源需要凭据**（其它来源不需要）：一把 classic token 勾 **`read:packages`**，并在 `~/.npmrc` 写
 

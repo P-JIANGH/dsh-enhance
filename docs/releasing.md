@@ -278,6 +278,16 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 | 消费验收 | 从 registry 装进一次性 profile（7.2s）：`dependencies` = `@p-jiangh/dsh-enhance@^0.1.2`、`bundles` 含它、装出来的包**恰好贡献 3 条技能**（code-review / git-workflow / tdd）、`lib`+`client`+`cordis.patch.yml` 齐备；真启动后未激活名单**只有**预期的 `preset-enhance`/`agentPresets` |
 | 读取权限的坑 | 读取/安装需要 classic token 勾 **`read:packages`**。缺它时症状是 `{"error":"Permission permission_denied: The token provided does not match expected scopes."}`——包括"看包列表/读 registry 元数据"也会 403。本仓库开发机上最初那把 token 只有 `gist, repo, workflow`，于是连续几轮排查都指向了错误的方向 |
 
+**2026-10-30，`@p-jiangh/dsh-enhance@0.1.3`**（同一工作流，`ref = v0.1.3`，run #3）：
+
+| 环节 | 结果 |
+|---|---|
+| 派发 | `POST /repos/<slug>/actions/workflows/publish-github-packages.yml/dispatches`，body `{"ref":"v0.1.3"}` → **204** |
+| 运行 | `Publish to GitHub Packages #3` → **success**；逐步核对：install / typecheck / test / `Assert this commit is the v<version> tag` / `Publish to npm.pkg.github.com` 全部 `completed/success` |
+| 认证 | 同上，工作流自带 `GITHUB_TOKEN`，零 PAT |
+| 字节验收（附件侧） | `p-jiangh-dsh-enhance-0.1.3.tgz` = 111,492 B、sha256 `A9EA00C73B155C75088B250A96AB3C6E702E6DFFBC47766C8B8D9E1F1A45D23F`、sha512 `sha512-IWUlnbQcUpKsCPX8nir5vidzMKEBmkoQVwupZHOZ1nHp9s7EV58WJzy7QZRvicBNINJ5xB786sxZbPFtiVC5yg==`，与 tag 树 `npm pack` 逐字节相同 |
+| 字节验收（registry 侧） | **本轮未做**：本机 token 只有 `gist, repo, workflow`，读 registry 元数据返回 `403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`（与下表最后一行的坑一致）。复核方式：换一把勾了 `read:packages` 的 classic token，跑 `node .dsh-enhance/verify-published-bytes.mjs .dsh-enhance/audit/p-jiangh-dsh-enhance-0.1.3.tgz` |
+
 以下为已核实的前置条件（对**将来**的版本仍然适用）：
 
 | 项 | 事实（2026-10-10 实测/官方文档） |
