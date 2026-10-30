@@ -5,11 +5,13 @@ version scheme is [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Detailed rationale for each decision lives in `docs/` (the ledger in
 `docs/known-issues.md` records what was measured, and why it changed).
 
-## [Unreleased]
+## [0.1.3] — 2026-10-30
 
 Fixes the **Enhance preset breaking on dsh 0.2.1** — the desktop host that
 started shipping on 2026-10-17. No plugin tool, command, prompt section or
-config field changed; the shipped agent-preset composition did.
+config field changed; the shipped agent-preset composition did. Verified on the
+real 0.2.1-rc.2 host and re-verified on the current nightly, 0.2.1-rc.5, where
+the preset still mounts with no `broken` row.
 
 ### Fixed
 
@@ -68,6 +70,8 @@ config field changed; the shipped agent-preset composition did.
   `tool-subagent` rows; every `agentPreset` names a declared preset; per-role
   write/web/todo surfaces). It also pins the 0.2.1 baseline rows and the
   deliberate absence of `tool-schedule`.
+
+[0.1.3]: https://github.com/P-JIANGH/dsh-enhance/releases/tag/v0.1.3
 
 ## [0.1.2] — 2026-10-10
 

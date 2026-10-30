@@ -50,7 +50,7 @@
 # 1) 发行版 tarball（推荐：免构建、免额外放行；实测 9 秒装完）
 #    版本号换成最新的那个（见 Releases 页）；附件名 = 包名去 scope 符号 + `-<version>.tgz`
 dsh plugin --profile <your-profile> add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.2/p-jiangh-dsh-enhance-0.1.2.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.3/p-jiangh-dsh-enhance-0.1.3.tgz
 
 # 2) GitHub Packages（registry 来源，已发布 0.1.2）
 #    需要 GitHub classic token 勾 `read:packages`，并在 ~/.npmrc 写 scope 行与鉴权行；

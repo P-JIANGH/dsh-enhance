@@ -145,7 +145,7 @@ dsh plugin --profile <your-profile> add link:<checkout>
 # 1) 发行版 tarball（推荐：免构建、免 allowBuilds；实测 9 秒）
 #    版本号换成最新的那个；附件名 = 包名去 scope 符号 + `-<version>.tgz`
 dsh plugin --profile <your-profile> add \
-  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.2/p-jiangh-dsh-enhance-0.1.2.tgz
+  https://github.com/P-JIANGH/dsh-enhance/releases/download/v0.1.3/p-jiangh-dsh-enhance-0.1.3.tgz
 
 # 2) 源码（跟 master；包通过 `prepare` 自构建）
 dsh plugin --profile <your-profile> add github:P-JIANGH/dsh-enhance
