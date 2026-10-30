@@ -17,6 +17,7 @@ import {
   desktopRootFromShims,
   desktopLaunchFrom,
   resolveQaTarget,
+  homeProvenance,
   QA_HOME,
   QA_PROFILE,
 } from '../qa/dsh-launch.mjs'
@@ -245,6 +246,31 @@ test('[qa-launch] resolveQaTarget：隔离 home 不存在时退回真实 home �
   assert.equal(r.home, join(homedir(), '.dsh'))
   assert.equal(r.profile, 'dsh-enhance')
   assert.equal(r.isolated, false)
+})
+
+/**
+ * v0.1.3 发布时发现的证据标签缺陷：`QA_HOME` 由 URL 拼出来、**带尾分隔符**，而显式
+ * 传 `DSH_HOME` 时通常不带。旧实现用字符串相等判断，同一个 home 被判成"别处"——于是
+ * 证据把一次隔离运行标成"真实 home"，profile 也退回 `dsh-enhance` 而不是隔离 home 的
+ * `qa`。改为路径语义比较后，两者必须归一。
+ */
+test('[qa-launch] resolveQaTarget：显式传入隔离 home（不带尾分隔符）仍判为 isolated 且用 qa', () => {
+  const iso = mkdtempSync(join(tmpdir(), 'dsh-qa-iso-explicit-'))
+  try {
+    const qaHome = iso + '/' // 模拟 QA_HOME 的尾分隔符
+    const r = resolveQaTarget({ qaHome, env: { DSH_HOME: iso } })
+    assert.equal(r.isolated, true, '同一路径的两种写法必须判为同一个 home')
+    assert.equal(r.explicitHome, true, '来源仍是显式传入')
+    assert.equal(r.profile, 'qa', '隔离 home 的默认 profile 是 qa')
+    assert.equal(r.home, iso, 'home 原样保留调用方给的值')
+    assert.equal(homeProvenance(r), '隔离 QA home', '证据标签不得写成"真实 home"')
+  } finally { rmSync(iso, { recursive: true, force: true }) }
+})
+
+test('[qa-launch] homeProvenance 区分三种来源', () => {
+  assert.equal(homeProvenance({ isolated: true, explicitHome: false }), '隔离 QA home')
+  assert.equal(homeProvenance({ isolated: false, explicitHome: true }), '显式 DSH_HOME')
+  assert.equal(homeProvenance({ isolated: false, explicitHome: false }), '默认家目录')
 })
 
 test('[qa-launch] QA_HOME 指向仓库内的隔离 home，QA_PROFILE 为 qa', () => {

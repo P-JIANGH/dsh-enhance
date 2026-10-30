@@ -28,7 +28,7 @@ import {
 import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
-import { preflight, resolveQaTarget } from './dsh-launch.mjs'
+import { homeProvenance, preflight, resolveQaTarget } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
 const DEFAULT_HOME = join(homedir(), '.dsh')
@@ -559,7 +559,7 @@ function renderEvidence() {
     '由宿主自己的 `ctx.agentPresets.compositionInventory()` 回答「Enhance 预设能不能用」。',
     '只要 `enhance` 预设被标记 `broken`（或报告里出现任何其它 broken 预设），本验收即失败并以非 0 退出。',
     '',
-    `- home：\`${TARGET.home}\`（isolated=${TARGET.isolated}, explicit=${TARGET.explicitHome}）`,
+    `- home：\`${TARGET.home}\`（${homeProvenance(TARGET)}）`,
     `- profile：\`${PROFILE}\`（每轮删除重建）`,
     `- 探针：\`${PROBE_DIR}\` → \`${PROBE_NAME}\``,
     `- 端口：\`${PORT}\`（运行前占用即判失败，不杀无关进程；跑完必须释放）`,

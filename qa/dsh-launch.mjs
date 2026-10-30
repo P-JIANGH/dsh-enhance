@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { basename, dirname, join, win32 } from 'node:path'
+import { basename, dirname, join, resolve, win32 } from 'node:path'
 import { homedir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -51,8 +51,28 @@ export function resolveQaTarget(options = {}) {
   const qaHome = options.qaHome ?? QA_HOME
   const explicitHome = typeof env.DSH_HOME === 'string' && env.DSH_HOME.length > 0
   const home = explicitHome ? env.DSH_HOME : existsSync(qaHome) ? qaHome : join(homedir(), '.dsh')
-  const profile = env.DSH_ENHANCE_PROFILE || (home === qaHome ? QA_PROFILE : 'dsh-enhance')
-  return { home, profile, env: { DSH_HOME: home }, isolated: home === qaHome, explicitHome }
+  // 用**路径语义**比较，不用字符串相等：`QA_HOME` 由 URL 拼出来、带尾分隔符，而显式传
+  // `DSH_HOME` 时通常不带。两者指向同一个 home 却会被 `===` 判成不同，于是证据把一次
+  // 隔离运行标成"真实 home"（v0.1.3 的 L3 证据就这么错过一次），profile 也会退回
+  // `dsh-enhance` 而不是隔离 home 的 `qa`。
+  const isolated = resolve(home) === resolve(qaHome)
+  const profile = env.DSH_ENHANCE_PROFILE || (isolated ? QA_PROFILE : 'dsh-enhance')
+  return { home, profile, env: { DSH_HOME: home }, isolated, explicitHome }
+}
+
+/**
+ * 目标 home 的**来源**，写进日志与证据用。
+ *
+ * `isolated` 这个布尔只说"是不是仓库内那个隔离 home"，说不清"显式指定的别处"；
+ * 而实驱的审计价值全在"到底碰了哪个 home"。一律用这个函数取名，别再在驱动里
+ * 手写 `isolated ? … : '真实 home'`——那句会把显式传入的隔离 home 说成真实 home。
+ *
+ * @param target - {@link resolveQaTarget} 的返回值。
+ * @returns `隔离 QA home` / `显式 DSH_HOME` / `默认家目录`。
+ */
+export function homeProvenance(target) {
+  if (target.isolated) return '隔离 QA home'
+  return target.explicitHome ? '显式 DSH_HOME' : '默认家目录'
 }
 
 /**

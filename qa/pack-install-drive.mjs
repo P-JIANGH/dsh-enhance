@@ -18,7 +18,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
-import { preflight, resolveQaTarget } from './dsh-launch.mjs'
+import { homeProvenance, preflight, resolveQaTarget } from './dsh-launch.mjs'
 // 预设行的期望名单从生成器取，避免 qa 与生成物漂移（2026-10-19：scoped subagent 的
 // 人格+工具面改由子 Agent 预设承载，本插件现在一共五条预设行）。
 import { SUBAGENTS } from '../scripts/sync-dsh-enhance-preset.mjs'
@@ -233,7 +233,7 @@ const lines = [
   '# 打包安装验收（pack-install-drive）',
   '',
   `- 时间：${new Date().toISOString()}`,
-  `- home：\`${TARGET.home}\`（isolated=${TARGET.isolated}, explicit=${TARGET.explicitHome}）`,
+  `- home：\`${TARGET.home}\`（${homeProvenance(TARGET)}）`,
   `- profile：\`${PROFILE}\`（每轮删除重建）`,
   `- tarball：\`${tarball}\``,
   `- 宿主版本：\`${version}\``,

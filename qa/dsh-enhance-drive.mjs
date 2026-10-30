@@ -15,7 +15,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { preflight, resolveQaTarget } from './dsh-launch.mjs'
+import { homeProvenance, preflight, resolveQaTarget } from './dsh-launch.mjs'
 
 const ROOT = process.cwd()
 // 目标解析：显式 env 优先，否则默认落到仓库内的隔离 QA home（真实 $DSH_HOME 不会被碰）。
@@ -78,7 +78,7 @@ if (args.includes('--llm')) {
   writeEvidence(`llm-${fileSafe}`, [
     `# dsh-enhance LLM 实驱（--llm）`,
     `time: ${new Date().toISOString()}`,
-    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
+    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}（${homeProvenance(TARGET)}）`,
     `dsh exit: ${status}`,
     `实质信号命中（至少 1 条即证明插件已装配并运行）：${substantive.join(', ') || '(无)'}`,
     `辅助信号：${soft.join(', ') || '(无)'}`,
@@ -98,7 +98,7 @@ if (args.includes('--llm')) {
   writeEvidence(`dump-${fileSafe}`, [
     `# dsh-enhance bundle 合入检查（--dump）`,
     `time: ${new Date().toISOString()}`,
-    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
+    `profile: ${PROFILE} · DSH_HOME: ${TARGET.home}（${homeProvenance(TARGET)}）`,
     `dsh exit: ${status}`,
     `bundle 层出现：${layer}`,
     '',
@@ -113,7 +113,7 @@ if (args.includes('--llm')) {
     // 不含本插件的真实 profile 上——报错本身把人引向了错误结论。
     console.error([
       'FAIL：该 profile 的 compose 里没有 dsh-enhance 层。',
-      `  实际使用：profile=${PROFILE} · DSH_HOME=${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`,
+      `  实际使用：profile=${PROFILE} · DSH_HOME=${TARGET.home}（${homeProvenance(TARGET)}）`,
       '  排查顺序：',
       "    1) 该 profile 的 dsh.profile.bundles 是否含 '@p-jiangh/dsh-enhance'；",
       '    2) 该 profile 的 node_modules 里是否有它（link/junction 指向本仓库）；',

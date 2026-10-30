@@ -17,7 +17,7 @@ import { mkdirSync, writeFileSync, readFileSync, existsSync, mkdtempSync, rmSync
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { preflight, resolveQaTarget } from './dsh-launch.mjs'
+import { homeProvenance, preflight, resolveQaTarget } from './dsh-launch.mjs'
 import { boulderFileFor } from '../lib/features/boulder/store.js'
 
 const ROOT = process.cwd()
@@ -28,7 +28,7 @@ const evidenceDir = join(ROOT, '.dsh-enhance', 'evidence')
 
 // 启动器解析 + profile 自检（缺 app bundle 的 profile 会静默不产出）。
 const { cmd: D_CMD, prefix: D_PREFIX, env: D_ENV } = preflight(PROFILE, { dshHome: TARGET.home })
-console.log(`[qa] 目标：profile=${PROFILE} · DSH_HOME=${TARGET.home}${TARGET.isolated ? '（隔离 QA home）' : '（真实 home）'}`)
+console.log(`[qa] 目标：profile=${PROFILE} · DSH_HOME=${TARGET.home}（${homeProvenance(TARGET)}）`)
 
 function runDsh(cwd, task) {
   const res = spawnSync(D_CMD, [...D_PREFIX, '--profile', PROFILE, task], {
