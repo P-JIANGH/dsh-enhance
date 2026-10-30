@@ -286,7 +286,8 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 | 运行 | `Publish to GitHub Packages #3` → **success**；逐步核对：install / typecheck / test / `Assert this commit is the v<version> tag` / `Publish to npm.pkg.github.com` 全部 `completed/success` |
 | 认证 | 同上，工作流自带 `GITHUB_TOKEN`，零 PAT |
 | 字节验收（附件侧） | `p-jiangh-dsh-enhance-0.1.3.tgz` = 111,492 B、sha256 `A9EA00C73B155C75088B250A96AB3C6E702E6DFFBC47766C8B8D9E1F1A45D23F`、sha512 `sha512-IWUlnbQcUpKsCPX8nir5vidzMKEBmkoQVwupZHOZ1nHp9s7EV58WJzy7QZRvicBNINJ5xB786sxZbPFtiVC5yg==`，与 tag 树 `npm pack` 逐字节相同 |
-| 字节验收（registry 侧） | **本轮未做**：本机 token 只有 `gist, repo, workflow`，读 registry 元数据返回 `403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`（与下表最后一行的坑一致）。复核方式：换一把勾了 `read:packages` 的 classic token，跑 `node .dsh-enhance/verify-published-bytes.mjs .dsh-enhance/audit/p-jiangh-dsh-enhance-0.1.3.tgz` |
+| 字节验收（registry 侧） | **本轮未做**：本机两把 token 都读不了 registry —— `~/.git-credentials` 的那把（`gist, repo, workflow`）返回 `403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`，`~/.npmrc` 里 `//npm.pkg.github.com/:_authToken` 的那把返回 **401**；两把都缺 `read:packages`。复核方式：换一把勾了 `read:packages` 的 classic token，跑 `node .dsh-enhance/verify-published-bytes.mjs .dsh-enhance/audit/p-jiangh-dsh-enhance-0.1.3.tgz` |
+| 消费验收（已发布产物） | 把 Release 附件装进一次性 profile（`qa-rel013`，隔离 home），真实无头会话 **exit 0**：doctor 报插件已加载 / 开关全开 / `/doctor`+`/boulder` 在、**3 条打包技能**、work-rules 段在、advisor 真跑一次审查；五条预设行在 headless 组合里 pending 属预期 |
 
 以下为已核实的前置条件（对**将来**的版本仍然适用）：
 
