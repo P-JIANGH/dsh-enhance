@@ -5,6 +5,46 @@ version scheme is [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Detailed rationale for each decision lives in `docs/` (the ledger in
 `docs/known-issues.md` records what was measured, and why it changed).
 
+## [0.1.4] — 2026-11-13
+
+Fixes the **Enhance preset breaking on dsh 0.2.2** — the desktop host release
+from 2026-11-04 (0.2.2-rc.1). No plugin tool, command, prompt section or config
+field changed; the shipped agent-preset composition did, and so did the
+`devDependencies` host baseline.
+
+### Fixed
+
+- **`preset-enhance` reported "load failed" again and sessions bound to it
+  refused to open.** `@deepseek-ai/dsh-tool-subagent-control` dropped its
+  `./list-agents` export map entry in 0.2.2 (`registerListAgents()` moved into
+  the package's own `apply`, and the shipped `standard` preset no longer carries
+  a row for it). Our `tool-subagent-list-agents` row therefore imported nothing,
+  the Loader entry never got a fiber, and the preset registry reported
+  `tool-subagent-list-agents (@deepseek-ai/dsh-tool-subagent-control/list-agents): never started`
+  — one unusable row marks the whole preset `broken`. The row is removed from
+  the generated patch; on 0.2.2 the `tool-subagent-control` row itself registers
+  `list_agents`. Cost, recorded honestly: on hosts ≤ 0.2.1 the `list_agents`
+  tool is now absent (those versions only shipped it through the retired
+  subpath) — a smaller tool surface, never a broken preset.
+
+### Changed
+
+- **`devDependencies` re-aligned to the host the desktop app actually ships,
+  `@deepseek-ai/*@0.2.2-rc.1`** (`cordis` `4.1.0`), and
+  `@deepseek-ai/schemastery` raised from `~3.18.4` to `~3.19.0` — every 0.2.2
+  host package depends on 3.19, and keeping 3.18 alongside it gave pnpm two
+  copies, which made `tsc` fail with `TS2742 The inferred type of 'Config'
+  cannot be named without a reference to …schemastery@3.19.0`. No host API
+  used by the plugin changed: typecheck, the event-binding contract test and
+  both zero-token real-host acceptances pass against 0.2.2-rc.1.
+
+### Verified
+
+- `pnpm qa:preset` on the real desktop host **0.2.2-rc.1**: RED before the fix
+  (the `never started` line above), GREEN after it (`enhance` has no `broken`,
+  `rows=31`, port released). `pnpm qa:pack` 21/21, `pnpm test` 213/213,
+  `pnpm check:pack` PASS (73 files).
+
 ## [0.1.3] — 2026-10-30
 
 Fixes the **Enhance preset breaking on dsh 0.2.1** — the desktop host that

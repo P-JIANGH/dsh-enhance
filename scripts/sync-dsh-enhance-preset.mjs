@@ -292,7 +292,7 @@ export function presetRow(meta, pluginsFlat) {
 /**
  * The model-facing tool-plane rows every session on `dsh-enhance` needs.
  * Mirrors the shipped `standard` preset's tool skeleton
- * (`dsh-web-app/presets/standard.patch.yml` on 0.2.1). The dsh-enhance-specific
+ * (`dsh-web-app/presets/standard.patch.yml` on 0.2.2). The dsh-enhance-specific
  * subagents are appended inside the delegation group.
  * Returned flat (0-indent); the caller re-indents the whole block.
  */
@@ -382,9 +382,17 @@ function toolPlane(subagentRows) {
     '    - id: tool-subagent-control',
     "      name: '@deepseek-ai/dsh-tool-subagent-control'",
     '',
-    '    - id: tool-subagent-list-agents',
-    "      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'",
-    '',
+    // `list_agents` used to be its own subpath plugin
+    // (`@deepseek-ai/dsh-tool-subagent-control/list-agents`, exported through
+    // 0.2.1). On 0.2.2 the package dropped that export map entry and
+    // `registerListAgents()` moved into the package's own `apply` — the
+    // shipped `standard` preset no longer carries a row for it either. Keeping
+    // the row here is fatal: the Loader cannot import the subpath, the entry
+    // never gets a fiber, and the registry reports the whole Enhance preset as
+    // broken (`tool-subagent-list-agents …: never started`), so sessions bound
+    // to it refuse to open. Dropping it costs older hosts the `list_agents`
+    // tool (their `tool-subagent-control` main plugin does not register it) —
+    // a degraded tool surface, never a broken preset. Do not re-add it.
     // `backgroundMode` was dropped from dsh-tool-subagent's schema in 0.2.1
     // (delegation is managed and continuable unconditionally), and the shipped
     // `standard` row carries neither it nor `modelSelectionSettings` for us:

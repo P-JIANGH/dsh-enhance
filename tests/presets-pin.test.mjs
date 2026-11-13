@@ -148,6 +148,25 @@ test('scoped subagents select a child preset instead of the retired persona/tool
 })
 
 /**
+ * 宿主导出表契约（2026-11-13，桌面宿主 `@deepseek-ai/dsh-desktop-runtime@0.2.2-rc.1`）。
+ *
+ * `@deepseek-ai/dsh-tool-subagent-control` 在 0.2.2 删掉了 `./list-agents` 子路径
+ * 导出（`registerListAgents()` 并入包自身 `apply`，且 0.2.2 的 `standard` 预设也不再
+ * 声明这个子行）。我们照 0.2.1 声明的 `tool-subagent-list-agents` 行因此 import 不到
+ * 模块 → Loader entry 永远没有 fiber → registry 报
+ * `tool-subagent-list-agents (@deepseek-ai/dsh-tool-subagent-control/list-agents): never started`
+ * → **整条 `enhance` 预设 broken**、绑定它的会话打不开（`agent-preset/invalid`）。
+ * 这条负向钉让"别再把它加回来"成为契约：`list_agents` 现在由 `tool-subagent-control`
+ * 主行注册；≤0.2.1 宿主上该工具缺失属降级，不是 broken。
+ */
+test('no row names the retired tool-subagent-control/list-agents subpath (0.2.2 dropped it)', async () => {
+  const bundle = Object.values(await renderBundlePatch())[0]
+  assert.doesNotMatch(bundle, /dsh-tool-subagent-control\/list-agents/,
+    'the ./list-agents export map entry is gone in 0.2.2; the row would make the whole preset broken')
+  assert.match(bundle, /^\s+- id: tool-subagent-control$/m, 'the main tool-subagent-control row (which registers list_agents itself) stays')
+})
+
+/**
  * Real-runtime row contract (2026-10-09, extended 2026-10-19). The byte-pin
  * above only locks bytes; these assertions lock the row *shapes* the live
  * runtime actually accepts, because the pre-row generator's shapes were latent

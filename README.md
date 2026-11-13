@@ -156,7 +156,7 @@ pnpm qa:pack        # 打包安装验收（零 token）：真 tarball → 一次
 | `@deepseek-ai/schemastery` | `dependencies` | 上游一等公民插件也这么声明。它是**纯数据**库：宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema（`dsh-app-boot` 的 `isNativeConfigSchema`），同版本的副本是安全的。 |
 | `@deepseek-ai/cordis` | `peerDependencies`（optional） | 宿主就是 cordis，profile 永远不会去装它；我们只做**类型**导入，运行时不解析。 |
 | `@deepseek-ai/dsh-llm` | `peerDependencies`（optional） | 我们确实在运行时用它（`createUserMessage` / `BlockAssembler`），但它带**模块级身份**，一个 profile 里只能有宿主那一份。 |
-| 其它 `@deepseek-ai/dsh-*` | 仅 `devDependencies` | 纯类型导入（构建时擦除），版本对齐宿主实际携带的 `0.2.0-rc.2`。 |
+| 其它 `@deepseek-ai/dsh-*` | 仅 `devDependencies` | 纯类型导入（构建时擦除），版本对齐宿主实际携带的 `0.2.2-rc.1`（`cordis` 4.1.0、`schemastery` `~3.19.0`）。 |
 
 **绝不能**把服务类宿主包（`dsh-llm` / `dsh-agent` / `dsh-tools` / `cordis` …）写成 `dependencies`：那会在 profile 里 hoist 出第二份副本并**优先遮蔽**宿主那份，破坏模块级身份。宿主的运行时解析器本来就免费供给它们（`dsh-app-boot` 的 `createRuntimeResolution`：*"The runtime resolution supplies packages carried by the installation and selected bundles"*）。`pnpm qa:pack` 在**真 tarball 安装**上钉住了这条边界——仓库里的 `link:` 形态会掩盖它。
 

@@ -225,7 +225,7 @@ it is an evidence-backed convention, not a preference):
 | `@deepseek-ai/schemastery` | `dependencies` | First-party dsh plugins declare it this way. It is a **pure data** library: the host recognises native schemas through the global `Symbol.for('schemastery')` (`dsh-app-boot`'s `isNativeConfigSchema`), so a same-version copy is safe. |
 | `@deepseek-ai/cordis` | `peerDependencies` (optional) | The host *is* cordis; a profile never installs it, and we only import types. |
 | `@deepseek-ai/dsh-llm` | `peerDependencies` (optional) | We do use it at runtime (`createUserMessage` / `BlockAssembler`), but it carries **module-level identity**: one profile may hold only the host's copy. |
-| Other `@deepseek-ai/dsh-*` | `devDependencies` only | Type-only imports (erased at build), version-aligned with the host's `0.2.0-rc.2`. |
+| Other `@deepseek-ai/dsh-*` | `devDependencies` only | Type-only imports (erased at build), version-aligned with the host's `0.2.2-rc.1` (`cordis` 4.1.0, `schemastery` `~3.19.0`). |
 
 **Never** declare a service-class host package (`dsh-llm` / `dsh-agent` /
 `dsh-tools` / `cordis` …) as a `dependencies` entry: that hoists a second copy

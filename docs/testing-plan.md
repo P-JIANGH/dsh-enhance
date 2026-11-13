@@ -71,6 +71,8 @@
 
 > 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。
 
+**基线（2026-11-13，宿主 0.2.2-rc.1）**：devDeps 从 `@deepseek-ai/*@0.2.0-rc.2` 对齐到桌面宿主实际携带的 `@deepseek-ai/*@0.2.2-rc.1`（`cordis@4.1.0`；`schemastery` dependency 升到 `~3.19.0`——0.2.2 的宿主包依赖 3.19，留着 3.18 会让 pnpm 并存两份并使 `tsc` 报 TS2742）。`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **213/213** · `pnpm qa:pack` **21/21** · `pnpm qa:preset` **PASS**（真机 RED→GREEN：0.2.2 删掉 `tool-subagent-control/list-agents` 子路径，导致 `enhance` 预设 `never started` → broken；删行后无 `broken`、`rows=31`）· `pnpm check:pack` PASS。两个零 token 门（`qa:pack`/`qa:preset`）都跑在真宿主上；`qa:preset` 是唯一能看见"行 import 不到 → 无 fiber → 预设 broken"这一类的检查，`--dump-config` 与单测都会显示健康。
+
 **基线（2026-10-09 发布收尾轮复验）**：本插件对齐**宿主实际携带的** `@deepseek-ai/*@0.2.0-rc.2`（`cordis@4.0.4`；`@deepseek-ai/schemastery` 为 dependency `~3.18.4`，`volatile()` 需要它，且宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema——跨副本安全）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **187/187**（21 个测试文件）· `pnpm qa:pack` **21/21** · `pnpm check:pack` PASS。**此前的基线是 `@deepseek-ai/*@0.1.2-alpha.4`（另一条大版本）**——那次错配正是 P0-10 的根因：`tsc` 校的不是宿主实际 API，两个钩子因此长期绑在一个不存在的事件上，全绿也没人发现。日常实驱默认跑桌面宿主 `0.2.0-rc.2`（`resolveDsh()` 会从 PATH 命中里认出桌面 shim；旧 nvm `0.1.0-rc.6` 只在显式 `DSH_BIN` 时才用得上）。
 
 **实驱目标解析（隔离优先）**：`qa/dsh-launch.mjs` 的 `resolveQaTarget()` 让三个实驱**默认**落在仓库内隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`）——只要它存在就不碰真实 `~/.dsh`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先。证据与终端都会标注本次实际使用的 profile 与 home。直接原因：不带环境变量跑实驱时，目标曾落在真实 home，实现在一个不含本插件的 profile 上找 bundle 层，于是报出"未发现 dsh-enhance 层"——把"跑错环境"误诊成"插件缺陷"。
