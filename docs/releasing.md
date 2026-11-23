@@ -43,7 +43,7 @@ node qa/dsh-enhance-drive.mjs --llm    # 真实会话断言插件加载 / 技能
 
 本机脚本（gitignored，`node .dsh-enhance/<name>`）：`scan-secrets.mjs`（①②，含**非真空守卫**：规模异常即报 ERROR，绝不报 CLEAN）、`scan-public-surface.mjs`（③④）、`control-secret-scan.mjs`（阳性对照：在临时仓库里放一个**只存在于历史**的假密钥，确认扫描器真会报出来）。
 
-2026-10-09 v0.1.0 实测结论：blob 686 个（117 当前 + 569 历史）**0 命中**；63 个提交 + 1 个标签消息 **0 命中**；Release 正文 6.7KB + 仓库描述 **0 命中**；附件 73 个文件 270KB **0 命中、无 source map**。GitHub 侧：Actions secrets 0 · deploy keys 0 · webhooks 0 · 协作者仅 owner · **GitHub 自己的 secret scanning 告警为 0**。唯一的"痕迹"是文档与一条提交消息里作为示例出现的本机代理端口 `127.0.0.1:10809`（非凭据）。
+2026-10-09 v0.1.0 实测结论：blob 686 个（117 当前 + 569 历史）**0 命中**；63 个提交 + 1 个标签消息 **0 命中**；Release 正文 6.7KB + 仓库描述 **0 命中**；附件 73 个文件 270KB **0 命中、无 source map**。GitHub 侧：Actions secrets 0 · deploy keys 0 · webhooks 0 · 协作者仅 owner · **GitHub 自己的 secret scanning 告警为 0**。
 
 ### 本机凭据存放（与公开面无关，但发布前后值得看一眼）
 
@@ -104,24 +104,21 @@ GitHub Release 要点（Release 正文可直接取自 `CHANGELOG.md` 的对应�
 2. **tag 只钉 CI 绿的提交**（见 §2）。移动 tag 时 GitHub 会把旧 Release 自动转成 **draft**，
    记得删掉残留 draft，别让同一个 tag 存在两份 Release。
 
-## 3. 远端布局与本机网络
+## 3. 远端布局与网络
 
-主仓 = GitHub（`origin`），镜像 = GitCode（`upstream`）：
+主仓 = GitHub（remote `github`），镜像 = GitCode（remote `origin`）：
 
 ```sh
-git remote rename origin upstream                                   # 现在叫 upstream 的是 GitCode
-git remote add origin https://github.com/P-JIANGH/dsh-enhance.git   # GitHub 成为 origin
-git push -u origin master && git push origin v0.1.0
-git push upstream master                                            # 镜像同步
+git push github master && git push github v<x.y.z>
+git push origin master                              # 镜像同步
 ```
 
-**本机网络事实（2026-10-09 实测）**：直连 `github.com` / `api.github.com` / `ssh git@github.com:22`
-**三条通道全部超时**（无代理环境变量）；本机有一个在听的本地代理 `127.0.0.1:10809`，经它
-`api.github.com` 返回 200、`git ls-remote` 正常。因此 GitHub 相关的操作都要走代理，建议按 URL
-定向设置（只影响 GitHub，不影响 GitCode）：
+> 远端名以 `git remote -v` 为准再照抄：本仓库历史上经历过 `origin`/`upstream` 的命名阶段，不同 checkout 可能不同。
+
+**网络**：部分网络环境直连 `github.com` / `api.github.com` / SSH 会超时。需要代理时按 URL 定向设置（只影响 GitHub，不影响 GitCode）：
 
 ```sh
-git config --local http.https://github.com.proxy http://127.0.0.1:10809
+git config --local http.https://github.com.proxy http://127.0.0.1:<port>
 ```
 
 撤销：`git config --local --unset http.https://github.com.proxy`。
@@ -286,7 +283,7 @@ curl -sSL $(npm view @p-jiangh/dsh-enhance dist.tarball) -o /tmp/npm.tgz
 | 运行 | `Publish to GitHub Packages #3` → **success**；逐步核对：install / typecheck / test / `Assert this commit is the v<version> tag` / `Publish to npm.pkg.github.com` 全部 `completed/success` |
 | 认证 | 同上，工作流自带 `GITHUB_TOKEN`，零 PAT |
 | 字节验收（附件侧） | `p-jiangh-dsh-enhance-0.1.3.tgz` = 111,492 B、sha256 `A9EA00C73B155C75088B250A96AB3C6E702E6DFFBC47766C8B8D9E1F1A45D23F`、sha512 `sha512-IWUlnbQcUpKsCPX8nir5vidzMKEBmkoQVwupZHOZ1nHp9s7EV58WJzy7QZRvicBNINJ5xB786sxZbPFtiVC5yg==`，与 tag 树 `npm pack` 逐字节相同 |
-| 字节验收（registry 侧） | **本轮未做**：本机两把 token 都读不了 registry —— `~/.git-credentials` 的那把（`gist, repo, workflow`）返回 `403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`，`~/.npmrc` 里 `//npm.pkg.github.com/:_authToken` 的那把返回 **401**；两把都缺 `read:packages`。复核方式：换一把勾了 `read:packages` 的 classic token，跑 `node .dsh-enhance/verify-published-bytes.mjs .dsh-enhance/audit/p-jiangh-dsh-enhance-0.1.3.tgz` |
+| 字节验收（registry 侧） | **本轮未做**：手上没有带 `read:packages` 的凭据——读 registry 分别得到 `403 permission_denied`（scope 不足）与 `401`（缺 token）。复核方式：换一把勾了 `read:packages` 的 classic token，跑 `node .dsh-enhance/verify-published-bytes.mjs <audit>/<tarball>` |
 | 消费验收（已发布产物） | 把 Release 附件装进一次性 profile（`qa-rel013`，隔离 home），真实无头会话 **exit 0**：doctor 报插件已加载 / 开关全开 / `/doctor`+`/boulder` 在、**3 条打包技能**、work-rules 段在、advisor 真跑一次审查；五条预设行在 headless 组合里 pending 属预期 |
 
 以下为已核实的前置条件（对**将来**的版本仍然适用）：

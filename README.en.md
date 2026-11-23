@@ -109,7 +109,7 @@ dsh plugin --profile <your-profile> add link:<checkout>
 >
 > **Network**: on networks where `github.com` is not directly reachable, git can use a
 > proxy scoped to GitHub only:
-> `git config --global http.https://github.com.proxy http://127.0.0.1:10809`
+> `git config --global http.https://github.com.proxy http://127.0.0.1:<port>`
 > (pnpm fetching the tarball honours `HTTPS_PROXY` instead).
 
 Verify what the profile will actually assemble:

@@ -1,12 +1,12 @@
 # dsh-enhance 借鉴分析：lazycodex & oh-my-pi
 
 > 调查时间：2026-07（用户 clone 两项目供调查）
-> 项目：`F:\lazycodex`（MIT，Codex 增强插件分发仓库，code-yeongyu）、`F:\oh-my-pi`（pi coding agent 本体 fork，badlogic/pi-mono → can1357/oh-my-pi，omp.sh，MIT）
+> 项目：`lazycodex`（MIT，Codex 增强插件分发仓库，code-yeongyu）、`oh-my-pi`（pi coding agent 本体 fork，badlogic/pi-mono → can1357/oh-my-pi，omp.sh，MIT）
 > 用途：为 dsh-enhance（deepseek-harness 增强插件）的 M1 骨架与后续落地提供模式借鉴。借鉴的是模式与纪律，非代码；两项目均 MIT 开源，引用保留来源。
 
 ---
 
-## 1. F:\lazycodex：prompt 传播链 + evidence 门
+## 1. lazycodex：prompt 传播链 + evidence 门
 
 lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork、ulw-loop、start-work-continuation、executor-verify、teammode、rules、lsp、codegraph、comment-checker、telemetry、bootstrap…）。三类可直接借鉴：
 
@@ -37,7 +37,7 @@ lazycodex 是 Codex 增强插件分发仓库（`plugins/` 组件化：ultrawork�
 
 ---
 
-## 2. F:\oh-my-pi：工程纪律（B 类）
+## 2. oh-my-pi：工程纪律（B 类）
 
 oh-my-pi 是完整 coding agent（Rust ~80k 行核心 + TS 包：agent、ai、catalog、coding-agent、tui、natives、hashline、metaharness、mnemopi、snapcompact…）。工程纪律层面的借鉴：
 

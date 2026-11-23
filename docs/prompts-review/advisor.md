@@ -5,12 +5,14 @@
 
 ## 源材料（已核实，oh-my-pi 仓库）
 
+> 下表路径以 `<omp>` 指代 oh-my-pi 仓库根目录；该仓库不随本仓库分发。
+
 | 文件 | 作用 |
 |---|---|
-| `F:\oh-my-pi\docs\advisor-watchdog.md` | advisor 子系统总设计文档（启用、工具隔离、advise 严重度、emission guard、WATCHDOG.md/yml） |
-| `F:\oh-my-pi\packages\coding-agent\src\prompts\advisor\system.md` | advisor 系统提示词（审查准则、通信纪律、nit/concern/blocker 语义） |
-| `F:\oh-my-pi\packages\coding-agent\src\prompts\advisor\advise-tool.md` | `advise` 工具说明（严重度、去重、在制品抑制） |
-| `F:\oh-my-pi\packages\coding-agent\src\advisor\*.ts` | 运行时实现（runtime / advise-tool / emission-guard / watchdog / config） |
+| `<omp>/docs/advisor-watchdog.md` | advisor 子系统总设计文档（启用、工具隔离、advise 严重度、emission guard、WATCHDOG.md/yml） |
+| `<omp>/packages/coding-agent/src/prompts/advisor/system.md` | advisor 系统提示词（审查准则、通信纪律、nit/concern/blocker 语义） |
+| `<omp>/packages/coding-agent/src/prompts/advisor/advise-tool.md` | `advise` 工具说明（严重度、去重、在制品抑制） |
+| `<omp>/packages/coding-agent/src/advisor/*.ts` | 运行时实现（runtime / advise-tool / emission-guard / watchdog / config） |
 
 ## Advisor 是什么（omp 原文要点）
 
@@ -62,7 +64,7 @@
 
 ## 对 dsh-enhance 的移植可行性（已核实 dsh 能力）
 
-advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实自 `F:\deepseek-harness\packages\core\agent` 与 `packages\core\tools` 类型定义）：
+advisor 是**伴随模型架构**，三个硬性前提 dsh 均已具备（核实自上游 dsh 的 `packages/core/agent` 与 `packages/core/tools` 类型定义）：
 
 | omp advisor 前提 | dsh 对应能力 | 证据 |
 |---|---|---|

@@ -80,7 +80,7 @@ dsh plugin --profile <your-profile> add link:<checkout>
 > ```
 > 嫌麻烦就用第 1 种（tarball 里已经带了构建产物 `lib/`）。
 >
-> **网络**：部分网络环境直连 `github.com` 不通。git 可按 URL 定向设代理（只影响 GitHub）：`git config --global http.https://github.com.proxy http://127.0.0.1:10809`；pnpm 拉 tarball 则认 `HTTPS_PROXY` 环境变量。
+> **网络**：部分网络环境直连 `github.com` 不通。git 可按 URL 定向设代理（只影响 GitHub）：`git config --global http.https://github.com.proxy http://127.0.0.1:<port>`；pnpm 拉 tarball 则认 `HTTPS_PROXY` 环境变量。
 
 本插件是一个补丁层：它向 profile 中插入一行 `dsh-enhance` 插件。验证方式：
 

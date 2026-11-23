@@ -2,8 +2,8 @@
 
 > 状态：设计定稿（brainstorming 产出，2026）
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
-> 前置文档：`docs/architecture.md`（v2 重设计）、`AGENTS.md`、`docs/upstream-migration.md`（本设计的 R5 产物，落盘后同步）
-> 上游参考：`F:\deepseek-harness\packages\client\*`、`packages/settings/settings`（MIT，实测类型定义）
+> 前置文档：`docs/architecture.md`（v2 重设计）、`AGENTS.md`
+> 上游参考：上游 dsh 的 `packages/client/*`、`packages/settings/settings`（MIT，实测类型定义）
 
 ## 1. 理解总结
 
@@ -135,12 +135,14 @@ export function apply(clientCtx: ClientContext): void {
 
 ### 4.6 上游破坏性变更承接（R1–R5）
 
+> **本节及 §4.5 的 `scripts/install.mjs` 属原桥接方案的设计记录，已在 §8 起的最终方案中作废**：`settings.register` 桥接层、自有 `@Remote` 与 tsdown 构建链都被官方 `plugins.row.config` 席位取代，文中的 `src/shared/settings-bridge.ts`、`src/client/bridge.ts`、`tests/upstream-contract.test.mjs`、`scripts/install.mjs` 均未落地。保留本节仅为记录当时的判断依据。
+
 **接触面清单（6 项）**：C1 `settings.register` 签名（可能性中 × 影响面高 × 修复难度中→低）、C2 `SettingsScope` get/watch（低×中×低）、C3 `settings.plugin.item` 槽键（中×低×低）、C4 `dsh.client`/`./client` 约定（中×中高×中高→中）、C5 `__ModuleLoader__.load` 契约（高×中高×中高→中）、C6 client inject 服务列表（中×低×低）。
 
 **承接机制**：
 - **R1 桥接层收敛**：host `src/shared/settings-bridge.ts` + client `src/client/bridge.ts`；上游破坏只改这两处。*边界声明：收缩易变 API 物理接触面，非抽象 dsh 事件面（不违原则 6）。*
 - **R2 契约探测测试** `tests/upstream-contract.test.mjs`：register 是函数、槽键可注册、`window.__ModuleLoader__.load` 形状；上游破坏 → CI 先红在具体断言 → 快速跟进。
-- **R3/R5 版本矩阵 + 升级流程**：`docs/upstream-migration.md` 记录每项"影响面等级 + 修复落点 + 验证方法"。
+- **R3/R5 版本矩阵 + 升级流程**：原计划落在 `docs/upstream-migration.md`（未落盘），记录每项"影响面等级 + 修复落点 + 验证方法"。
 - **R4 降级路径**：client 契约破坏 → loader 隔离失败 bundle → 卡片不渲染、host 全功能照常；显式写进测试（模拟 loader 失败断言 host 仍工作）。
 - **修复难度降级措施**：契约测试保定位速度；桥接层保修复范围（改一处）；降级路径保无时间压力；bundle 模板单文件化保 C4/C5 修复集中。
 - **R4-补 卡片"重启生效"提示**：`SettingsDescriptor.applies` 随 wire 下发，但官方卡片是否渲染"重启生效"标记未在源码确认；实现期验证，若未渲染则卡片自绘提示文案。
@@ -169,7 +171,7 @@ export function apply(clientCtx: ClientContext): void {
 
 **改名 = 破坏性变更**；v0.1 无外部用户，是零成本唯一窗口。作为阶段 0 前置（先改名再推 UI 半侧，避免两套名并存）。
 
-**执行结果（2026-09-30）**：仓库内旧名已清零（仅保留迁移用途的 `LEGACY_PACKAGE_NAMES` 与文档中的历史记录）；环境侧 `~/.dsh/profiles/web` 的旧 junction 已改为 scoped 名，旧 profile `omd` 迁移为 `dsh-enhance` 后删除（配置备份在 `~/.dsh/profile-backups/`）；`~/.dsh/.agent-presets` 里的旧名残留已备份清理。**注意**：checkout 目录仍叫 `F:\oh-my-dsh`（改名会牵动所有 profile 的 `link:` 指向），包名与项目名才是 `dsh-enhance`。
+**执行结果（2026-09-30）**：仓库内旧名已清零（仅保留迁移用途的 `LEGACY_PACKAGE_NAMES` 与文档中的历史记录）；环境侧 `~/.dsh/profiles/web` 的旧 junction 已改为 scoped 名，旧 profile `omd` 迁移为 `dsh-enhance` 后删除（配置备份在 `~/.dsh/profile-backups/`）；`~/.dsh/.agent-presets` 里的旧名残留已备份清理。**注意**：checkout 目录名当时未随包名一起改（改名会牵动各 profile 的 `link:` 指向），包名与项目名才是 `dsh-enhance`。
 
 **迁移顺序**：① 仓库/包名 → ② 运行时标识（工具名/提示词段/预设目录/存储目录）→ ③ QA 脚本/测试（presets-pin 字节锁定自动跟随新名）→ ④ 文档全量替换 → ⑤ 验证（pnpm test/build/typecheck + 实驱）。
 
@@ -199,7 +201,7 @@ export function apply(clientCtx: ClientContext): void {
 | 1 | Host 半侧：`settings-bridge.ts`、apply 改造（inject 'settings' + `scope.get()`）、settings 单测；**前置验证 R-N5**（无 provider 时 `scope.get()` 行为） | `pnpm test` 新用例 |
 | 2 | Client 半侧：`bridge.ts`、字段映射纯函数 + 卡片、package.json 接入声明 | 卡片渲染 |
 | 3 | 契约测试 + dsh web 实驱 QA（改配置 → settings.yaml → 重启生效） | 实驱证据（`.dsh-enhance/evidence/`） |
-| 4 | `docs/upstream-migration.md` + README 安装段更新 | 文档评审 |
+| 4 | 版本矩阵 + 升级流程文档 + README 安装段更新 | 文档评审 |
 | 5 | `scripts/install.mjs` + 脚本自测（临时 profile 全流程） | 脚本端到端跑通（其中**预设投递**那一半已由 bundle 补丁行落地——`cordis.patch.yml` 的 `preset-enhance`（2026-10-09 起为该文件的预设行；**2026-10-19 补注**：dsh 0.2.1 删除 `tool-subagent` 的 `persona`/`toolFilter` 后，该文件另含四条角色子预设行，不再是"唯一"，见 §4.7 同名补注与 `docs/roles.md` §8），见 README；目录装机脚本已于 2026-10-09 退役） |
 
 ## 7. 验证策略

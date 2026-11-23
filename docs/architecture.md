@@ -2,7 +2,7 @@
 
 > 状态：设计稿 v0.1，待评审
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
-> 参考蓝本：开源增强插件生态（MIT）——`oh-my-pi`（omp，MIT）、`lazycodex`（MIT）；能力边界与事件面以 `F:\deepseek-harness\packages\*`（MIT）实测类型定义为准，探索证据见对应模块。
+> 参考蓝本：开源增强插件生态（MIT）——`oh-my-pi`（omp，MIT）、`lazycodex`（MIT）；能力边界与事件面以上游 dsh 的 `packages/*`（MIT）实测类型定义为准，探索证据见对应模块。
 > 注：本设计不依赖任何 SUL 许可项目内容。
 
 ## 1. 定位与目标
@@ -61,7 +61,7 @@ dsh-enhance/
 
 ## 4. dsh API 能力映射（dsh 事件面 → dsh-enhance 能力）
 
-探索自 `F:\deepseek-harness\packages\core\*` 类型定义（MIT），实现时以实际 d.ts 为准。
+探索自上游 dsh 的 `packages/core/*` 类型定义（MIT），实现时以实际 d.ts 为准。
 
 | dsh 能力 | dsh-enhance 落点 | 备注 |
 |---|---|---|

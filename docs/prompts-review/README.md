@@ -67,7 +67,7 @@
 
 ## 桌面工作流分析对齐（opencode-workflows-analysis.md，2026-07-09）
 
-> 来源：`D:\Desktop\opencode-workflows-analysis.md`（用户 OpenCode 实际工作流分析，298 行）。
+> 来源：用户提供的一份 OpenCode 实际工作流分析笔记（298 行，未随仓库分发）。
 > 定位：不只参考 enhance-mode（原 ultrawork）——作为 dsh-enhance 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
 
 ### 文件概要

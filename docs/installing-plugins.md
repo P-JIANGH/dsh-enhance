@@ -2,7 +2,7 @@
 
 > 目标宿主：DeepSeek Harness（`dsh`，Cordis 4 插件体系）
 > 本文档以 `dsh-enhance` 为例，说明把插件安装进 `dsh` 并生效、验证、配置、卸载的完整流程，同时覆盖通用机制。
-> 原理细节以 `F:\deepseek-harness` 仓库源码（MIT）为准。
+> 原理细节以上游 dsh 源码（MIT）为准。
 >
 > **命名**：包名 `@p-jiangh/dsh-enhance`；插件行的 `id` 是短名 `dsh-enhance`（用户补丁按 id 瞄准，loader 按 name 导入）。下文用 `<your-profile>` 作 **profile 名**占位符——换成你实际在跑的那个（桌面端 `desktop`、loopback `web`、无头 `headless`，或你自建的名字）；用 `<checkout>` 指代你本地的仓库目录。**不要照抄某个具体名字**：不存在的 profile 名会被静默创建（见 §3 的坑）。
 
@@ -66,10 +66,8 @@ dsh plugin --profile <your-profile> add @p-jiangh/dsh-enhance
 **GitHub Packages（`npm.pkg.github.com`）上已有 `@p-jiangh/dsh-enhance@0.1.3`**（2026-10-30 由
 `.github/workflows/publish-github-packages.yml` 以 `ref=v0.1.3` 发布，认证用工作流自带的 `GITHUB_TOKEN`，不需要 PAT）。
 它与 Release 附件来自同一棵 tag 树：附件 `p-jiangh-dsh-enhance-0.1.3.tgz` 为 111,492 B、
-sha256 `A9EA00C7…`（完整 sha512 与逐步结果见 `docs/releasing.md` §5.5）。**本轮没有直读 registry
-元数据做字节复核**：本机 token 只有 `gist, repo, workflow`，读 registry 会返回
-`403 {"error":"Permission permission_denied: The token provided does not match expected scopes."}`
-——这正是下面"需要凭据"那一条；要复核请换一把带 `read:packages` 的 classic token。
+sha256 `A9EA00C7…`（完整 sha512 与逐步结果见 `docs/releasing.md` §5.5）。**registry 侧的字节复核需要一个
+带 `read:packages` 的凭据**（见下面"这一条来源需要凭据"）；没有凭据时只能核对上面那份附件的哈希。
 
 **这一条来源需要凭据**（其它来源不需要）：一把 classic token 勾 **`read:packages`**，并在 `~/.npmrc` 写
 
@@ -111,7 +109,7 @@ dsh plugin --profile <your-profile> add link:<checkout>
 
 ```sh
 # 相对于你调用 dsh plugin 的目录（或给绝对路径）。
-# <checkout> = 你本地的仓库目录，例如 D:/code/dsh-enhance。
+# <checkout> = 你本地的仓库目录。
 dsh plugin --profile <your-profile> add link:<checkout>
 ```
 
@@ -168,7 +166,7 @@ dsh plugin --profile <your-profile> add git@gitcode.com:jiangh_hnr/dsh-enhance.g
 >
 > 网络：直连不通时，git 按 URL 定向走代理（只影响 GitHub）：
 > ```sh
-> git config --global http.https://github.com.proxy http://127.0.0.1:10809
+> git config --global http.https://github.com.proxy http://127.0.0.1:<port>
 > ```
 > pnpm 拉 tarball 走的是 `HTTPS_PROXY` 环境变量。
 

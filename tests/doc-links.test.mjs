@@ -60,6 +60,30 @@ test('[docs] 参与检查的文档集合非空且包含两份 README', () => {
   assert.ok(files.every(f => !f.startsWith('node_modules' + sep) && !f.startsWith('lib' + sep)))
 })
 
+/**
+ * 作者本机的绝对路径（`F:\repo`、`D:/code/x`）对读者没有任何意义，而且会随机器变化。
+ * `\b` 前缀把它和 URL 里的 `file:///…` 区分开（后者的 `e:` 前面是单词字符，不算边界）。
+ * 占位符（`<checkout>`、`<omp>`）是这些说明的标准写法。
+ */
+const LOCAL_ABSOLUTE_PATH = /\b[A-Za-z]:[\\/]/
+
+test('[docs] 文档里不写作者本机的绝对路径', () => {
+  const offenders = []
+  for (const file of markdownFiles()) {
+    const lines = readFileSync(file, 'utf8').split('\n')
+    lines.forEach((line, index) => {
+      if (LOCAL_ABSOLUTE_PATH.test(line)) {
+        offenders.push(`${relative(ROOT, file).replace(/\\/g, '/')}:${index + 1} ${line.trim()}`)
+      }
+    })
+  }
+  // 非真空：扫描器自己的正则若被改坏，这里立刻看得见。
+  assert.ok(LOCAL_ABSOLUTE_PATH.test('F:\\repo\\x'), '扫描正则必须能认出反斜杠路径')
+  assert.ok(LOCAL_ABSOLUTE_PATH.test('D:/code/x'), '扫描正则必须能认出正斜杠路径')
+  assert.ok(!LOCAL_ABSOLUTE_PATH.test('file:///tmp/x'), 'URL 不算作者本机路径')
+  assert.deepEqual(offenders, [], '文档里出现了作者本机的绝对路径，请改成占位符：\n' + offenders.join('\n'))
+})
+
 // ── 扫描器自身的夹具（这组用例是 advisor 指出的假绿方向） ─────────────────────
 
 /** 在临时目录里造一个文档集合并扫描它。 */
