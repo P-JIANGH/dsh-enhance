@@ -67,38 +67,25 @@
 - 每次实驱记录到隔离沙箱的 `.dsh-enhance/evidence/`（不起真实 `$DSH_HOME`）。
 - 单测对纯逻辑断言；实驱对行为断言；**不写"断言未运行实现的伪测试"**（M3/M4 的纯逻辑均已单测覆盖；真实会话闭环留 `--llm` 实驱）。
 
-## 6. 实驱现状（2026-09，结合上游对齐 dsh/0.1.x）
+## 6. 实驱现状
 
-> 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。
+> 依前节"未实现只有规划"纪律，以下只记录**已执行的实测结论**与**真实阻塞**；不把未跑通的写成"通过"。更早的逐版本基线与事故记录见 `docs/known-issues.md`。
 
-**基线（2026-11-13，宿主 0.2.2-rc.1）**：devDeps 从 `@deepseek-ai/*@0.2.0-rc.2` 对齐到桌面宿主实际携带的 `@deepseek-ai/*@0.2.2-rc.1`（`cordis@4.1.0`；`schemastery` dependency 升到 `~3.19.0`——0.2.2 的宿主包依赖 3.19，留着 3.18 会让 pnpm 并存两份并使 `tsc` 报 TS2742）。`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **213/213** · `pnpm qa:pack` **21/21** · `pnpm qa:preset` **PASS**（真机 RED→GREEN：0.2.2 删掉 `tool-subagent-control/list-agents` 子路径，导致 `enhance` 预设 `never started` → broken；删行后无 `broken`、`rows=31`）· `pnpm check:pack` PASS。两个零 token 门（`qa:pack`/`qa:preset`）都跑在真宿主上；`qa:preset` 是唯一能看见"行 import 不到 → 无 fiber → 预设 broken"这一类的检查，`--dump-config` 与单测都会显示健康。
+**基线（2026-11-13，宿主 0.2.2-rc.1）**：devDeps 对齐桌面宿主实际携带的 `@deepseek-ai/*@0.2.2-rc.1`（`cordis@4.1.0`、`schemastery ~3.19.0`）。`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **214/214** · `pnpm qa:pack` **21/21** · `pnpm qa:preset` **PASS** · `pnpm check:pack` PASS。两个零 token 门都跑在真宿主上；`qa:preset` 是唯一能看见"行 import 不到 → 无 fiber → 预设 broken"这一类的检查，`--dump-config` 与单测都会显示健康。
 
-**基线（2026-10-09 发布收尾轮复验）**：本插件对齐**宿主实际携带的** `@deepseek-ai/*@0.2.0-rc.2`（`cordis@4.0.4`；`@deepseek-ai/schemastery` 为 dependency `~3.18.4`，`volatile()` 需要它，且宿主用全局符号 `Symbol.for('schemastery')` 判定原生 schema——跨副本安全）；`pnpm typecheck` 0 · `pnpm build` 0 · `node --test` **187/187**（21 个测试文件）· `pnpm qa:pack` **21/21** · `pnpm check:pack` PASS。**此前的基线是 `@deepseek-ai/*@0.1.2-alpha.4`（另一条大版本）**——那次错配正是 P0-10 的根因：`tsc` 校的不是宿主实际 API，两个钩子因此长期绑在一个不存在的事件上，全绿也没人发现。日常实驱默认跑桌面宿主 `0.2.0-rc.2`（`resolveDsh()` 会从 PATH 命中里认出桌面 shim；旧 nvm `0.1.0-rc.6` 只在显式 `DSH_BIN` 时才用得上）。
-
-**实驱目标解析（隔离优先）**：`qa/dsh-launch.mjs` 的 `resolveQaTarget()` 让三个实驱**默认**落在仓库内隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`）——只要它存在就不碰真实 `~/.dsh`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先。证据与终端都会标注本次实际使用的 profile 与 home。直接原因：不带环境变量跑实驱时，目标曾落在真实 home，实现在一个不含本插件的 profile 上找 bundle 层，于是报出"未发现 dsh-enhance 层"——把"跑错环境"误诊成"插件缺陷"。
+**实驱目标解析（隔离优先）**：`qa/dsh-launch.mjs` 的 `resolveQaTarget()` 让实驱**默认**落在仓库内隔离 home `.dsh-enhance/desktop-test-home`（profile `qa`）——只要它存在就不碰真实 `~/.dsh`；显式 `DSH_HOME` / `DSH_ENHANCE_PROFILE` 优先。证据与终端都会标注本次实际使用的 profile 与 home。
 
 | 层 | 结果 | 证据 |
 |---|---|---|
 | 单测/构建 | 通过 | `node --test` 全绿；tsc `--noEmit` 净；`--dump-config` 确认 `# == @p-jiangh/dsh-enhance` 层合入 |
 | CLI `--dump` | 通过 | `qa/dsh-enhance-drive.mjs --dump` exit=0，bundle 合入 compose |
-| CLI `--llm` | **已通过**（2026-09-30） | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
-| 浏览器 UI（`dsh web`） | 部分 | 预设菜单可见六个预设（`.dsh-enhance/evidence/web-01-home.png`、`web-02-dsh-enhance-preset.png`）；**说明（2026-10-09）**：以上截图是历史证据，自 2026-10-09 起本插件只出 Enhance 一个预设，其余条目来自上游 dsh；会话内 doctor 卡片仍需改进 webbridge 输入注入后复验 |
-| 设置面写→读往返（2026-10-08） | **已通过** | 桌面宿主 CLI（`resources/runtime/cli/bin/dsh.cmd`）+ 隔离 home `qa` profile 上的探针：`describe()` 有 `ns: dsh-enhance` → `update(doctorTool=false)` → `user` 层 + `revision` 0→1 → 过期 revision 被拒（`SETTINGS_CONFLICT`）→ 二次启动仍生效；同时观测到 `dsh_enhance_doctor` 从工具表消失（重挂生效）。原始日志见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
-| 设置面**真机 GUI** 往返（2026-10-08） | **已通过（双向）** | 桌面端「插件」面板：重启后 `plugins.row.config` occupant = `@p-jiangh/dsh-enhance#dsh-enhance`；用户对 worktree 开关 set→unset，三条独立信号一致（profile 补丁行新增/整行删除、`doctor` 生效配置 关→开、`worktree_*` 工具消失→回来），**全程不重启**。记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
-| **打包安装验收（2026-10-09）** | **已通过（21/21，零 token）** | `pnpm qa:pack`：真 `npm pack` → 真装进一次性 profile `qa-pack`（隔离 home）→ 宿主 0.2.x、插件以真实目录装成、profile 里只有 `schemastery`+`cosmokit`（**无任何服务类宿主包副本**）、安装无 peer 告警、`--dump-config` 行齐备、**真启动解析全部静态 import 且本插件行已激活**、未激活名单只有 `preset-enhance`/`agentPresets`。证据 `.dsh-enhance/evidence/pack-install-drive.md` |
-| **L3 真机验收 · headless 组合（2026-10-09，发布后）** | **已通过（exit 0）** | 对象是**已发布字节**（Release 附件，sha256 `7D20FE1B…`），profile `qa-gh4`：真实会话里模型调用 `dsh_enhance_doctor`，报告插件已加载、**打包技能（3）** `code-review/git-workflow/tdd`、`work-rules` 段 286 字、守卫/工作追踪/worktree/人类指令/advisor 全开；advisor 运行时真实跑了一次审查（`ADVISOR: nit`）。enhance-mode 缺失属预期（headless 一次性 runner 不消费预设，模型自己推理出这一点） |
-| **L3 真机验收 · 预设作用域（2026-10-09，发布后）** | **已通过（exit 0）** | 同一**已发布字节** + 探针复刻 Web/桌面绑定（profile `qa-l3p`：registry 默认 `enhance` + probe 行）：名册只有 `preset=enhance default=true broken=-`，全部行 `=true`（含 `enhance-mode`、persona、agent-instructions 与四条子代理）；`resolve(default) -> {id: enhance}`；真实会话 `session-443bec83` 的 header 即该预设，其 system prompt **含完整 26 行 `<enhance-mode>`**、含 persona 前缀、`{{cwd}}` 已替换，且全日志**无** ultrawork/ulw。证据 `.dsh-enhance/evidence/l3-acceptance-published-artifact.md` |
+| CLI `--llm` | **已通过** | 三个实驱全 PASS：`qa/dsh-enhance-drive.mjs --llm`、`qa/worktracking-drive.mjs`、`qa/delivery-gate-drive.mjs`；证据在 `.dsh-enhance/evidence/` |
+| 打包安装（`pnpm qa:pack`） | **21/21** | 真 tarball 装进一次性 profile；断言"用户真装一遍"的形状（真实目录、无宿主包副本、无 peer 告警、行齐备、启动后插件行激活） |
+| 预设挂载（`pnpm qa:preset`） | **PASS** | 隔离 home 组 Web 面 + 只读探针，断言每一条注册预设都没有 `broken` |
+| 设置面写→读往返 | **已通过** | 探针：`describe` → `update` → user 层 + revision 前进 → 过期 revision 被拒 → 二次启动仍生效；原始记录见 [design-web-settings-card.md](design-web-settings-card.md) §9 |
+| 设置面真机 GUI 往返 | **已通过（双向）** | 桌面端「插件」面板：worktree 开关 set→unset，三条独立信号一致，全程不重启；记录见 [design-web-settings-card.md](design-web-settings-card.md) §10.5 |
 
-**这道验收证明什么、不证明什么（写清楚，别过度归因）**：
+**历史归因（已更正）**：曾把 `--llm` 卡死归因为"dsh headless 会话不自行退出"，实际是 QA profile 没挂 app bundle（装完插件树后没有 app 执行任务）。现在 `checkProfileApp()` 在启动前直接报"请补 `@deepseek-ai/dsh-headless`"；`qa/dsh-launch.mjs` 另有 PATH / nvm / node 同级全局三级回退，定位失败时提示 `DSH_BIN`。
 
-- **证明**：用户真装一遍的那条路上，模块解析、行装配、启动、激活状态都成立；宿主供给的包没有被复制进 profile。
-- **不证明**：预设行在有 `agentPresets` 服务的 **Web 组合**里会激活（本验收用的是 headless 组合，那里它必然 pending）。这一条已由 2026-10-09 发布后的**预设作用域 L3** 补上：探针在**已发布字节**上复刻 `agentPresets.resolve` + `mount`，真实会话 `session-443bec83` 的 system prompt 含完整 `<enhance-mode>`（见表）。仍未做的只有"人在真实 GUI 里点一次预设菜单"——历史证据见 `design-web-settings-card.md` §10.5。
+**遗留**：浏览器侧会话注入验证仍受 webbridge 与 UI 输入控件的兼容性限制，保持标 unverified，不当作已通过。
 
-**关于此前记录的「`--llm` 阻塞」——归因已更正（2026-09-30 实测）**：
-
-- 旧结论把阻塞归因为「`dsh 0.1.0-rc.6` 的 headless 会话不自行退出」。**该归因是错的**，实际原因是 QA 使用的隔离 profile（`.dsh-enhance/test-home/profiles/dsh-enhance`）**只挂了 `@deepseek-ai/dsh-base` + 本插件，没有挂任何 app bundle**。这样的 profile 装配完插件树后没有 app 执行任务，表现为"无输出且不退出"。对照组：历史上跑成功的 `~/.dsh/profiles/omd` bundles 里含 `@deepseek-ai/dsh-headless`（该 profile 属旧包名时期的产物，已于 2026-09-30 迁移为 `~/.dsh/profiles/dsh-enhance` 并删除）。
-- 修复：把 `@deepseek-ai/dsh-headless` 加进隔离 profile 的 dependencies 与 `dsh.profile.bundles`（该目录在 `.gitignore` 内，不影响真实 `$DSH_HOME`）。之后同一条命令立即全绿。
-- 防回归：`qa/dsh-launch.mjs` 新增 `checkProfileApp()`，三个实驱脚本在启动前自检 profile 是否挂了 app bundle，缺失时直接给出"请补 `@deepseek-ai/dsh-headless`"的报错，而不是静默超时。
-- 另一个此前未记录的前提：实驱脚本依赖 `where.exe dsh.cmd` 定位 dsh，而 dsh 装在 nvm 的版本目录里（不在 PATH）。现已加 PATH 扫描 / nvm（`NVM_HOME`、`NVM_SYMLINK`、PATH 中的 nvm 根）/ node 同级全局 三级回退，并在定位失败时提示 `DSH_BIN`。
-
-**遗留**：浏览器侧会话注入验证仍受 webbridge 与本机 UI 输入控件的兼容性限制，保持标 unverified，不当作已通过。

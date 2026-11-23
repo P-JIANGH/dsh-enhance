@@ -23,4 +23,4 @@
 
 ## 实驱验证状态
 
-- 待做（代码落地后执行）：explorer persona 在 dsh 会话中加载（见 README 第 7 节统一状态）。
+- 待做（代码落地后执行）：explorer persona 在 dsh 会话中加载（历史记录；现行状态见 `docs/prompts-review/README.md`）。

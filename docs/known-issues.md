@@ -268,7 +268,7 @@ librarian 授权补 `web_search`（`web_fetch` 因 tool plane `fetch: false` 未
 - ① [README.md](../README.md) 的安装命令写的是**裸名** `dsh plugin add dsh-enhance`，而包名是 `@dsh-enhance/dsh-enhance`——裸名在 npm 上是另一个、与本项目无关的名字（当日 registry 查询：`dsh-enhance` 未被注册），照抄会装不到任何东西。改为 GitHub 源码装（v1 的分发方式）+ 本地路径/链接两种，并明确说明包名与命令的关系。
 - ② 同一节给的是作者本机路径 `link:<绝对路径>`（既不是占位符，也和当时的 checkout 目录不一致）。`docs/installing-plugins.md` 另有 7 处作者本机路径，全部改为 `<checkout>` 占位。
 - ③ README 写着"包是 ESM，**零运行时依赖**：所有 `@deepseek-ai/dsh-*` 导入都是类型导入（构建时擦除）"——**错的**：`lib/features/advisor/runtime.js` 等 4 个文件在运行时 `import { createUserMessage, BlockAssembler } from '@deepseek-ai/dsh-llm'`。改写为一张"声明规则"表（见 P0-12），把依赖面的事实写成可核对的约定。
-- 顺带更正 [docs/design-web-settings-card.md](design-web-settings-card.md) §D19 的"npm `dsh-enhance` 已被占（0.1.7）"：当日 registry 查询 `dsh-enhance` 与 `@dsh-enhance/dsh-enhance` **均为 404（未注册）**；当日真实的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定：沿用 `dsh-enhance` 名、只发 GitHub 源码安装，npm 留给 v2。历史条目按注记更正，不重写。
+- 顺带更正 [docs/design-web-settings-card.md](design-web-settings-card.md) §3 决策日志里"npm `dsh-enhance` 已被占"的旧判断：当日 registry 查询 `dsh-enhance` 与 `@dsh-enhance/dsh-enhance` **均为 404（未注册）**；当日真实的同名碰撞在 **GitHub**（`vcxmug/dsh-enhance`，另一套 vision/native-web 插件，已被 dshbase / deepseekplugin.org 收录）。v1 的决定：沿用 `dsh-enhance` 名、只发 GitHub 源码安装，npm 留给 v2。历史条目按注记更正，不重写。
 
 ### ✅ P1-16 预设行在无 Web 组合的 profile 上每次启动都报一行 pending（2026-10-09）
 - 证据：`dsh --profile qa3`（`dsh-base` + `dsh-headless` + 本插件）输出 `dsh: warning: 1 entry did not activate` / `preset-enhance (@deepseek-ai/dsh-agent-preset): pending (waiting for service: agentPresets)`。

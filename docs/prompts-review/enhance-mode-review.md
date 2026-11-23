@@ -1,9 +1,7 @@
-# enhance-mode 交付回归审查（delivery regression review）—— 交付前篇
+# enhance-mode 交付前回归审查
 
-> 性质：dsh-enhance 自有深度工作协议的出口，自主设计，MIT 许可。
-> 素材来源（均非 SUL）：`lazycodex`（MIT）证据门理念、`oh-my-pi`（MIT）review/verification 纪律、DeepSeek-Reasonix（MIT）可执行 verify + inverse contract 基准做法、你的工作要求（不缩范围/不半成品）、2026-07-09 用户准则。
-> 触发：主 agent 声称"完成/交付/可以了"时（或在首次回复承诺的完成点）。可由主 agent 自审，或派 reviewer agent 执行（推荐：独立过滤自我确认偏差与锚定）。它不再是"进入模式"的触发器——enhance-mode 是 Enhance 预设下的常驻段落，本稿只是那段正文引用的交付前核对清单。
-> 本稿：出口回归审查，先跑可执行 verify，再逐项核对证据；不重复执行期纪律，只核验"是否真的做到"。
+> 现状：稿件保留，供 `prompts/modes/enhance-mode.md` 末尾引用；它不是独立挂载的段落。
+> 用法：主 agent 声称"完成/交付"时，先跑可执行 verify，再逐项核对证据；任一检查项无证据 = 未通过。
 
 <enhance-mode-review>
 
@@ -49,4 +47,4 @@
 
 </enhance-mode-review>
 
-> 通过后：第一响应宣布"交付回归审查通过"，并把 verify 结果 + 通过项写入**完成报告**（随轨迹持久化）；未过则列出缺失项返回继续。
+> 通过后：第一响应宣布"交付回归审查通过"，并把 verify 结果 + 通过项写入**完成报告**；未过则列出缺失项返回继续。

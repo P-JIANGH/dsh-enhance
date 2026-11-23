@@ -1,138 +1,28 @@
-# dsh-enhance M2 提示词审查稿（索引）
+# dsh-enhance 提示词稿（索引）
 
-> 范围：M2 提示词审查（架构文档第 6 节）。
-> 结构：自 2026-08 起，每个提示词一份独立审查稿（源材料 + 中文稿 + 映射表 + 校验 + 实驱状态），本文件为索引与公共内容（流程、评审结论、桌面对齐）。
-> 说明：hyperplan/team 模式因 team-mode 延后实现（roadmap，见架构文档 M8）而暂不移植；search/analyze 模式中文稿见 search-analyze.md（源材料：桌面工作流分析提示词 1，用户已确认起草）。**原 ultrawork 稿已改名为 enhance-mode**，仍拆为**工作前（入口契约）**与**交付前（回归审查）**两篇（见 enhance-mode.md / enhance-mode-review.md）；2026-10-09 起它不再靠关键词触发，而是 Enhance 预设作用域内的常驻系统提示词段（单源 `prompts/modes/enhance-mode.md`）。
-> 评审：6 项待确认问题已答复（1/2/3/4/6 通过，5 为信息查询），结论见「评审结论」与「桌面对齐·用户确认」。
+> 状态：2026-08 定稿；2026-10-09 起 enhance-mode 是 Enhance 预设作用域内的常驻系统提示词段，不再有关键词触发。
+> 本目录只保留**索引与每份稿子的现状**。提示词正文已单源到 `prompts/`，由 `tests/enhance-mode.test.mjs` 与
+> `tests/presets-pin.test.mjs` 钉住；评审轮次、约束映射表、精简校验等过程记录已删除。
 
----
-
-## 审查对象清单（各自独立文件）
-
-| # | 提示词 | 文件 | 状态 |
+| # | 提示词 | 现状 | 现行正文 |
 |---|---|---|---|
-| 1 | enhance-mode 工作前篇 | [enhance-mode.md](enhance-mode.md) | 稿就绪（入口契约，13 条；现为预设常驻段） |
-| 1b | enhance-mode 交付前回归审查 | [enhance-mode-review.md](enhance-mode-review.md) | 稿就绪（交付回归核对清单，可交 reviewer 执行） |
-| 2 | work-rules | [work-rules.md](work-rules.md) | 稿就绪（原 5 条 + 用户准则 2 条） |
-| 3 | ~~orient 会话开场~~ | [orient.md](orient.md) | **已退役（2026-10-09）**：绑定事件在 0.2.0 不存在，稿件保留作历史 |
-| 4 | planner persona | [planner.md](planner.md) | 稿就绪（保留；可 spawns scout） |
-| 5 | reviewer persona | [reviewer.md](reviewer.md) | 稿就绪（并入 security 口径，6 句） |
-| 6 | scout persona（原 explorer） | [scout.md](scout.md) | 稿就绪（roles.md 重命名） |
-| 7 | task persona（原 executor + debugger 并入） | [task.md](task.md) | 稿就绪（roles.md 重命名 + 合并） |
-| 8 | librarian persona | [librarian.md](librarian.md) | 稿就绪（新增，需 web_search） |
-| 9 | search / analyze 模式 | [search-analyze.md](search-analyze.md) | 稿就绪 |
-| 10 | advisor 模式 | [advisor.md](advisor.md) | 稿就绪（omp 伴随审核模型，已核实 dsh 可实现，2026-08-25 定稿，纳入首批） |
+| 1 | enhance-mode 工作前篇 | 已落地：预设常驻段 | `prompts/modes/enhance-mode.md` |
+| 1b | enhance-mode 交付前回归审查 | 稿件保留，供常驻段引用 | `docs/prompts-review/enhance-mode-review.md` |
+| 2 | work-rules | 已落地：system-prompt 段 | `src/index.ts` 的 `DEFAULT_WORK_RULES` |
+| 3 | orient 会话开场 | 已退役（2026-10-09） | — |
+| 4 | planner persona | 设计源（模式 B 未实现） | `prompts/agents/planner.persona.md` |
+| 5 | reviewer persona | 已落地：scoped subagent | `prompts/agents/reviewer.persona.md` |
+| 6 | scout persona | 已落地：scoped subagent | `prompts/agents/scout.persona.md` |
+| 7 | task persona | 已落地：scoped subagent | `prompts/agents/task.persona.md` |
+| 8 | librarian persona | 已落地：scoped subagent | `prompts/agents/librarian.persona.md` |
+| 9 | search / analyze | 稿件保留、机制搁置 | `docs/prompts-review/search-analyze.md` |
+| 10 | advisor 模式 | 已落地：advisor 运行时 | `prompts/modes/advisor.md` |
 
-> 角色体系（2026-08-25 确认）：按 [roles.md](../roles.md) 采用 **6 角色体系**——planner / scout / librarian / task(worker) / reviewer / advisor。原 executor/explorer/debugger 已被 scout/task 取代（executor→task、explorer→scout、debugger 并入 task、security 并入 reviewer、新增 librarian），对应审查稿已重命名/合并/新增。
->
-> **三种工作模式（2026-08-26，设计定稿）**：6 角色是能力原子；用户视角的模式编排见 [modes.md](../modes.md)——dsh-enhance 万能（默认，意图驱动按需委派）、Planner 计划实施（固定骨架：scout/librarian 收集→澄清→计划→计划审查→用户确认→并行 task 执行→执行审查）、Advisor 目标回归（goal 驱动：advisor 持续纠偏 + delivery-gate 回归闸 + 压缩续作）。各模式复用下的 persona 审查稿仍以本目录为准。
+## 现行正文的去处
 
----
+- **人格**：`prompts/agents/<role>.persona.md`（只改这里；`cordis.patch.yml` 由 `pnpm sync:enhance-preset` 生成）。
+- **模式段**：`prompts/modes/enhance-mode.md`（`src/enhance-mode.ts` 的 `ENHANCE_MODE_TEXT` 与之逐字一致）。
+- **advisor**：`prompts/modes/advisor.md`（含"本次审查无工具、只凭增量"的契约）。
+- **角色分工与合并来源**（explorer→scout、executor+debugger→task）：`docs/roles.md`。
 
-## 精简校验汇总
-
-| 对象 | 原稿规模 | 本稿规模 | 达标（≤50%） |
-|---|---|---|---|
-| enhance-mode 工作前篇 | 339 行 | 13 条入口契约 | ✅ |
-| enhance-mode 交付前回归审查 | 339 行 | 交付核对清单（可交 reviewer） | ✅ |
-| work-rules | 8 行 | 10 行（原 5 条 + 用户准则 2 条新增） | ✅ |
-| ~~orient~~ | 3 句 | 2 段 | 已退役 |
-| planner | 4 句英文 | 4 句中文（可 spawns scout） | ✅ |
-| reviewer | 5 句英文 | 6 句中文（并入 security 口径） | ✅ |
-| scout（原 explorer） | 4 句中文 | 4 句中文（add 交接语义） | ✅ |
-| task（原 executor + debugger） | 各 4 句 = 8 句 | 5 句中文（合并去重） | ✅ |
-| librarian | 无 | 3 句中文 | 新增（需 web_search 实驱） |
-| search/analyze | 桌面文件提示词 1 | 各 3 句要点 | ✅（按桌面稿） |
-| advisor | omp advisor system.md（78 行英文） | 中文可执行约束清单（约 30 行要点） | ✅（2026-08-25 定稿） |
-
-## 实驱验证状态
-
-- 待做（标注在代码落地后执行）：6 角色 persona（planner/scout/librarian/task/reviewer/advisor）在 dsh 会话中加载；work-rules 注入可见；librarian 的 web_search 工具在 dsh 下的可用性实驱。advisor 需 M1 实驱确认 3 个接线点（见 advisor.md）。
-- **已落地（2026-10-09）**：enhance-mode 不再是"触发后注入"——它是 Enhance 预设作用域内的**常驻系统提示词段**（`@p-jiangh/dsh-enhance/enhance-mode`）。审查稿（enhance-mode.md）保留为正文的约束映射；触发相关的待做项作废。
-- dsh CLI 已安装（@deepseek-ai/dsh@0.1.1-rc.2，仓库已更新核实），隔离 $DSH_HOME 实驱脚本留待 M1 骨架重构后随代码一起做（6.2 流程第 5 步）。
-
----
-
-## 评审结论（2026-07-09 确认）
-
-1. ✅ 认可：委派条款保持能力中性，M1 落地时确认 dsh 委派机制（dsh-agent-presets / AgentRegistry）后映射具体工具名。
-2. ✅ 认可：goal 注册条款暂缓，M4 goal 工具落地后补。
-3. ✅ 认可：planner/reviewer/executor/explorer/debugger 五个 persona 维持现状。（**后覆写**：2026-08-25 用户确认改为 roles.md 6 角色体系——见下条 7。）
-4. ✅ 修正：team mode 不是排除，而是 roadmap 延后实现（架构文档 M8）；hyperplan/team 模式因此暂不移植（非排除）。
-5. ✅ 修正：新增两条工作准则注入各提示词——「事实永远在文件」（上下文/会话记录不一定是事实，关键事实以文件为准）+「不臆想、不编造、多提问」；已注入 work-rules 第 6/7 条、enhance-mode（原 ultrawork）一.1、planner/executor、search/analyze。
-6. ✅ 通过（2026-08-25）：**全部提示词审查通过**。1–9 已在更早评审通过；advisor（#10）本次完成——确认源材料为 omp 伴随审核模型，补中文可执行约束清单与精简校验，定为定稿（随 omp M4/M1 移植时执行，dsh 可行性已核实）。reviewer 原稿句数计数校正为 5 句。各提示词的实驱验证仍待代码落地后执行（README 第 7 节统一状态）。
-7. ✅ 角色体系定稿（2026-08-25）：按 roles.md 采用 6 角色体系（planner/scout/librarian/task/reviewer/advisor）。执行：explorer→scout 重命名、executor→task 重命名、debugger 并入 task、security 并入 reviewer（`mode: security`）、新增 librarian、advisor 纳入首批（伴随监督）。审查稿已同步（scout.md / task.md / librarian.md 新增，旧 explorer/executor/debugger 稿删除）。
-
----
-
-## 桌面工作流分析对齐（opencode-workflows-analysis.md，2026-07-09）
-
-> 来源：用户提供的一份 OpenCode 实际工作流分析笔记（298 行，未随仓库分发）。
-> 定位：不只参考 enhance-mode（原 ultrawork）——作为 dsh-enhance 全体系的对齐依据（mode 提示、agent 编排、守卫、skills 池）。
-
-### 文件概要
-- 12 种开发模式：元工作流审计、CRUD 骨架、ERP 集成管道、预警推送模板、企业后端、移动端 H5、设计审查管道、浏览器测试、发布工作流、安全感知、多格式文档、知识库管理。
-- 6 个工作流提示词：[search-mode]/[analyze-mode]、Workflow Mining、ERP 集成管道、CRUD 骨架、Sisyphus 编排、安全操作。
-- 体系总览：元层（审计→技能化）→ 开发层/产线层（ship→review→deploy→doc）/安全层（careful/guard/freeze）。
-- 核心特征：Delegate-heavy、Skill-first、Pipe-driven、Safety-conscious、Data-driven。
-
-### 对齐到 dsh-enhance（建议，待用户确认）
-
-| 桌面文件内容 | dsh-enhance 落点 | 状态 |
-|---|---|---|
-| `[search-mode]`：并行 explore/librarian agents + rg/sg 直接工具，挖掘到穷尽 | **mode 提示源材料**：落地为 skill-trigger 的 search 模式中文精简稿 | 已起草（search-analyze.md） |
-| `[analyze-mode]`：先并行收集上下文（explore/librarian/LSP），融合发现再下手；复杂问题找专家 | 同上：analyze 模式中文精简稿；与 enhance-mode 稿"一、动手前确认 + 三、技能与委派"同源 | 已起草（search-analyze.md） |
-| 提示词 5（Sisyphus 编排）：意图判断→并行 explore→todo→delegate（run_in_background）→verify→保留 task_id 续接→完成清理 | 印证 enhance-mode 稿"四、规划 + 五、任务执行纪律"；**TASK/EXPECTED OUTCOME/REQUIRED TOOLS/MUST DO/MUST NOT DO/CONTEXT 六要素**可作 agent 委派 prompt 模板，进 agents 落地 | 参考 |
-| 提示词 6（安全操作）：远程脚本先下载审查、token 不明文、安全替代、风险枚举、guard 模式 | 印证 M3 守卫 hooks（path-traversal / 危险命令确认）；落地时并入 guard 设计 | 参考 |
-| 12 种开发模式（CRUD 骨架/ERP 集成/企业后端/移动 H5/设计审查/浏览器 QA/发布/文档/知识库…） | **skills 池扩充候选**：优先覆盖用户高频模式（CRUD 骨架、ERP 集成、设计审查、浏览器 QA、发布流水线、知识库）；内置评估见下 | 待确认优先级 |
-| 特征：Delegate-heavy / Skill-first / Pipe-driven | 印证设计原则 1/2（人是发起者、Skill→Tool→Hook 层级）；支持 5.4 技能优先 + 5.7 委派设计 | 已一致 |
-
-### 用户确认
-1. ✅ search/analyze 模式提示词已按桌面文件起草，见 search-analyze.md。
-2. 12 种模式完整清单见下；skills 落地优先级待用户后续选择（建议先 CRUD 骨架、浏览器 QA、发布工作流）。
-3. ✅ 委派 prompt 六要素模板将加入 agents 落地稿（M1 落地时实现）。
-
----
-
-## 十二种开发模式完整清单（桌面文件第三节）
-
-| # | 模式 | 流程要点 |
-|---|---|---|
-| 1 | 周期性工作流审计 → 技能化（Meta-Workflow） | 回顾记录 → 识别重复模式（occurrence≥2）→ 创建技能 → 报告 |
-| 2 | 企业级 CRUD 功能开发 | 需求分析 → 数据模型 → API Routes(list/getById/create/update/delete) → 报表 → 测试 |
-| 3 | ERP 集成管道（多项目共用） | 表探索 → 元数据导入 → 接口开发 → 数据同步 → 定时任务注册 |
-| 4 | 预警推送模板开发（项目特有） | 复制模板 → 模板字符串 → 数据获取 → 字段对齐检查 |
-| 5 | 企业级后端开发 | Controller → Service → 实现 → 持久层 → 自动通知 |
-| 6 | 移动端 H5 开发 | 新建组件 → 路由 → i18n → UI 组件库 → 定位/地图 |
-| 7 | 设计-审查-优化管道 | 设计系统 → 多方案对比 → 方案审查 → 实时站点 QA → 修复 → 再验证 |
-| 8 | 浏览器自动化测试管道 | 登录态 → 交互测试 → QA 找 bug → 性能基线 → 部署后监控 |
-| 9 | 发布工作流 | 建 PR → CI/测试 → 合并部署 → 文档更新 |
-| 10 | 安全感知操作 | 检测危险模式 → 警告+安全替代 → 等待确认 → 执行 |
-| 11 | 多格式文档生成 | 文档 / PDF / 表格 / 演示文稿 |
-| 12 | 知识库/记忆管理 | 初始化 → 导入 → 检索 → 统计 |
-
-> 个人信息处理：项目名、技术栈、模型名为个人工作信息，**不写入本清单**；如需在提示词中引用，用参数占位（如 `{{project}}`、`{{stack}}`、`{{model}}`），由配置或会话上下文注入（用户确认）。
-
----
-
-## skill / MCP 内置评估（桌面文件，建议待用户确认）
-
-> 桌面文件提及约 20 个 skill 与 5 个 MCP（来自用户 OpenCode 环境，非 dsh-enhance 现有内容）。
-> 评估标准：跨项目复用性、与 dsh 无关性、与 dsh-enhance 5.4 skills 池的匹配度。
-
-| 来源 | 名称 | 评估 | 建议 |
-|---|---|---|---|
-| skill | qa / qa-only / benchmark / canary | 通用浏览器 QA、性能基线、部署监控，跨项目 | **内置**：合并为 1-2 个（browser-qa + deploy-monitor） |
-| skill | ship / land-and-deploy / document-release / setup-deploy | 通用发布流水线，跨项目 | **内置**：合并为 1-2 个（ship + deploy） |
-| skill | careful / guard / freeze-unfreeze | 通用安全操作，与 M3 守卫设计呼应 | **内置为守卫**（M3 落地），非独立 skill |
-| skill | design-review / design-consultation | 通用设计审查，跨项目 | **候选内置**（依赖浏览器工具，M7 评估） |
-| skill | minimax-docx / -pdf / -xlsx / pptx-generator | 文档生成，绑定特定 API | **参数化**：模板保留，API 密钥走配置 |
-| skill | prisma-crud-scaffold | 绑定特定数据栈 | **不内置**：参数化模板（{{stack}}） |
-| skill | netsuite-* / warning-push-template | 项目/栈特定（ERP 集成、预警推送） | **不内置**：项目仓库自带 |
-| skill | fullstack-dev / frontend-dev | 栈特定 | **不内置**：参数化模板 |
-| MCP | CodeGraph | 通用代码图谱 | **候选内置**（dsh MCP 机制确认后） |
-| MCP | MDN | 通用文档查询 | **候选内置**（同上） |
-| MCP | MiniMax / TDesign / NetSuite-Meta | 模型提供方 / UI 组件库特定 / 项目特定 | **不内置**：用户环境配置 |
-
-> 结论：内置优先 = 浏览器 QA、发布流水线、安全守卫 3 类通用能力；其余参数化或留给项目仓库。MCP 内置待确认 dsh 的 MCP 配置机制（Cordis 插件是否有 .mcp.json 等价物）后定。
-> 去个人信息：本评估不含项目名、技术栈名、模型名；参数占位（{{project}}/{{stack}}/{{model}}）由配置注入。
+本目录下的 `*.md` 只记录该稿的来源与现状，正文不在此重复。
